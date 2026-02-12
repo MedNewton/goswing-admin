@@ -1,7 +1,9 @@
 import "@/styles/globals.css";
 
+import { ClerkProvider } from "@clerk/nextjs";
 import { type Metadata } from "next";
 import { Geist } from "next/font/google";
+import SupabaseClerkBridge from "@/lib/SupabaseClerkBridge";
 
 export const metadata: Metadata = {
   title: "Create T3 App",
@@ -18,7 +20,11 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className={geist.className}>{children}</body>
+      <body className={geist.className}>
+        <ClerkProvider>
+          <SupabaseClerkBridge>{children}</SupabaseClerkBridge>
+        </ClerkProvider>
+      </body>
     </html>
   );
 }

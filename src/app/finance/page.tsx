@@ -6,54 +6,63 @@ import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@
 import { Badge } from "@/components/ui/Badge";
 import { DollarIcon } from "@/components/icons";
 import { Button } from "@/components/ui/Button";
+import { getFinanceOverview } from "@/lib/data/finance";
+import { formatMoney, formatStatus, statusVariant } from "@/lib/utils/format";
 
-const stats = [
-  {
-    label: "Total Revenue",
-    value: "€45,250",
-    icon: <DollarIcon className="h-6 w-6 text-green-600" />,
-    iconBgColor: "bg-green-50",
-    trend: { value: "23.1% vs last month", isPositive: true },
-  },
-  {
-    label: "Total Sales",
-    value: "€9,750",
-    icon: <DollarIcon className="h-6 w-6 text-blue-600" />,
-    iconBgColor: "bg-blue-50",
-    trend: { value: "18.5% vs last month", isPositive: true },
-  },
-  {
-    label: "Pending Payouts",
-    value: "€2,400",
-    icon: <DollarIcon className="h-6 w-6 text-yellow-600" />,
-    iconBgColor: "bg-yellow-50",
-  },
-  {
-    label: "Platform Fees",
-    value: "€1,250",
-    icon: <DollarIcon className="h-6 w-6 text-purple-600" />,
-    iconBgColor: "bg-purple-50",
-  },
-];
+export const dynamic = "force-dynamic";
 
-const transactions = [
-  { id: "TXN001", event: "Summer Music Festival", gross: 450, fee: 22.5, net: 427.5, date: "2024-06-15", status: "completed" as const },
-  { id: "TXN002", event: "Wine Tasting Evening", gross: 250, fee: 17.5, net: 232.5, date: "2024-06-14", status: "completed" as const },
-  { id: "TXN003", event: "Tech Startup Meetup", gross: 250, fee: 12.5, net: 237.5, date: "2024-06-13", status: "pending" as const },
-  { id: "TXN004", event: "Food Truck Rally", gross: 180, fee: 9, net: 171, date: "2024-06-12", status: "completed" as const },
-];
+export default async function FinancePage() {
+  let transactions: Awaited<ReturnType<typeof getFinanceOverview>>["transactions"] = [];
+  let financeStats = { transactionCount: 0, totalGross: 0, totalFees: 0, totalNet: 0 };
 
-export default function FinancePage() {
+  try {
+    const data = await getFinanceOverview();
+    transactions = data.transactions;
+    financeStats = data.stats;
+  } catch {
+    // Will show empty state
+  }
+
+  // Determine currency from first transaction or default
+  const currency = transactions[0]?.currency ?? "USD";
+
+  const statCards = [
+    {
+      label: "Total Revenue",
+      value: formatMoney(financeStats.totalGross, currency),
+      icon: <DollarIcon className="h-6 w-6 text-green-600" />,
+      iconBgColor: "bg-green-50",
+    },
+    {
+      label: "Net Revenue",
+      value: formatMoney(financeStats.totalNet, currency),
+      icon: <DollarIcon className="h-6 w-6 text-blue-600" />,
+      iconBgColor: "bg-blue-50",
+    },
+    {
+      label: "Transactions",
+      value: String(financeStats.transactionCount),
+      icon: <DollarIcon className="h-6 w-6 text-yellow-600" />,
+      iconBgColor: "bg-yellow-50",
+    },
+    {
+      label: "Platform Fees",
+      value: formatMoney(financeStats.totalFees, currency),
+      icon: <DollarIcon className="h-6 w-6 text-purple-600" />,
+      iconBgColor: "bg-purple-50",
+    },
+  ];
+
   return (
     <MainLayout
       title="Finance Dashboard"
       actions={
         <div className="flex items-center gap-3">
           <Button variant="outline" size="sm">
-            ⬇️ Export Statement
+            Export Statement
           </Button>
           <Button variant="outline" size="sm">
-            📋 Tax Report
+            Tax Report
           </Button>
         </div>
       }
@@ -61,7 +70,7 @@ export default function FinancePage() {
       <div className="space-y-6">
         {/* Stats Grid */}
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {stats.map((stat) => (
+          {statCards.map((stat) => (
             <StatCard key={stat.label} {...stat} />
           ))}
         </div>
@@ -76,37 +85,44 @@ export default function FinancePage() {
               <h2 className="text-lg font-semibold text-gray-900">
                 Recent Transactions
               </h2>
-              <Button variant="ghost" size="sm">
-                View All Transactions →
-              </Button>
             </div>
           </div>
-          <Table>
-            <TableHeader>
-              <TableHead>Transaction ID</TableHead>
-              <TableHead>Event</TableHead>
-              <TableHead>Gross Amount</TableHead>
-              <TableHead>Platform Fee</TableHead>
-              <TableHead>Net Amount</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>Status</TableHead>
-            </TableHeader>
-            <TableBody>
-              {transactions.map((tx) => (
-                <TableRow key={tx.id}>
-                  <TableCell className="font-medium text-gray-900">{tx.id}</TableCell>
-                  <TableCell className="text-gray-900">{tx.event}</TableCell>
-                  <TableCell className="text-gray-900">€{tx.gross}</TableCell>
-                  <TableCell className="text-gray-600">€{tx.fee}</TableCell>
-                  <TableCell className="font-medium text-green-600">€{tx.net}</TableCell>
-                  <TableCell className="text-gray-600">{tx.date}</TableCell>
-                  <TableCell>
-                    <Badge variant={tx.status}>{tx.status}</Badge>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          {transactions.length === 0 ? (
+            <p className="px-6 pb-6 text-center text-gray-500">
+              No transactions yet.
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableHead>Transaction ID</TableHead>
+                <TableHead>Event</TableHead>
+                <TableHead>Gross Amount</TableHead>
+                <TableHead>Platform Fee</TableHead>
+                <TableHead>Net Amount</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead>Status</TableHead>
+              </TableHeader>
+              <TableBody>
+                {transactions.map((tx) => (
+                  <TableRow key={tx.id}>
+                    <TableCell className="font-medium text-gray-900">
+                      {tx.id.slice(0, 8)}
+                    </TableCell>
+                    <TableCell className="text-gray-900">{tx.eventName}</TableCell>
+                    <TableCell className="text-gray-900">{tx.grossFormatted}</TableCell>
+                    <TableCell className="text-gray-600">{tx.feeFormatted}</TableCell>
+                    <TableCell className="font-medium text-green-600">{tx.netFormatted}</TableCell>
+                    <TableCell className="text-gray-600">{tx.date}</TableCell>
+                    <TableCell>
+                      <Badge variant={statusVariant(tx.status)}>
+                        {formatStatus(tx.status)}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </Card>
       </div>
     </MainLayout>

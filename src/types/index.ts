@@ -1,21 +1,49 @@
-// Core entity types based on UI designs
+/**
+ * View-model types consumed by UI components.
+ *
+ * These are intentionally separate from database row types
+ * (see database.ts). Domain mappers convert DB rows -> view models.
+ */
 
+// Re-export database types for convenience
+export type {
+  Database,
+  Row,
+  Insert,
+  Update,
+  TableName,
+} from "./database";
+
+// ---------------------------------------------------------------------------
+// Events
+// ---------------------------------------------------------------------------
 export interface Event {
   id: string;
   title: string;
   description?: string;
   image: string;
-  date: string;
-  location: string;
+  date: string;             // formatted start date
+  startsAt?: string;        // ISO (optional until pages wired)
+  endsAt?: string;          // ISO
+  location: string;         // venue name + city
   venue?: string;
   capacity?: number;
   attendeeCount: number;
   status: "published" | "draft" | "completed" | "cancelled";
   category?: string;
   ticketsSold?: number;
-  revenue?: number;
+  revenue?: number;         // formatted / display value
+  currency?: string;
+  minPrice?: string;        // formatted
+  isFree?: boolean;
+  organizerId?: string;
+  organizerName?: string;
+  tags?: string[];
 }
 
+// ---------------------------------------------------------------------------
+// Attendees
+// ---------------------------------------------------------------------------
 export interface Attendee {
   id: string;
   name: string;
@@ -27,18 +55,28 @@ export interface Attendee {
   ticketType?: string;
 }
 
+// ---------------------------------------------------------------------------
+// Orders
+// ---------------------------------------------------------------------------
 export interface Order {
   id: string;
   eventId: string;
   eventName: string;
   customerName: string;
   customerEmail?: string;
-  offerType: string;
-  amount: number;
-  status: "confirmed" | "pending" | "cancelled";
-  date: string;
+  offerType: string;        // ticket type name snapshot
+  amount: number;           // total in cents
+  amountFormatted?: string; // e.g. "$45.00"
+  currency?: string;
+  status: "confirmed" | "pending" | "cancelled" | "draft" | "expired" | "refunded";
+  date: string;             // formatted ordered_at
+  orderedAt?: string;       // ISO
+  itemCount?: number;
 }
 
+// ---------------------------------------------------------------------------
+// Reviews
+// ---------------------------------------------------------------------------
 export interface Review {
   id: string;
   eventId?: string;
@@ -51,13 +89,21 @@ export interface Review {
   helpful: number;
 }
 
+// ---------------------------------------------------------------------------
+// Songs / Music
+// ---------------------------------------------------------------------------
 export interface Song {
   id: string;
   title: string;
   artist: string;
+  album?: string;
+  artworkUrl?: string;
+  deezerLink?: string;
   likes: number;
   plays?: number;
   genre?: string;
+  eventId?: string;
+  eventName?: string;
 }
 
 export interface Playlist {
@@ -68,6 +114,9 @@ export interface Playlist {
   color: string;
 }
 
+// ---------------------------------------------------------------------------
+// Marketing (static / non-MVP)
+// ---------------------------------------------------------------------------
 export interface Campaign {
   id: string;
   name: string;
@@ -78,6 +127,9 @@ export interface Campaign {
   conversions: number;
 }
 
+// ---------------------------------------------------------------------------
+// Finance
+// ---------------------------------------------------------------------------
 export interface Transaction {
   id: string;
   eventId: string;
@@ -85,10 +137,18 @@ export interface Transaction {
   grossAmount: number;
   platformFee: number;
   netAmount: number;
+  grossFormatted: string;
+  feeFormatted: string;
+  netFormatted: string;
+  currency: string;
   date: string;
-  status: "completed" | "pending";
+  status: "completed" | "pending" | "failed";
+  provider: string;
 }
 
+// ---------------------------------------------------------------------------
+// Dashboard stats
+// ---------------------------------------------------------------------------
 export interface Stats {
   totalEvents: number;
   totalAttendees: number;
@@ -98,4 +158,5 @@ export interface Stats {
   formBookings?: number;
   conversionRate?: number;
   totalRevenue?: number;
+  totalRevenueFormatted?: string;
 }

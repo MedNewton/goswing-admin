@@ -23,7 +23,7 @@ export default function CreateEventPage() {
             Cancel
           </Button>
           <Button variant="primary" size="sm">
-            Create Event
+            Save
           </Button>
         </div>
       }
@@ -185,7 +185,7 @@ export default function CreateEventPage() {
         {/* Action Buttons */}
         <div className="flex justify-end gap-3">
           <Button variant="outline">Cancel</Button>
-          <Button variant="primary">Create Event</Button>
+          <Button variant="primary">Save</Button>
         </div>
       </div>
     </MainLayout>
