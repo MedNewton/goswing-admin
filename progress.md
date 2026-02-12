@@ -140,18 +140,43 @@
   - `src/lib/data/overview.ts`: Added explicit `as Array<...>` casts on review and payment query results.
 - Cleared stale `.next` cache that was causing phantom lint errors.
 
+13. Auth Middleware Fix
+- Moved `middleware.ts` from project root to `src/middleware.ts`:
+  - Next.js only picks up middleware from the same directory as `app/` (i.e. `src/`).
+  - Middleware was silently not executing — unauthenticated users could access all pages.
+- Fixed `auth.protect()` redirect URL:
+  - Changed `unauthenticatedUrl` from relative `"/login"` to full URL via `new URL("/login", req.url).toString()`.
+  - Clerk v6 requires absolute URLs for redirect targets.
+- Added Clerk routing env variables to `.env`:
+  - `NEXT_PUBLIC_CLERK_SIGN_IN_URL=/login`
+  - `NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=/`
+
+14. Clerk Key Mismatch Fix
+- Identified that `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` were from different Clerk instances (different `kid` in JWKS).
+- User updated both keys to match the same Clerk application.
+
+15. Supabase Anon Key Fix
+- Identified that `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` contained a Clerk key (`pk_test_...`) instead of a Supabase anon key.
+- User replaced with correct Supabase anon key (`eyJ...` JWT format).
+- Switched to canonical env var `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+
+16. Manual Dashboard Tasks (Phase 1 completion)
+- RLS migration executed: Ran `supabase/migrations/20260212_organizer_read_policies.sql` on Supabase SQL Editor.
+  - 9 organizer-scoped SELECT policies + 1 INSERT policy now active.
+- Clerk JWT template configured: Added `clerk_user_id: "{{user.id}}"` claim to Supabase JWT template.
+  - Required for `requesting_user_id()` to identify the organizer in RLS policies.
+- Clerk webhook configured: Set up `user.created` / `user.updated` webhook endpoint.
+  - Added `CLERK_WEBHOOK_SIGNING_SECRET` to `.env`.
+
 ## Validation Performed
 - `npm run typecheck` (`tsc --noEmit`): passing — 0 errors.
 - `npm run build` (`next build`): passing — 0 errors, only `<img>` warnings (non-blocking).
 - All 15 pages compile and build successfully.
+- Auth middleware: Unauthenticated users correctly redirected to `/login`.
+- Clerk + Supabase integration: JWT template with `clerk_user_id` claim configured.
+- RLS policies: Organizer-scoped read policies deployed to Supabase.
 
 ## Remaining (High-level)
-
-### Manual / Dashboard Tasks (Phase 1 leftovers)
-- Configure Clerk → Supabase JWT template in Clerk dashboard (set `clerk_user_id` claim).
-- Run auth diagnostics (`debug_auth_context()`) to validate RLS scoping.
-- Validate end-to-end webhook delivery from Clerk dashboard to `/api/webhooks/clerk`.
-- Run `supabase/migrations/20260212_organizer_read_policies.sql` on the Supabase dashboard.
 
 ### Phase 5 Remaining Tasks
 - Events create page (`/events/create`): Wire react-hook-form + Zod validation → `createEvent()`.
