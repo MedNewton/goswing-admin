@@ -1,12 +1,28 @@
 "use client";
 
 import { MainLayout } from "@/components/layout/MainLayout";
+import {
+  BuildingIcon,
+  CalendarIcon,
+  GlobeIcon,
+  MailIcon,
+  MapPinIcon,
+  SettingsIcon,
+  StarIcon,
+} from "@/components/icons";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
-import { useState, useEffect, useTransition, useRef } from "react";
+import {
+  useState,
+  useEffect,
+  useTransition,
+  useRef,
+  type ComponentType,
+  type SVGProps,
+} from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -42,6 +58,61 @@ const settingsFormSchema = z.object({
 });
 
 type SettingsFormValues = z.infer<typeof settingsFormSchema>;
+
+type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
+
+function SectionHeader({
+  icon: Icon,
+  eyebrow,
+  title,
+  description,
+}: {
+  icon: IconComponent;
+  eyebrow: string;
+  title: string;
+  description?: string;
+}) {
+  return (
+    <div className="flex items-start gap-4">
+      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gray-950 text-white shadow-sm">
+        <Icon className="h-5 w-5" />
+      </div>
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">
+          {eyebrow}
+        </p>
+        <h2 className="mt-1 text-xl font-semibold text-gray-950">{title}</h2>
+        {description && (
+          <p className="mt-1 text-sm text-gray-500">{description}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SummaryCard({
+  icon: Icon,
+  label,
+  value,
+  accentClass,
+}: {
+  icon: IconComponent;
+  label: string;
+  value: string;
+  accentClass: string;
+}) {
+  return (
+    <div className="rounded-3xl border border-white/12 bg-white/10 p-5 backdrop-blur">
+      <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1 ${accentClass}`}>
+        <Icon className="h-4 w-4" />
+        <span className="text-xs font-semibold uppercase tracking-[0.18em]">
+          {label}
+        </span>
+      </div>
+      <p className="mt-4 text-lg font-semibold text-white">{value}</p>
+    </div>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Country options
@@ -106,6 +177,7 @@ export default function SettingsPage() {
     handleSubmit,
     reset,
     setValue,
+    watch,
     formState: { errors },
   } = useForm<SettingsFormValues>({
     resolver: zodResolver(settingsFormSchema),
@@ -247,6 +319,17 @@ export default function SettingsPage() {
     });
   };
 
+  const nameValue = watch("name");
+  const cityValue = watch("city");
+  const countryCodeValue = watch("country_code");
+  const emailValue = watch("email");
+  const websiteValue = watch("website_url");
+  const establishedYearValue = watch("established_year");
+  const normalizedWebsiteValue = websiteValue.trim() ? websiteValue : undefined;
+  const normalizedEstablishedYearValue = establishedYearValue.trim()
+    ? establishedYearValue
+    : undefined;
+
   if (loading) {
     return (
       <MainLayout title="Settings">
@@ -259,7 +342,7 @@ export default function SettingsPage() {
 
   return (
     <MainLayout title="Settings">
-      <form onSubmit={handleSubmit(onSubmit)} className="mx-auto max-w-2xl space-y-6">
+      <form onSubmit={handleSubmit(onSubmit)} className="mx-auto max-w-7xl space-y-6">
         {/* Server Error */}
         {serverError && (
           <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
@@ -274,279 +357,353 @@ export default function SettingsPage() {
           </div>
         )}
 
-        {/* Logo & Cover Images */}
-        <Card>
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">Branding</h2>
-          <div className="space-y-6">
-            {/* Logo */}
+        <section className="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-gradient-to-br from-slate-950 via-slate-900 to-teal-800 p-8 text-white shadow-xl shadow-slate-200">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(255,255,255,0.18),_transparent_30%),radial-gradient(circle_at_bottom_left,_rgba(45,212,191,0.22),_transparent_34%)]" />
+          <div className="relative grid gap-8 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700">Logo</label>
-              <div className="flex items-center gap-4">
-                <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full border-2 border-dashed border-gray-300 bg-gray-50">
-                  {logoPreview ? (
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/12 text-white backdrop-blur">
+                <SettingsIcon className="h-6 w-6" />
+              </div>
+              <p className="mt-5 text-xs font-semibold uppercase tracking-[0.3em] text-teal-100/75">
+                Organizer Profile
+              </p>
+              <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
+                {nameValue || "Your organization profile"}
+              </h1>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-200">
+                Manage your brand presence, contact details, online links, and operational policies from one profile editor.
+              </p>
+              <div className="mt-6 flex flex-wrap gap-3">
+                <div className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-white/90 backdrop-blur">
+                  {cityValue || "City not set"}
+                  {countryCodeValue ? `, ${countryCodeValue}` : ""}
+                </div>
+                <div className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-white/90 backdrop-blur">
+                  {emailValue || "Email not set"}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <SummaryCard
+                icon={BuildingIcon}
+                label="Profile"
+                value={nameValue || "Incomplete"}
+                accentClass="bg-sky-50 text-sky-700"
+              />
+              <SummaryCard
+                icon={MapPinIcon}
+                label="Location"
+                value={cityValue || "Not set"}
+                accentClass="bg-emerald-50 text-emerald-700"
+              />
+              <SummaryCard
+                icon={GlobeIcon}
+                label="Website"
+                value={normalizedWebsiteValue ?? "Not set"}
+                accentClass="bg-amber-50 text-amber-700"
+              />
+              <SummaryCard
+                icon={CalendarIcon}
+                label="Established"
+                value={normalizedEstablishedYearValue ?? "Not set"}
+                accentClass="bg-rose-50 text-rose-700"
+              />
+            </div>
+          </div>
+        </section>
+
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.95fr)]">
+          <Card className="rounded-[2rem] border border-gray-200/80 bg-gradient-to-br from-white via-white to-slate-50 shadow-lg shadow-gray-100">
+            <SectionHeader
+              icon={BuildingIcon}
+              eyebrow="Identity"
+              title="Organization Details"
+              description="Core public-facing profile fields for your organizer page."
+            />
+            <div className="mt-6 space-y-4">
+              <Input
+                label="Organization Name"
+                placeholder="e.g., Swing City Events"
+                error={errors.name?.message}
+                {...register("name")}
+              />
+              <Input
+                label="Tagline (optional)"
+                placeholder="A short description of what you do"
+                error={errors.tagline?.message}
+                {...register("tagline")}
+              />
+              <Textarea
+                label="About (optional)"
+                placeholder="Tell people about your organization..."
+                rows={5}
+                error={errors.about?.message}
+                {...register("about")}
+              />
+            </div>
+          </Card>
+
+          <Card className="rounded-[2rem] border border-gray-200/80 bg-white shadow-lg shadow-gray-100">
+            <SectionHeader
+              icon={StarIcon}
+              eyebrow="Branding"
+              title="Logo & Cover"
+              description="Keep your organizer visuals aligned with listings and public pages."
+            />
+            <div className="mt-6 space-y-6">
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">Logo</label>
+                <div className="flex items-center gap-4">
+                  <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full border-2 border-dashed border-gray-300 bg-gray-50">
+                    {logoPreview ? (
+                      <>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={logoPreview} alt="Logo preview" className="h-full w-full object-cover" />
+                        {isUploadingLogo && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                            <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="flex h-full items-center justify-center text-gray-400">
+                        <span className="text-2xl">+</span>
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <input
+                      ref={logoInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      onChange={handleLogoSelect}
+                      className="hidden"
+                      id="logo-input"
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        type="button"
+                        onClick={() => logoInputRef.current?.click()}
+                        disabled={isUploadingLogo}
+                      >
+                        {isUploadingLogo ? "Uploading..." : logoPreview ? "Change" : "Upload Logo"}
+                      </Button>
+                      {logoPreview && !isUploadingLogo && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          type="button"
+                          onClick={handleRemoveLogo}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          Remove
+                        </Button>
+                      )}
+                    </div>
+                    {logoError && <p className="mt-1 text-sm text-red-600">{logoError}</p>}
+                    <p className="mt-1 text-xs text-gray-400">Square image, max 5MB</p>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">Cover Image</label>
+                <div className="relative h-44 w-full overflow-hidden rounded-[1.5rem] border-2 border-dashed border-gray-300 bg-gray-50">
+                  {coverPreview ? (
                     <>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={logoPreview} alt="Logo preview" className="h-full w-full object-cover" />
-                      {isUploadingLogo && (
+                      <img src={coverPreview} alt="Cover preview" className="h-full w-full object-cover" />
+                      {isUploadingCover && (
                         <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                          <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                          <div className="h-6 w-6 animate-spin rounded-full border-2 border-white border-t-transparent" />
                         </div>
                       )}
                     </>
                   ) : (
                     <div className="flex h-full items-center justify-center text-gray-400">
-                      <span className="text-2xl">+</span>
+                      <span className="text-4xl">+</span>
                     </div>
                   )}
                 </div>
-                <div>
-                  <input
-                    ref={logoInputRef}
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp,image/gif"
-                    onChange={handleLogoSelect}
-                    className="hidden"
-                    id="logo-input"
-                  />
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      type="button"
-                      onClick={() => logoInputRef.current?.click()}
-                      disabled={isUploadingLogo}
-                    >
-                      {isUploadingLogo ? "Uploading..." : logoPreview ? "Change" : "Upload Logo"}
-                    </Button>
-                    {logoPreview && !isUploadingLogo && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        type="button"
-                        onClick={handleRemoveLogo}
-                        className="text-red-600 hover:text-red-700"
-                      >
-                        Remove
-                      </Button>
-                    )}
-                  </div>
-                  {logoError && <p className="mt-1 text-sm text-red-600">{logoError}</p>}
-                  <p className="mt-1 text-xs text-gray-400">Square image, max 5MB</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Cover Image */}
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700">Cover Image</label>
-              <div className="relative h-40 w-full overflow-hidden rounded-lg border-2 border-dashed border-gray-300 bg-gray-50">
-                {coverPreview ? (
-                  <>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={coverPreview} alt="Cover preview" className="h-full w-full object-cover" />
-                    {isUploadingCover && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                        <div className="h-6 w-6 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <div className="flex h-full items-center justify-center text-gray-400">
-                    <span className="text-4xl">+</span>
-                  </div>
-                )}
-              </div>
-              <input
-                ref={coverInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp,image/gif"
-                onChange={handleCoverSelect}
-                className="hidden"
-                id="cover-input"
-              />
-              <div className="mt-2 flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  type="button"
-                  onClick={() => coverInputRef.current?.click()}
-                  disabled={isUploadingCover}
-                >
-                  {isUploadingCover ? "Uploading..." : coverPreview ? "Change Cover" : "Upload Cover"}
-                </Button>
-                {coverPreview && !isUploadingCover && (
+                <input
+                  ref={coverInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  onChange={handleCoverSelect}
+                  className="hidden"
+                  id="cover-input"
+                />
+                <div className="mt-3 flex gap-2">
                   <Button
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
                     type="button"
-                    onClick={handleRemoveCover}
-                    className="text-red-600 hover:text-red-700"
+                    onClick={() => coverInputRef.current?.click()}
+                    disabled={isUploadingCover}
                   >
-                    Remove
+                    {isUploadingCover ? "Uploading..." : coverPreview ? "Change Cover" : "Upload Cover"}
                   </Button>
-                )}
+                  {coverPreview && !isUploadingCover && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      type="button"
+                      onClick={handleRemoveCover}
+                      className="text-red-600 hover:text-red-700"
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </div>
+                {coverError && <p className="mt-1 text-sm text-red-600">{coverError}</p>}
+                <p className="mt-1 text-xs text-gray-400">Recommended: 1200 x 400px, max 5MB</p>
               </div>
-              {coverError && <p className="mt-1 text-sm text-red-600">{coverError}</p>}
-              <p className="mt-1 text-xs text-gray-400">Recommended: 1200 x 400px, max 5MB</p>
             </div>
-          </div>
-        </Card>
+          </Card>
+        </div>
 
-        {/* Organization Basics */}
-        <Card>
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">Organization Details</h2>
-          <div className="space-y-4">
-            <Input
-              label="Organization Name"
-              placeholder="e.g., Swing City Events"
-              error={errors.name?.message}
-              {...register("name")}
+        <div className="grid gap-6 xl:grid-cols-2">
+          <Card className="rounded-[2rem] border border-gray-200/80 bg-gradient-to-br from-white via-white to-teal-50/50 shadow-lg shadow-gray-100">
+            <SectionHeader
+              icon={MapPinIcon}
+              eyebrow="Contact"
+              title="Location & Contact"
+              description="Primary operating city, country, and attendee-facing contact details."
             />
-            <Input
-              label="Tagline (optional)"
-              placeholder="A short description of what you do"
-              error={errors.tagline?.message}
-              {...register("tagline")}
-            />
-            <Textarea
-              label="About (optional)"
-              placeholder="Tell people about your organization..."
-              rows={4}
-              error={errors.about?.message}
-              {...register("about")}
-            />
-          </div>
-        </Card>
-
-        {/* Location & Contact */}
-        <Card>
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">Location & Contact</h2>
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <Input
-                label="City"
-                placeholder="e.g., Paris"
-                error={errors.city?.message}
-                {...register("city")}
-              />
-              <Select
-                label="Country"
-                options={COUNTRY_OPTIONS}
-                error={errors.country_code?.message}
-                {...register("country_code")}
-              />
+            <div className="mt-6 space-y-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <Input
+                  label="City"
+                  placeholder="e.g., Paris"
+                  error={errors.city?.message}
+                  {...register("city")}
+                />
+                <Select
+                  label="Country"
+                  options={COUNTRY_OPTIONS}
+                  error={errors.country_code?.message}
+                  {...register("country_code")}
+                />
+              </div>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <Input
+                  label="Email"
+                  type="email"
+                  placeholder="contact@yourorg.com"
+                  error={errors.email?.message}
+                  {...register("email")}
+                />
+                <Input
+                  label="Phone (optional)"
+                  type="tel"
+                  placeholder="+33 1 23 45 67 89"
+                  error={errors.phone?.message}
+                  {...register("phone")}
+                />
+              </div>
             </div>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <Input
-                label="Email"
-                type="email"
-                placeholder="contact@yourorg.com"
-                error={errors.email?.message}
-                {...register("email")}
-              />
-              <Input
-                label="Phone (optional)"
-                type="tel"
-                placeholder="+33 1 23 45 67 89"
-                error={errors.phone?.message}
-                {...register("phone")}
-              />
-            </div>
-          </div>
-        </Card>
+          </Card>
 
-        {/* Online Presence */}
-        <Card>
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">
-            Online Presence
-            <span className="ml-2 text-sm font-normal text-gray-400">(optional)</span>
-          </h2>
-          <div className="space-y-4">
-            <Input
-              label="Website"
-              type="url"
-              placeholder="https://yourorg.com"
-              error={errors.website_url?.message}
-              {...register("website_url")}
+          <Card className="rounded-[2rem] border border-gray-200/80 bg-gradient-to-br from-white via-white to-slate-50 shadow-lg shadow-gray-100">
+            <SectionHeader
+              icon={GlobeIcon}
+              eyebrow="Links"
+              title="Online Presence"
+              description="Website and social channels connected to your organizer brand."
             />
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="mt-6 space-y-4">
               <Input
-                label="Instagram"
-                placeholder="@yourhandle"
-                error={errors.instagram_handle?.message}
-                {...register("instagram_handle")}
+                label="Website"
+                type="url"
+                placeholder="https://yourorg.com"
+                error={errors.website_url?.message}
+                {...register("website_url")}
               />
-              <Input
-                label="Facebook"
-                placeholder="@yourpage"
-                error={errors.facebook_handle?.message}
-                {...register("facebook_handle")}
-              />
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <Input
+                  label="Instagram"
+                  placeholder="@yourhandle"
+                  error={errors.instagram_handle?.message}
+                  {...register("instagram_handle")}
+                />
+                <Input
+                  label="Facebook"
+                  placeholder="@yourpage"
+                  error={errors.facebook_handle?.message}
+                  {...register("facebook_handle")}
+                />
+              </div>
             </div>
-          </div>
-        </Card>
+          </Card>
+        </div>
 
-        {/* Additional Details */}
-        <Card>
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">
-            Additional Details
-            <span className="ml-2 text-sm font-normal text-gray-400">(optional)</span>
-          </h2>
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="grid gap-6 xl:grid-cols-2">
+          <Card className="rounded-[2rem] border border-gray-200/80 bg-gradient-to-br from-white via-white to-amber-50/50 shadow-lg shadow-gray-100">
+            <SectionHeader
+              icon={CalendarIcon}
+              eyebrow="Profile Data"
+              title="Additional Details"
+              description="Internal context fields that help shape your organizer profile."
+            />
+            <div className="mt-6 space-y-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <Input
+                  label="Established Year"
+                  type="number"
+                  placeholder="e.g., 2020"
+                  min="1900"
+                  max="2100"
+                  error={errors.established_year?.message}
+                  {...register("established_year")}
+                />
+                <Input
+                  label="Avg. Response Time (hours)"
+                  type="number"
+                  placeholder="e.g., 24"
+                  min="0"
+                  step="0.5"
+                  error={errors.response_time_hours?.message}
+                  {...register("response_time_hours")}
+                />
+              </div>
               <Input
-                label="Established Year"
-                type="number"
-                placeholder="e.g., 2020"
-                min="1900"
-                max="2100"
-                error={errors.established_year?.message}
-                {...register("established_year")}
-              />
-              <Input
-                label="Avg. Response Time (hours)"
-                type="number"
-                placeholder="e.g., 24"
-                min="0"
-                step="0.5"
-                error={errors.response_time_hours?.message}
-                {...register("response_time_hours")}
+                label="Specialties"
+                placeholder="e.g., Swing, Jazz, Live Music (comma-separated)"
+                error={errors.specialties?.message}
+                {...register("specialties")}
               />
             </div>
-            <Input
-              label="Specialties"
-              placeholder="e.g., Swing, Jazz, Live Music (comma-separated)"
-              error={errors.specialties?.message}
-              {...register("specialties")}
-            />
-          </div>
-        </Card>
+          </Card>
 
-        {/* Policies */}
-        <Card>
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">
-            Policies
-            <span className="ml-2 text-sm font-normal text-gray-400">(optional)</span>
-          </h2>
-          <div className="space-y-4">
-            <Textarea
-              label="Cancellation Policy"
-              placeholder="Describe your cancellation policy..."
-              rows={3}
-              error={errors.cancellation_policy?.message}
-              {...register("cancellation_policy")}
+          <Card className="rounded-[2rem] border border-gray-200/80 bg-gradient-to-br from-white via-white to-slate-50 shadow-lg shadow-gray-100">
+            <SectionHeader
+              icon={MailIcon}
+              eyebrow="Policies"
+              title="Organizer Policies"
+              description="Set attendee-facing guidelines for cancellations and refunds."
             />
-            <Textarea
-              label="Refund Policy"
-              placeholder="Describe your refund policy..."
-              rows={3}
-              error={errors.refund_policy?.message}
-              {...register("refund_policy")}
-            />
-          </div>
-        </Card>
+            <div className="mt-6 space-y-4">
+              <Textarea
+                label="Cancellation Policy"
+                placeholder="Describe your cancellation policy..."
+                rows={4}
+                error={errors.cancellation_policy?.message}
+                {...register("cancellation_policy")}
+              />
+              <Textarea
+                label="Refund Policy"
+                placeholder="Describe your refund policy..."
+                rows={4}
+                error={errors.refund_policy?.message}
+                {...register("refund_policy")}
+              />
+            </div>
+          </Card>
+        </div>
 
-        {/* Submit */}
         <div className="flex justify-end pb-6">
           <Button variant="primary" type="submit" disabled={isPending}>
             {isPending ? "Saving..." : "Save Changes"}

@@ -358,7 +358,7 @@ export default function EditEventPage({
       : selectedVenue.name
     : "Venue not selected";
   const scheduleLabel = eventDate || "Date not set";
-  const categoryDisplay = categoryValue.trim() ? categoryValue : undefined;
+  const categoryDisplay = categoryValue?.trim() ? categoryValue : undefined;
 
   if (loading) {
     return (
