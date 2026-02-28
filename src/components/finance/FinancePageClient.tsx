@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef, useState } from "react";
 import { StatCard } from "@/components/ui/StatCard";
 import { Card } from "@/components/ui/Card";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/Table";
@@ -78,6 +79,16 @@ function computeDailyRevenue(transactions: Transaction[]): Array<{
 
 export function FinancePageClient({ transactions, stats }: FinancePageClientProps) {
   const currency = transactions[0]?.currency ?? "USD";
+  const chartRef = useRef<HTMLDivElement>(null);
+  const [hoveredPoint, setHoveredPoint] = useState<{
+    item: {
+      date: string;
+      value: number;
+      reservationCount: number;
+    };
+    x: number;
+    y: number;
+  } | null>(null);
 
   const statCards = [
     {
@@ -180,21 +191,50 @@ export function FinancePageClient({ transactions, stats }: FinancePageClientProp
         {(() => {
           const maxValue = Math.max(...dailyData.map((d) => d.value), 1);
           return (
-            <div className="relative h-64">
+            <div
+              ref={chartRef}
+              className="relative h-64"
+              onMouseLeave={() => setHoveredPoint(null)}
+            >
+              {hoveredPoint && (
+                <div
+                  className="pointer-events-none absolute z-10 w-max rounded-md bg-gray-950 px-3 py-2 text-xs text-white shadow-lg"
+                  style={{
+                    left: hoveredPoint.x + 12,
+                    top: hoveredPoint.y + 12,
+                  }}
+                >
+                  <p className="font-medium">{hoveredPoint.item.date}</p>
+                  <p>Total: {formatMoney(hoveredPoint.item.value, currency)}</p>
+                  <p>
+                    {hoveredPoint.item.reservationCount}{" "}
+                    {hoveredPoint.item.reservationCount === 1 ? "reservation" : "reservations"}
+                  </p>
+                </div>
+              )}
               <div className="absolute inset-0 flex items-end gap-px">
                 {dailyData.map((item, i) => {
                   const heightPct = (item.value / maxValue) * 100;
                   // Show label for today, first, last, and every 7th day
                   const showLabel = item.isToday || i === 0 || i === dailyData.length - 1 || i % 7 === 0;
                   return (
-                    <div key={i} className="group relative flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1">
-                      <div className="pointer-events-none absolute bottom-full z-10 mb-2 w-max rounded-md bg-gray-950 px-3 py-2 text-xs text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
-                        <p className="font-medium">{item.date}</p>
-                        <p>Total: {formatMoney(item.value, currency)}</p>
-                        <p>
-                          {item.reservationCount} {item.reservationCount === 1 ? "reservation" : "reservations"}
-                        </p>
-                      </div>
+                    <div
+                      key={i}
+                      className="group relative flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1"
+                      onMouseMove={(event) => {
+                        const rect = chartRef.current?.getBoundingClientRect();
+                        if (!rect) return;
+                        setHoveredPoint({
+                          item: {
+                            date: item.date,
+                            value: item.value,
+                            reservationCount: item.reservationCount,
+                          },
+                          x: event.clientX - rect.left,
+                          y: event.clientY - rect.top,
+                        });
+                      }}
+                    >
                       <div
                         className={`w-full rounded-t transition-all ${
                           item.isToday
