@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { env } from "@/env";
+import type { Database } from "@/types/database";
 
 export function createSupabaseAdminClient() {
   const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL;
@@ -11,7 +12,10 @@ export function createSupabaseAdminClient() {
     );
   }
 
-  return createClient(supabaseUrl, serviceRoleKey, {
+  return createClient<Database, "public">(supabaseUrl, serviceRoleKey, {
+    db: {
+      schema: "public",
+    },
     auth: {
       autoRefreshToken: false,
       persistSession: false,

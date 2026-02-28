@@ -4,6 +4,7 @@ import { z } from "zod";
 import { createEvent, getOrganizerForCurrentUser, getTags } from "@/lib/data/events";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import type { EventUpdate } from "@/types/database";
 
 // ---------------------------------------------------------------------------
 // Zod Schema
@@ -249,23 +250,24 @@ export async function updateEventAction(
     const prices = data.ticketTiers.map((t) => t.price);
     const minPriceCents = Math.min(...prices) * 100;
     const isFree = minPriceCents === 0;
+    const eventUpdates: EventUpdate = {
+      title: data.title,
+      description: emptyStringToNull(data.description),
+      category: emptyStringToNull(data.category),
+      starts_at: startsAt,
+      ends_at: endsAt,
+      venue_id: venueId,
+      hero_image_url: emptyStringToNull(data.heroImageUrl),
+      status: data.publishEvent ? "published" : "draft",
+      currency: data.currency,
+      min_price_cents: minPriceCents,
+      is_free: isFree,
+    };
 
     // Update the event
     const { error: eventError } = await sb
       .from("events")
-      .update({
-        title: data.title,
-        description: emptyStringToNull(data.description),
-        category: emptyStringToNull(data.category),
-        starts_at: startsAt,
-        ends_at: endsAt,
-        venue_id: venueId,
-        hero_image_url: emptyStringToNull(data.heroImageUrl),
-        status: data.publishEvent ? "published" : "draft",
-        currency: data.currency,
-        min_price_cents: minPriceCents,
-        is_free: isFree,
-      })
+      .update(eventUpdates)
       .eq("id", eventId);
 
     if (eventError) throw eventError;

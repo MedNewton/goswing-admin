@@ -34,10 +34,13 @@ export async function createSupabaseServerClient() {
     }
   };
 
-  return createServerClient<Database>(
+  return createServerClient<Database, "public">(
     supabaseUrl,
     supabaseAnonKey,
     {
+      db: {
+        schema: "public",
+      },
       cookies: {
         getAll() {
           return cookieStore.getAll();

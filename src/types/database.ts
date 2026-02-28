@@ -10,6 +10,12 @@
 // ---------------------------------------------------------------------------
 type Timestamp = string; // ISO-8601 timestamptz
 type Json = Record<string, unknown>;
+type TableDef<Row, Insert, Update> = {
+  Row: Row;
+  Insert: Insert;
+  Update: Update;
+  Relationships: [];
+};
 
 // ---------------------------------------------------------------------------
 // Database type map (Supabase convention)
@@ -17,87 +23,25 @@ type Json = Record<string, unknown>;
 export interface Database {
   public: {
     Tables: {
-      profiles: {
-        Row: ProfileRow;
-        Insert: ProfileInsert;
-        Update: ProfileUpdate;
-      };
-      organizers: {
-        Row: OrganizerRow;
-        Insert: OrganizerInsert;
-        Update: OrganizerUpdate;
-      };
-      events: {
-        Row: EventRow;
-        Insert: EventInsert;
-        Update: EventUpdate;
-      };
-      venues: {
-        Row: VenueRow;
-        Insert: VenueInsert;
-        Update: VenueUpdate;
-      };
-      ticket_types: {
-        Row: TicketTypeRow;
-        Insert: TicketTypeInsert;
-        Update: TicketTypeUpdate;
-      };
-      tickets: {
-        Row: TicketRow;
-        Insert: TicketInsert;
-        Update: TicketUpdate;
-      };
-      ticket_attendees: {
-        Row: TicketAttendeeRow;
-        Insert: TicketAttendeeInsert;
-        Update: TicketAttendeeUpdate;
-      };
-      ticket_holders: {
-        Row: TicketHolderRow;
-        Insert: TicketHolderInsert;
-        Update: TicketHolderUpdate;
-      };
-      ticket_checkins: {
-        Row: TicketCheckinRow;
-        Insert: TicketCheckinInsert;
-        Update: TicketCheckinUpdate;
-      };
-      reservations: {
-        Row: ReservationRow;
-        Insert: ReservationInsert;
-        Update: ReservationUpdate;
-      };
-      reservation_items: {
-        Row: ReservationItemRow;
-        Insert: ReservationItemInsert;
-        Update: ReservationItemUpdate;
-      };
-      payments: {
-        Row: PaymentRow;
-        Insert: PaymentInsert;
-        Update: PaymentUpdate;
-      };
-      event_reviews: {
-        Row: EventReviewRow;
-        Insert: EventReviewInsert;
-        Update: EventReviewUpdate;
-      };
-      event_song_suggestions: {
-        Row: EventSongSuggestionRow;
-        Insert: EventSongSuggestionInsert;
-        Update: EventSongSuggestionUpdate;
-      };
-      tags: {
-        Row: TagRow;
-        Insert: TagInsert;
-        Update: TagUpdate;
-      };
-      event_tags: {
-        Row: EventTagRow;
-        Insert: EventTagInsert;
-        Update: EventTagUpdate;
-      };
+      profiles: TableDef<ProfileRow, ProfileInsert, ProfileUpdate>;
+      organizers: TableDef<OrganizerRow, OrganizerInsert, OrganizerUpdate>;
+      events: TableDef<EventRow, EventInsert, EventUpdate>;
+      venues: TableDef<VenueRow, VenueInsert, VenueUpdate>;
+      ticket_types: TableDef<TicketTypeRow, TicketTypeInsert, TicketTypeUpdate>;
+      tickets: TableDef<TicketRow, TicketInsert, TicketUpdate>;
+      ticket_attendees: TableDef<TicketAttendeeRow, TicketAttendeeInsert, TicketAttendeeUpdate>;
+      ticket_holders: TableDef<TicketHolderRow, TicketHolderInsert, TicketHolderUpdate>;
+      ticket_checkins: TableDef<TicketCheckinRow, TicketCheckinInsert, TicketCheckinUpdate>;
+      reservations: TableDef<ReservationRow, ReservationInsert, ReservationUpdate>;
+      reservation_items: TableDef<ReservationItemRow, ReservationItemInsert, ReservationItemUpdate>;
+      payments: TableDef<PaymentRow, PaymentInsert, PaymentUpdate>;
+      event_reviews: TableDef<EventReviewRow, EventReviewInsert, EventReviewUpdate>;
+      event_song_suggestions: TableDef<EventSongSuggestionRow, EventSongSuggestionInsert, EventSongSuggestionUpdate>;
+      tags: TableDef<TagRow, TagInsert, TagUpdate>;
+      event_tags: TableDef<EventTagRow, EventTagInsert, EventTagUpdate>;
     };
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
   };
 }
 

@@ -20,22 +20,36 @@ interface FinancePageClientProps {
   };
 }
 
-function computeDailyRevenue(transactions: Transaction[]): Array<{ label: string; value: number; isToday: boolean }> {
+function computeDailyRevenue(transactions: Transaction[]): Array<{
+  label: string;
+  date: string;
+  value: number;
+  reservationCount: number;
+  isToday: boolean;
+}> {
   // Build a map of date -> revenue from ALL transactions
-  const dailyMap: Record<string, number> = {};
+  const dailyMap: Record<string, { value: number; reservationCount: number }> = {};
   for (const tx of transactions) {
     const iso = tx.orderedAt ?? tx.date;
     const parsed = new Date(iso);
     if (isNaN(parsed.getTime())) continue;
     // Use local date to avoid timezone shift
     const key = `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, "0")}-${String(parsed.getDate()).padStart(2, "0")}`;
-    dailyMap[key] = (dailyMap[key] ?? 0) + tx.grossAmount;
+    dailyMap[key] ??= { value: 0, reservationCount: 0 };
+    dailyMap[key].value += tx.grossAmount;
+    dailyMap[key].reservationCount += 1;
   }
 
   // Generate 29 days: -14 ... 0 ... +14
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const days: Array<{ label: string; value: number; isToday: boolean }> = [];
+  const days: Array<{
+    label: string;
+    date: string;
+    value: number;
+    reservationCount: number;
+    isToday: boolean;
+  }> = [];
 
   for (let offset = -14; offset <= 14; offset++) {
     const d = new Date(today);
@@ -44,9 +58,17 @@ function computeDailyRevenue(transactions: Transaction[]): Array<{ label: string
     const dayNum = d.getDate();
     const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     const label = offset === 0 ? "Today" : `${monthNames[d.getMonth()]} ${dayNum}`;
+    const formattedDate = d.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+    const dayData = dailyMap[key] ?? { value: 0, reservationCount: 0 };
     days.push({
       label,
-      value: dailyMap[key] ?? 0,
+      date: formattedDate,
+      value: dayData.value,
+      reservationCount: dayData.reservationCount,
       isToday: offset === 0,
     });
   }
@@ -165,10 +187,14 @@ export function FinancePageClient({ transactions, stats }: FinancePageClientProp
                   // Show label for today, first, last, and every 7th day
                   const showLabel = item.isToday || i === 0 || i === dailyData.length - 1 || i % 7 === 0;
                   return (
-                    <div key={i} className="group flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1">
-                      <span className="whitespace-nowrap text-[10px] font-medium text-gray-700 opacity-0 transition-opacity group-hover:opacity-100">
-                        {formatMoney(item.value, currency)}
-                      </span>
+                    <div key={i} className="group relative flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1">
+                      <div className="pointer-events-none absolute bottom-full z-10 mb-2 w-max rounded-md bg-gray-950 px-3 py-2 text-xs text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+                        <p className="font-medium">{item.date}</p>
+                        <p>Total: {formatMoney(item.value, currency)}</p>
+                        <p>
+                          {item.reservationCount} {item.reservationCount === 1 ? "reservation" : "reservations"}
+                        </p>
+                      </div>
                       <div
                         className={`w-full rounded-t transition-all ${
                           item.isToday
@@ -180,7 +206,7 @@ export function FinancePageClient({ transactions, stats }: FinancePageClientProp
                         style={{ height: `${Math.max(heightPct, item.value > 0 ? 4 : 2)}%` }}
                       />
                       {showLabel ? (
-                        <span className={`whitespace-nowrap text-[10px] ${item.isToday ? "font-bold text-green-700" : "text-gray-500"}`}>
+                        <span className={`whitespace-nowrap text-[10px] ${item.isToday ? "font-bold text-gray-900" : "text-gray-900"}`}>
                           {item.label}
                         </span>
                       ) : (
