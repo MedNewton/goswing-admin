@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { updateTable } from "@/lib/supabase/mutations";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 // ---------------------------------------------------------------------------
@@ -81,9 +82,7 @@ export async function completeOnboardingAction(
     ? data.specialties.split(",").map((s) => s.trim()).filter(Boolean)
     : null;
 
-  const { error: updateError } = await sb
-    .from("organizers")
-    .update({
+  const { error: updateError } = await updateTable(sb, "organizers", {
       name: data.name,
       tagline: emptyStringToNull(data.tagline),
       about: emptyStringToNull(data.about),
@@ -101,8 +100,7 @@ export async function completeOnboardingAction(
       cancellation_policy: emptyStringToNull(data.cancellation_policy),
       refund_policy: emptyStringToNull(data.refund_policy),
       response_time_hours: data.response_time_hours ?? null,
-    })
-    .eq("id", (organizer as { id: string }).id);
+    }).eq("id", (organizer as { id: string }).id);
 
   if (updateError) {
     console.error("[completeOnboarding] update error:", updateError.message);
