@@ -56,11 +56,12 @@ export function ReviewCard({
       {/* Comment */}
       <p className="mt-3 text-gray-700">{comment}</p>
 
-      {/* Actions */}
-      <div className="mt-4 flex items-center gap-4 text-sm text-gray-500">
-        <button className="hover:text-gray-700">👍 Helpful ({helpful})</button>
-        <button className="hover:text-gray-700">Reply</button>
-      </div>
+      {/* Helpful count (display only) */}
+      {helpful > 0 && (
+        <div className="mt-4 text-sm text-gray-500">
+          👍 {helpful} found this helpful
+        </div>
+      )}
     </div>
   );
 }

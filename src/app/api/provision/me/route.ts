@@ -35,17 +35,16 @@ export async function POST() {
   }
 
   try {
-    await provisionUser({
+    const result = await provisionUser({
       userId,
       email,
       firstName,
       lastName,
       imageUrl,
     });
+    return NextResponse.json({ ok: true, needsOnboarding: result.needsOnboarding }, { status: 200 });
   } catch (error) {
     console.error("[provisioning] self-heal failed", error);
     return NextResponse.json({ ok: false }, { status: 500 });
   }
-
-  return NextResponse.json({ ok: true }, { status: 200 });
 }

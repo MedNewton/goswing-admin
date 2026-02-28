@@ -1,31 +1,83 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { mapAttendees, type AttendeeQueryRow } from "@/lib/mappers/attendees";
+import type { Attendee } from "@/types";
+import { formatDate, formatMoney } from "@/lib/utils/format";
 
-/** Fetch all ticket attendees for events owned by current user. */
+/**
+ * Fetch all attendees — people with reservations in "checkedIn" status
+ * for events owned by the current user.
+ */
 export async function getAttendees(filters?: { eventId?: string }) {
   const sb = await createSupabaseServerClient();
 
   let query = sb
-    .from("ticket_attendees")
+    .from("reservations")
     .select(`
-      *,
-      tickets (
-        event_id,
-        ticket_type_name_snapshot,
-        status,
-        events ( title ),
-        ticket_checkins ( scanned_at, result )
-      )
+      id,
+      user_id,
+      event_id,
+      status,
+      billing_first_name,
+      billing_last_name,
+      billing_email,
+      total_amount_cents,
+      currency,
+      ordered_at,
+      updated_at,
+      events ( title ),
+      reservation_items ( ticket_type_name_snapshot, quantity )
     `)
-    .order("created_at", { ascending: false });
+    .eq("status", "checkedIn")
+    .order("updated_at", { ascending: false });
 
   if (filters?.eventId) {
-    query = query.eq("tickets.event_id", filters.eventId);
+    query = query.eq("event_id", filters.eventId);
   }
 
   const { data, error } = await query;
   if (error) throw error;
-  return mapAttendees((data ?? []) as AttendeeQueryRow[]);
+
+  type CheckedInRow = {
+    id: string;
+    user_id: string;
+    event_id: string;
+    status: string;
+    billing_first_name: string | null;
+    billing_last_name: string | null;
+    billing_email: string | null;
+    total_amount_cents: number;
+    currency: string;
+    ordered_at: string;
+    updated_at: string;
+    events: { title: string } | null;
+    reservation_items: Array<{ ticket_type_name_snapshot: string; quantity: number }>;
+  };
+
+  return ((data ?? []) as unknown as CheckedInRow[]).map((row): Attendee => {
+    const name =
+      [row.billing_first_name, row.billing_last_name].filter(Boolean).join(" ") ||
+      "Guest";
+
+    const email = row.billing_email || "—";
+
+    const items = row.reservation_items ?? [];
+    const ticketType =
+      items.length === 1
+        ? items[0]!.ticket_type_name_snapshot
+        : items.length > 1
+          ? items.map((i) => `${i.ticket_type_name_snapshot} x${i.quantity}`).join(", ")
+          : undefined;
+
+    return {
+      id: row.id,
+      name,
+      email,
+      eventId: row.event_id,
+      eventName: row.events?.title ?? "Unknown Event",
+      checkedIn: true,
+      checkInTime: row.updated_at,
+      ticketType,
+    };
+  });
 }
 
 /** Get check-in summary counts per event. */
@@ -33,42 +85,39 @@ export async function getCheckinSummary(): Promise<
   Array<{
     eventId: string;
     eventName: string;
-    totalAttendees: number;
-    totalTickets: number;
+    totalReservations: number;
     checkedIn: number;
   }>
 > {
   const sb = await createSupabaseServerClient();
 
-  // Get events with ticket + checkin counts
   const { data, error } = await sb
     .from("events")
     .select(`
       id,
       title,
-      attendee_count,
-      tickets ( id, ticket_checkins ( id ) )
+      reservations ( id, status )
     `)
     .order("starts_at", { ascending: false });
 
   if (error) throw error;
 
-  type CheckinEventRow = {
+  type EventWithReservations = {
     id: string;
     title: string;
-    attendee_count: number;
-    tickets: Array<{ id: string; ticket_checkins: Array<{ id: string }> }>;
+    reservations: Array<{ id: string; status: string }>;
   };
 
-  return ((data ?? []) as CheckinEventRow[]).map((event) => {
-    const tickets = event.tickets ?? [];
-    const checkedIn = tickets.filter((t) => t.ticket_checkins.length > 0).length;
-    return {
-      eventId: event.id,
-      eventName: event.title,
-      totalAttendees: event.attendee_count,
-      totalTickets: tickets.length,
-      checkedIn,
-    };
-  });
+  return ((data ?? []) as EventWithReservations[])
+    .map((event) => {
+      const reservations = event.reservations ?? [];
+      const checkedIn = reservations.filter((r) => r.status === "checkedIn").length;
+      return {
+        eventId: event.id,
+        eventName: event.title,
+        totalReservations: reservations.length,
+        checkedIn,
+      };
+    })
+    .filter((e) => e.totalReservations > 0);
 }

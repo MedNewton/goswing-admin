@@ -18,6 +18,8 @@ export function mapEvent(row: EventQueryRow): Event {
   return {
     id: row.id,
     title: row.title,
+    description: row.description ?? undefined,
+    category: row.category ?? undefined,
     image: row.hero_image_url ?? "/placeholder-event.png",
     date: formatDate(row.starts_at),
     startsAt: row.starts_at,

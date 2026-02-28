@@ -5,7 +5,7 @@ import { formatDate, formatMoney } from "@/lib/utils/format";
 /** Shape returned by a typical orders query with joins. */
 export interface OrderQueryRow extends ReservationRow {
   events?: Pick<EventRow, "title"> | null;
-  reservation_items?: Pick<ReservationItemRow, "ticket_type_name_snapshot" | "quantity">[];
+  reservation_items?: Pick<ReservationItemRow, "ticket_type_name_snapshot" | "quantity" | "unit_price_cents" | "line_total_cents">[];
 }
 
 /** Map a single reservation row to the UI Order view model. */
@@ -23,12 +23,14 @@ export function mapOrder(row: OrderQueryRow): Order {
     .filter(Boolean)
     .join(" ") || "Guest";
 
+  const customerEmail = row.billing_email ?? undefined;
+
   return {
     id: row.id,
     eventId: row.event_id,
     eventName: row.events?.title ?? "Unknown Event",
     customerName,
-    customerEmail: row.billing_email ?? undefined,
+    customerEmail,
     offerType,
     amount: row.total_amount_cents,
     amountFormatted: formatMoney(row.total_amount_cents, row.currency),
@@ -49,6 +51,7 @@ function normalizeOrderStatus(
 ): Order["status"] {
   const lower = s.toLowerCase();
   if (lower === "confirmed") return "confirmed";
+  if (lower === "checkedin") return "checkedIn";
   if (lower === "pending") return "pending";
   if (lower === "cancelled" || lower === "canceled") return "cancelled";
   if (lower === "expired") return "expired";

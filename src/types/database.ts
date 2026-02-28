@@ -231,6 +231,7 @@ export interface VenueRow {
   lng: number | null;
   timezone: string | null;
   venue_type: string | null;
+  created_by_user_id: string | null;
   created_at: Timestamp;
 }
 export interface VenueInsert {
@@ -243,6 +244,7 @@ export interface VenueInsert {
   lng?: number | null;
   timezone?: string | null;
   venue_type?: string | null;
+  created_by_user_id?: string | null;
 }
 export interface VenueUpdate {
   name?: string;
@@ -263,6 +265,8 @@ export interface EventRow {
   id: string;
   external_id: string | null;
   title: string;
+  description: string | null;
+  category: string | null;
   organizer_id: string;
   venue_id: string | null;
   hero_image_url: string | null;
@@ -281,6 +285,9 @@ export interface EventInsert {
   title: string;
   organizer_id: string;
   starts_at: Timestamp;
+  description?: string | null;
+  category?: string | null;
+  external_id?: string | null;
   venue_id?: string | null;
   hero_image_url?: string | null;
   ends_at?: Timestamp | null;
@@ -292,6 +299,8 @@ export interface EventInsert {
 }
 export interface EventUpdate {
   title?: string;
+  description?: string | null;
+  category?: string | null;
   organizer_id?: string;
   venue_id?: string | null;
   hero_image_url?: string | null;

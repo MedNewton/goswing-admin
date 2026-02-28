@@ -3,7 +3,6 @@ import { Card } from "@/components/ui/Card";
 import { StatCard } from "@/components/ui/StatCard";
 import { SongListItem } from "@/components/songs/SongListItem";
 import { MusicIcon, ChartIcon } from "@/components/icons";
-import { Button } from "@/components/ui/Button";
 import { getSongSuggestions } from "@/lib/data/music";
 
 export const dynamic = "force-dynamic";
@@ -51,11 +50,6 @@ export default async function MusicPage() {
   return (
     <MainLayout
       title="Music Suggestions"
-      actions={
-        <Button variant="primary" size="sm">
-          Add Playlist
-        </Button>
-      }
     >
       <div className="space-y-6">
         {/* Stats Grid */}
@@ -81,8 +75,9 @@ export default async function MusicPage() {
                   key={song.id}
                   title={song.title}
                   artist={song.artist}
-                  likes={song.likes}
-                  plays={song.plays}
+                  artworkUrl={song.artworkUrl}
+                  deezerLink={song.deezerLink}
+                  eventName={song.eventName}
                 />
               ))}
             </div>

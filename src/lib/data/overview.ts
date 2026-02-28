@@ -15,6 +15,7 @@ export async function getOverview() {
         .select(
           `*, venues ( name, city ), organizers ( name ), event_tags ( tags ( label ) )`,
         )
+        .not("created_by_user_id", "is", null)
         .order("starts_at", { ascending: false }),
       sb
         .from("event_reviews")
@@ -32,7 +33,7 @@ export async function getOverview() {
 
   const events = mapEvents((eventsResult.data ?? []) as EventQueryRow[]);
 
-  // Review stats
+  // Review stats — RLS scopes to user's events via event_reviews_creator_read
   const reviews = (reviewsResult.data ?? []) as Array<{ rating: number | null }>;
   const avgRating =
     reviews.length > 0
@@ -43,10 +44,10 @@ export async function getOverview() {
         ) / 10
       : 0;
 
-  // Ticket count
+  // Ticket count — RLS scopes to user's events via tickets_creator_read
   const totalTickets = ticketsResult.count ?? 0;
 
-  // Revenue
+  // Revenue — RLS scopes to user's events via payments_creator_read
   const payments = (paymentsResult.data ?? []) as Array<{ amount_cents: number; currency: string }>;
   const totalRevenueCents = payments.reduce(
     (sum, p) => sum + (p.amount_cents ?? 0),

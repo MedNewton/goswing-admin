@@ -24,6 +24,7 @@ const baseEnv = createEnv({
     NEXT_PUBLIC_SUPABASE_DATABASE_URL: z.string().url().optional(),
     NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1).optional(),
     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z.string().min(1).optional(),
+    NEXT_PUBLIC_GOOGLE_PLACES_API_KEY: z.string().min(1).optional(),
   },
 
   /**
@@ -43,6 +44,8 @@ const baseEnv = createEnv({
     NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:
       process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+    NEXT_PUBLIC_GOOGLE_PLACES_API_KEY:
+      process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY,
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially

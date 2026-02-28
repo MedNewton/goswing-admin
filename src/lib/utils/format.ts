@@ -116,6 +116,7 @@ const STATUS_MAP: Record<string, BadgeVariant> = {
   cancelled: "error",
   // reservations / tickets
   confirmed: "success",
+  checkedin: "info",
   pending: "warning",
   expired: "error",
   refunded: "info",

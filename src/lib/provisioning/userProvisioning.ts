@@ -29,7 +29,11 @@ function normalizeOrganizerName(displayName: string, userId: string) {
   return `${displayName} Organizer ${userId.slice(-6)}`;
 }
 
-export async function provisionUser(input: ProvisionUserInput) {
+export interface ProvisionUserResult {
+  needsOnboarding: boolean;
+}
+
+export async function provisionUser(input: ProvisionUserInput): Promise<ProvisionUserResult> {
   const supabase = createSupabaseAdminClient();
 
   const displayName = normalizeDisplayName(input);
@@ -52,7 +56,7 @@ export async function provisionUser(input: ProvisionUserInput) {
 
   const { data: existingOrganizers, error: selectOrganizerError } = await supabase
     .from("organizers")
-    .select("id")
+    .select("id, city")
     .eq("owner_user_id", input.userId)
     .order("created_at", { ascending: true })
     .limit(1);
@@ -64,7 +68,8 @@ export async function provisionUser(input: ProvisionUserInput) {
   }
 
   if (existingOrganizers && existingOrganizers.length > 0) {
-    return;
+    const organizer = existingOrganizers[0] as { id: string; city: string | null };
+    return { needsOnboarding: !organizer.city };
   }
 
   const organizerName = normalizeOrganizerName(displayName, input.userId);
@@ -74,7 +79,7 @@ export async function provisionUser(input: ProvisionUserInput) {
   });
 
   if (!insertOrganizerError) {
-    return;
+    return { needsOnboarding: true };
   }
 
   // Retry once with a stronger unique suffix when the generated name collides.
@@ -86,7 +91,7 @@ export async function provisionUser(input: ProvisionUserInput) {
     });
 
     if (!retryInsertError) {
-      return;
+      return { needsOnboarding: true };
     }
 
     throw new Error(

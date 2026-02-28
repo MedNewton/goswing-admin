@@ -15,7 +15,7 @@ export async function getOrders(filters?: {
     .select(`
       *,
       events ( title ),
-      reservation_items ( ticket_type_name_snapshot, quantity )
+      reservation_items ( ticket_type_name_snapshot, quantity, unit_price_cents, line_total_cents )
     `)
     .order("ordered_at", { ascending: false });
 

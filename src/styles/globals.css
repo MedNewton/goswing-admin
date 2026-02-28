@@ -1,5 +1,128 @@
 @import "tailwindcss";
 
+/* FullCalendar custom styles */
+.event-calendar .fc {
+  --fc-border-color: #e5e7eb;
+  --fc-button-bg-color: #fff;
+  --fc-button-border-color: #d1d5db;
+  --fc-button-text-color: #374151;
+  --fc-button-hover-bg-color: #f3f4f6;
+  --fc-button-hover-border-color: #9ca3af;
+  --fc-button-active-bg-color: #111827;
+  --fc-button-active-border-color: #111827;
+  --fc-button-active-text-color: #fff;
+  --fc-today-bg-color: #f9fafb;
+  --fc-event-border-color: transparent;
+  font-size: 0.875rem;
+}
+
+.event-calendar .fc .fc-toolbar-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.event-calendar .fc .fc-button {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.5rem;
+  box-shadow: none !important;
+  transition: all 0.15s ease;
+}
+
+.event-calendar .fc .fc-button:focus {
+  box-shadow: none !important;
+}
+
+.event-calendar .fc .fc-button-group > .fc-button {
+  border-radius: 0;
+}
+
+.event-calendar .fc .fc-button-group > .fc-button:first-child {
+  border-top-left-radius: 0.5rem;
+  border-bottom-left-radius: 0.5rem;
+}
+
+.event-calendar .fc .fc-button-group > .fc-button:last-child {
+  border-top-right-radius: 0.5rem;
+  border-bottom-right-radius: 0.5rem;
+}
+
+.event-calendar .fc .fc-col-header-cell {
+  padding: 0.5rem 0;
+  font-weight: 600;
+  color: #6b7280;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.event-calendar .fc .fc-daygrid-day-number {
+  padding: 0.5rem;
+  font-size: 0.875rem;
+  color: #374151;
+}
+
+.event-calendar .fc .fc-daygrid-day.fc-day-today .fc-daygrid-day-number {
+  background-color: #111827;
+  color: #fff;
+  border-radius: 9999px;
+  width: 1.75rem;
+  height: 1.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.event-calendar .fc .fc-event {
+  border-radius: 0.375rem;
+  border-width: 1px;
+  border-left-width: 3px;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.event-calendar .fc .fc-event:hover {
+  opacity: 0.85;
+}
+
+.event-calendar .fc .fc-daygrid-event {
+  margin: 1px 2px;
+}
+
+.event-calendar .fc .fc-more-link {
+  color: #6b7280;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.event-calendar .fc .fc-more-link:hover {
+  color: #111827;
+}
+
+.event-calendar .fc .fc-timegrid-slot {
+  height: 3rem;
+}
+
+.event-calendar .fc .fc-timegrid-slot-label {
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
+.event-calendar .fc .fc-popover {
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
+}
+
+.event-calendar .fc .fc-popover-header {
+  background-color: #f9fafb;
+  padding: 0.5rem 0.75rem;
+  font-weight: 600;
+  font-size: 0.8125rem;
+}
+
 html,
 body {
   padding: 0;

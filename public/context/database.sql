@@ -1,0 +1,428 @@
+-- WARNING: This schema is for context only and is not meant to be run.
+-- Table order and constraints may not be valid for execution.
+
+CREATE TABLE public.event_attendance (
+  event_id uuid NOT NULL,
+  user_id text NOT NULL DEFAULT requesting_user_id(),
+  status text NOT NULL DEFAULT 'going'::text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT event_attendance_pkey PRIMARY KEY (event_id, user_id),
+  CONSTRAINT event_attendance_event_id_fkey FOREIGN KEY (event_id) REFERENCES public.events(id)
+);
+CREATE TABLE public.event_favorites (
+  user_id text NOT NULL DEFAULT requesting_user_id(),
+  event_id uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT event_favorites_pkey PRIMARY KEY (user_id, event_id),
+  CONSTRAINT event_favorites_event_id_fkey FOREIGN KEY (event_id) REFERENCES public.events(id)
+);
+CREATE TABLE public.event_reviews (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  event_id uuid NOT NULL,
+  reservation_id uuid,
+  clerk_user_id text NOT NULL DEFAULT (auth.jwt() ->> 'sub'::text),
+  rating integer NOT NULL CHECK (rating >= 1 AND rating <= 5),
+  comment text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT event_reviews_pkey PRIMARY KEY (id),
+  CONSTRAINT event_reviews_event_id_fkey FOREIGN KEY (event_id) REFERENCES public.events(id),
+  CONSTRAINT event_reviews_reservation_id_fkey FOREIGN KEY (reservation_id) REFERENCES public.reservations(id),
+  CONSTRAINT event_reviews_clerk_user_id_fkey FOREIGN KEY (clerk_user_id) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.event_song_suggestions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  event_id uuid NOT NULL,
+  clerk_user_id text NOT NULL DEFAULT (auth.jwt() ->> 'sub'::text),
+  reservation_id uuid,
+  deezer_track_id text NOT NULL,
+  track_title text NOT NULL,
+  artist_name text NOT NULL,
+  deezer_artist_id text,
+  deezer_album_id text,
+  album_title text,
+  artwork_url text,
+  deezer_link text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT event_song_suggestions_pkey PRIMARY KEY (id),
+  CONSTRAINT event_song_suggestions_event_id_fkey FOREIGN KEY (event_id) REFERENCES public.events(id)
+);
+CREATE TABLE public.event_stories (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id text NOT NULL DEFAULT requesting_user_id(),
+  event_id uuid NOT NULL,
+  photo_url text NOT NULL,
+  caption text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  expires_at timestamp with time zone NOT NULL DEFAULT (now() + '24:00:00'::interval),
+  reservation_id uuid,
+  CONSTRAINT event_stories_pkey PRIMARY KEY (id),
+  CONSTRAINT event_stories_event_id_fkey FOREIGN KEY (event_id) REFERENCES public.events(id),
+  CONSTRAINT event_stories_reservation_id_fkey FOREIGN KEY (reservation_id) REFERENCES public.reservations(id)
+);
+CREATE TABLE public.event_tags (
+  event_id uuid NOT NULL,
+  tag_id uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT event_tags_pkey PRIMARY KEY (event_id, tag_id),
+  CONSTRAINT event_tags_event_id_fkey FOREIGN KEY (event_id) REFERENCES public.events(id),
+  CONSTRAINT event_tags_tag_id_fkey FOREIGN KEY (tag_id) REFERENCES public.tags(id)
+);
+CREATE TABLE public.events (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  external_id text UNIQUE,
+  title text NOT NULL,
+  organizer_id uuid NOT NULL,
+  venue_id uuid,
+  hero_image_url text,
+  starts_at timestamp with time zone NOT NULL,
+  ends_at timestamp with time zone,
+  status text NOT NULL DEFAULT 'published'::text,
+  currency character NOT NULL DEFAULT 'USD'::bpchar,
+  min_price_cents integer,
+  is_free boolean NOT NULL DEFAULT false,
+  attendee_count integer NOT NULL DEFAULT 0,
+  created_by_user_id text DEFAULT requesting_user_id(),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  odoo_model text,
+  odoo_id bigint,
+  last_synced_at timestamp with time zone,
+  sync_state text,
+  last_sync_error text,
+  description text,
+  category text,
+  CONSTRAINT events_pkey PRIMARY KEY (id),
+  CONSTRAINT events_organizer_id_fkey FOREIGN KEY (organizer_id) REFERENCES public.organizers(id),
+  CONSTRAINT events_venue_id_fkey FOREIGN KEY (venue_id) REFERENCES public.venues(id)
+);
+CREATE TABLE public.login_history (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id text NOT NULL,
+  logged_in_at timestamp with time zone NOT NULL DEFAULT now(),
+  ip_address inet,
+  user_agent text,
+  device_type text,
+  location text,
+  session_id text,
+  was_successful boolean NOT NULL DEFAULT true,
+  failure_reason text,
+  CONSTRAINT login_history_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.notification_preferences (
+  user_id text NOT NULL DEFAULT requesting_user_id(),
+  push_enabled boolean NOT NULL DEFAULT true,
+  push_event_reminders boolean NOT NULL DEFAULT true,
+  push_event_updates boolean NOT NULL DEFAULT true,
+  push_new_followers boolean NOT NULL DEFAULT true,
+  push_event_recommendations boolean NOT NULL DEFAULT true,
+  email_enabled boolean NOT NULL DEFAULT true,
+  email_weekly_digest boolean NOT NULL DEFAULT true,
+  email_event_invites boolean NOT NULL DEFAULT true,
+  email_promotions boolean NOT NULL DEFAULT false,
+  email_newsletter boolean NOT NULL DEFAULT false,
+  sms_enabled boolean NOT NULL DEFAULT false,
+  sms_urgent_updates boolean NOT NULL DEFAULT false,
+  sms_event_cancellations boolean NOT NULL DEFAULT true,
+  personalized_ads boolean NOT NULL DEFAULT true,
+  location_based_suggestions boolean NOT NULL DEFAULT true,
+  quiet_hours_enabled boolean NOT NULL DEFAULT false,
+  quiet_hours_start time without time zone,
+  quiet_hours_end time without time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT notification_preferences_pkey PRIMARY KEY (user_id)
+);
+CREATE TABLE public.organizer_follows (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id text NOT NULL DEFAULT (auth.jwt() ->> 'sub'::text),
+  organizer_id uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT organizer_follows_pkey PRIMARY KEY (id),
+  CONSTRAINT organizer_follows_organizer_id_fkey FOREIGN KEY (organizer_id) REFERENCES public.organizers(id)
+);
+CREATE TABLE public.organizer_gallery (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  organizer_id uuid NOT NULL,
+  image_url text NOT NULL,
+  caption text,
+  sort_order integer DEFAULT 0,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT organizer_gallery_pkey PRIMARY KEY (id),
+  CONSTRAINT organizer_gallery_organizer_id_fkey FOREIGN KEY (organizer_id) REFERENCES public.organizers(id)
+);
+CREATE TABLE public.organizers (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name text NOT NULL UNIQUE,
+  owner_user_id text DEFAULT requesting_user_id(),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  odoo_model text,
+  odoo_id bigint,
+  last_synced_at timestamp with time zone,
+  sync_state text,
+  last_sync_error text,
+  tagline text,
+  about text,
+  logo_url text,
+  cover_image_url text,
+  established_year integer,
+  is_verified boolean DEFAULT false,
+  city text,
+  country_code text,
+  phone text,
+  email text,
+  website_url text,
+  instagram_handle text,
+  facebook_handle text,
+  specialties ARRAY,
+  cancellation_policy text,
+  refund_policy text,
+  response_time_hours numeric,
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT organizers_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.payments (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  reservation_id uuid NOT NULL,
+  provider text NOT NULL,
+  provider_intent_id text NOT NULL,
+  status text NOT NULL,
+  amount_cents integer NOT NULL,
+  currency character NOT NULL,
+  payment_method_type text,
+  failure_code text,
+  failure_message text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT payments_pkey PRIMARY KEY (id),
+  CONSTRAINT payments_reservation_id_fkey FOREIGN KEY (reservation_id) REFERENCES public.reservations(id)
+);
+CREATE TABLE public.profiles (
+  user_id text NOT NULL DEFAULT requesting_user_id(),
+  display_name text,
+  initials text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  avatar_url text,
+  email text,
+  phone_number text,
+  phone_verified boolean NOT NULL DEFAULT false,
+  location text,
+  profile_visibility text NOT NULL DEFAULT 'public'::text CHECK (profile_visibility = ANY (ARRAY['public'::text, 'private'::text])),
+  account_status text NOT NULL DEFAULT 'active'::text CHECK (account_status = ANY (ARRAY['active'::text, 'deactivated'::text, 'deleted'::text])),
+  deactivated_at timestamp with time zone,
+  deleted_at timestamp with time zone,
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT profiles_pkey PRIMARY KEY (user_id)
+);
+CREATE TABLE public.reservation_items (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  reservation_id uuid NOT NULL,
+  ticket_type_id uuid NOT NULL,
+  quantity integer NOT NULL CHECK (quantity >= 0),
+  unit_price_cents integer NOT NULL,
+  currency character NOT NULL,
+  line_total_cents integer NOT NULL,
+  ticket_type_name_snapshot text NOT NULL,
+  benefits_snapshot jsonb NOT NULL DEFAULT '[]'::jsonb,
+  is_removed boolean NOT NULL DEFAULT false,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  odoo_model text,
+  odoo_id bigint,
+  last_synced_at timestamp with time zone,
+  sync_state text,
+  last_sync_error text,
+  CONSTRAINT reservation_items_pkey PRIMARY KEY (id),
+  CONSTRAINT reservation_items_reservation_id_fkey FOREIGN KEY (reservation_id) REFERENCES public.reservations(id),
+  CONSTRAINT reservation_items_ticket_type_id_fkey FOREIGN KEY (ticket_type_id) REFERENCES public.ticket_types(id)
+);
+CREATE TABLE public.reservations (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id text NOT NULL DEFAULT requesting_user_id(),
+  event_id uuid NOT NULL,
+  status text NOT NULL DEFAULT 'draft'::text,
+  ordered_at timestamp with time zone NOT NULL DEFAULT now(),
+  expires_at timestamp with time zone,
+  price_locked_at timestamp with time zone,
+  currency character NOT NULL,
+  subtotal_cents integer NOT NULL DEFAULT 0,
+  service_fees_cents integer NOT NULL DEFAULT 0,
+  tax_cents integer NOT NULL DEFAULT 0,
+  discount_cents integer NOT NULL DEFAULT 0,
+  savings_cents integer NOT NULL DEFAULT 0,
+  total_amount_cents integer NOT NULL DEFAULT 0,
+  terms_accepted_at timestamp with time zone,
+  terms_accepted_ip inet,
+  billing_email text,
+  billing_first_name text,
+  billing_last_name text,
+  billing_zip text,
+  billing_country character,
+  payment_provider text,
+  payment_ref text,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  odoo_model text,
+  odoo_id bigint,
+  last_synced_at timestamp with time zone,
+  sync_state text,
+  last_sync_error text,
+  CONSTRAINT reservations_pkey PRIMARY KEY (id),
+  CONSTRAINT reservations_event_id_fkey FOREIGN KEY (event_id) REFERENCES public.events(id)
+);
+CREATE TABLE public.tags (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  type text NOT NULL,
+  slug text NOT NULL,
+  label text NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT tags_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.ticket_attendees (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  ticket_id uuid NOT NULL UNIQUE,
+  first_name text NOT NULL,
+  last_name text NOT NULL,
+  email text NOT NULL,
+  phone text,
+  dietary_restrictions text,
+  emergency_contact_name text,
+  emergency_contact_phone text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT ticket_attendees_pkey PRIMARY KEY (id),
+  CONSTRAINT ticket_attendees_ticket_id_fkey FOREIGN KEY (ticket_id) REFERENCES public.tickets(id)
+);
+CREATE TABLE public.ticket_checkins (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  ticket_id uuid NOT NULL,
+  scanned_at timestamp with time zone NOT NULL DEFAULT now(),
+  scanner_user_id text,
+  location text,
+  result text NOT NULL DEFAULT 'accepted'::text,
+  reason text,
+  CONSTRAINT ticket_checkins_pkey PRIMARY KEY (id),
+  CONSTRAINT ticket_checkins_ticket_id_fkey FOREIGN KEY (ticket_id) REFERENCES public.tickets(id)
+);
+CREATE TABLE public.ticket_holders (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  reservation_id uuid NOT NULL,
+  ticket_id uuid NOT NULL,
+  first_name text NOT NULL,
+  last_name text NOT NULL,
+  email text NOT NULL,
+  phone_number text,
+  dietary_restrictions text,
+  emergency_contact text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT ticket_holders_pkey PRIMARY KEY (id),
+  CONSTRAINT ticket_holders_reservation_id_fkey FOREIGN KEY (reservation_id) REFERENCES public.reservations(id),
+  CONSTRAINT ticket_holders_ticket_id_fkey FOREIGN KEY (ticket_id) REFERENCES public.tickets(id)
+);
+CREATE TABLE public.ticket_types (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  event_id uuid NOT NULL,
+  name text NOT NULL,
+  description text,
+  price_cents integer NOT NULL,
+  currency character NOT NULL,
+  benefits jsonb NOT NULL DEFAULT '[]'::jsonb,
+  capacity integer,
+  sales_start_at timestamp with time zone,
+  sales_end_at timestamp with time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  odoo_model text,
+  odoo_id bigint,
+  last_synced_at timestamp with time zone,
+  sync_state text,
+  last_sync_error text,
+  CONSTRAINT ticket_types_pkey PRIMARY KEY (id),
+  CONSTRAINT ticket_types_event_id_fkey FOREIGN KEY (event_id) REFERENCES public.events(id)
+);
+CREATE TABLE public.tickets (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  reservation_id uuid NOT NULL,
+  reservation_item_id uuid NOT NULL,
+  event_id uuid NOT NULL,
+  ticket_type_id uuid NOT NULL,
+  ticket_no integer NOT NULL,
+  status text NOT NULL DEFAULT 'draft'::text,
+  issued_at timestamp with time zone,
+  price_cents integer NOT NULL,
+  currency character NOT NULL,
+  ticket_code text UNIQUE,
+  qr_secret_hash text,
+  qr_payload_version integer NOT NULL DEFAULT 1,
+  ticket_type_name_snapshot text NOT NULL,
+  benefits_snapshot jsonb NOT NULL DEFAULT '[]'::jsonb,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT tickets_pkey PRIMARY KEY (id),
+  CONSTRAINT tickets_reservation_id_fkey FOREIGN KEY (reservation_id) REFERENCES public.reservations(id),
+  CONSTRAINT tickets_reservation_item_id_fkey FOREIGN KEY (reservation_item_id) REFERENCES public.reservation_items(id),
+  CONSTRAINT tickets_event_id_fkey FOREIGN KEY (event_id) REFERENCES public.events(id),
+  CONSTRAINT tickets_ticket_type_id_fkey FOREIGN KEY (ticket_type_id) REFERENCES public.ticket_types(id)
+);
+CREATE TABLE public.user_interests (
+  user_id text NOT NULL DEFAULT requesting_user_id(),
+  tag_id uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT user_interests_pkey PRIMARY KEY (user_id, tag_id),
+  CONSTRAINT user_interests_tag_id_fkey FOREIGN KEY (tag_id) REFERENCES public.tags(id)
+);
+CREATE TABLE public.user_payment_methods (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id text NOT NULL DEFAULT requesting_user_id(),
+  provider text NOT NULL DEFAULT 'stripe'::text,
+  provider_payment_method_id text NOT NULL,
+  card_brand text,
+  card_last_four text,
+  card_exp_month integer,
+  card_exp_year integer,
+  cardholder_name text,
+  is_default boolean NOT NULL DEFAULT false,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT user_payment_methods_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.user_settings (
+  user_id text NOT NULL DEFAULT requesting_user_id(),
+  push_notifications_enabled boolean NOT NULL DEFAULT true,
+  location_services_enabled boolean NOT NULL DEFAULT false,
+  login_notifications_enabled boolean NOT NULL DEFAULT false,
+  save_payment_info boolean NOT NULL DEFAULT true,
+  auto_reload_wallet boolean NOT NULL DEFAULT false,
+  email_receipts boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT user_settings_pkey PRIMARY KEY (user_id)
+);
+CREATE TABLE public.venues (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  address_line1 text,
+  city text,
+  region text,
+  country_code character,
+  lat numeric,
+  lng numeric,
+  timezone text,
+  venue_type text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  odoo_model text,
+  odoo_id bigint,
+  last_synced_at timestamp with time zone,
+  sync_state text,
+  last_sync_error text,
+  created_by_user_id text DEFAULT requesting_user_id(),
+  CONSTRAINT venues_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.wallet_passes (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  ticket_id uuid NOT NULL UNIQUE,
+  provider text NOT NULL,
+  pass_url text NOT NULL,
+  issued_at timestamp with time zone NOT NULL DEFAULT now(),
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  CONSTRAINT wallet_passes_pkey PRIMARY KEY (id),
+  CONSTRAINT wallet_passes_ticket_id_fkey FOREIGN KEY (ticket_id) REFERENCES public.tickets(id)
+);

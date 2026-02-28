@@ -12,11 +12,14 @@ import {
   ChartIcon,
   EyeIcon,
   DollarIcon,
+  MapPinIcon,
+  BuildingIcon,
 } from "@/components/icons";
 
 const navigation = [
   { name: "Overview", href: "/", icon: HomeIcon },
   { name: "Events", href: "/events", icon: CalendarIcon },
+  { name: "Venues", href: "/venues", icon: MapPinIcon },
   { name: "Orders", href: "/orders", icon: ShoppingBagIcon },
   { name: "Attendees", href: "/attendees", icon: UsersIcon },
   { name: "Reviews", href: "/reviews", icon: StarIcon },
@@ -42,7 +45,7 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex h-[calc(100vh-4rem)] flex-col p-2">
-        <div className="space-y-1">
+        <div className="flex-1 space-y-1">
           {navigation.map((item) => {
             const isActive = pathname === item.href;
             const Icon = item.icon;
@@ -65,6 +68,29 @@ export function Sidebar() {
               </Link>
             );
           })}
+        </div>
+
+        {/* Bottom section */}
+        <div className="border-t border-gray-100 pt-2 pb-2">
+          {(() => {
+            const isActive = pathname === "/settings";
+            return (
+              <Link
+                href="/settings"
+                className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                  isActive
+                    ? "bg-gray-900 text-white"
+                    : "text-gray-900 hover:bg-gray-50"
+                }`}
+                title="Organizer Profile"
+              >
+                <BuildingIcon className={`h-5 w-5 flex-shrink-0 ${isActive ? "invert" : ""}`} />
+                <span className={`whitespace-nowrap opacity-0 transition-opacity duration-300 group-hover:opacity-100 ${isActive ? 'text-white' : "text-black"}`}>
+                  Organizer Profile
+                </span>
+              </Link>
+            );
+          })()}
         </div>
       </nav>
     </aside>

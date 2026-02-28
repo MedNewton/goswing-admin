@@ -42,6 +42,22 @@ export interface Event {
 }
 
 // ---------------------------------------------------------------------------
+// Venues
+// ---------------------------------------------------------------------------
+export interface Venue {
+  id: string;
+  name: string;
+  address: string | null;
+  city: string | null;
+  region: string | null;
+  countryCode: string | null;
+  lat: number | null;
+  lng: number | null;
+  venueType: string | null;
+  createdAt: string;
+}
+
+// ---------------------------------------------------------------------------
 // Attendees
 // ---------------------------------------------------------------------------
 export interface Attendee {
@@ -68,7 +84,7 @@ export interface Order {
   amount: number;           // total in cents
   amountFormatted?: string; // e.g. "$45.00"
   currency?: string;
-  status: "confirmed" | "pending" | "cancelled" | "draft" | "expired" | "refunded";
+  status: "confirmed" | "pending" | "cancelled" | "draft" | "expired" | "refunded" | "checkedIn";
   date: string;             // formatted ordered_at
   orderedAt?: string;       // ISO
   itemCount?: number;
