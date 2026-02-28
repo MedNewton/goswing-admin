@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { createEvent, getOrganizerForCurrentUser, getTags } from "@/lib/data/events";
+import { insertInto, updateTable } from "@/lib/supabase/mutations";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import type { EventUpdate } from "@/types/database";
@@ -265,10 +266,7 @@ export async function updateEventAction(
     };
 
     // Update the event
-    const { error: eventError } = await sb
-      .from("events")
-      .update(eventUpdates)
-      .eq("id", eventId);
+    const { error: eventError } = await updateTable(sb, "events", eventUpdates).eq("id", eventId);
 
     if (eventError) throw eventError;
 
@@ -281,18 +279,18 @@ export async function updateEventAction(
     if (deleteTicketsError) throw deleteTicketsError;
 
     if (data.ticketTiers.length > 0) {
-      const { error: insertTicketsError } = await sb
-        .from("ticket_types")
-        .insert(
-          data.ticketTiers.map((tier) => ({
-            event_id: eventId,
-            name: tier.name,
-            price_cents: Math.round(tier.price * 100),
-            currency: data.currency,
-            description: emptyStringToNull(tier.description),
-            capacity: typeof tier.capacity === "number" ? tier.capacity : null,
-          }))
-        );
+      const { error: insertTicketsError } = await insertInto(
+        sb,
+        "ticket_types",
+        data.ticketTiers.map((tier) => ({
+          event_id: eventId,
+          name: tier.name,
+          price_cents: Math.round(tier.price * 100),
+          currency: data.currency,
+          description: emptyStringToNull(tier.description),
+          capacity: typeof tier.capacity === "number" ? tier.capacity : null,
+        }))
+      );
 
       if (insertTicketsError) throw insertTicketsError;
     }
@@ -306,9 +304,11 @@ export async function updateEventAction(
     if (deleteTagsError) throw deleteTagsError;
 
     if (data.tagIds && data.tagIds.length > 0) {
-      const { error: insertTagsError } = await sb
-        .from("event_tags")
-        .insert(data.tagIds.map((tag_id) => ({ event_id: eventId, tag_id })));
+      const { error: insertTagsError } = await insertInto(
+        sb,
+        "event_tags",
+        data.tagIds.map((tag_id) => ({ event_id: eventId, tag_id }))
+      );
       if (insertTagsError) throw insertTagsError;
     }
 
