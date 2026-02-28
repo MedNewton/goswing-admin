@@ -1,5 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { insertInto, updateTable } from "@/lib/supabase/mutations";
 import { mapEvent, mapEvents, type EventQueryRow } from "@/lib/mappers/events";
 import type { EventInsert, EventUpdate, TicketTypeInsert } from "@/types/database";
 
@@ -146,9 +147,11 @@ export async function createVenue(venue: {
 }) {
   const sb = await createSupabaseServerClient();
 
-  const { data, error } = await sb
-    .from("venues")
-    .insert(venue)
+  const { data, error } = await insertInto(
+    sb,
+    "venues",
+    venue,
+  )
     .select("id")
     .single();
 
@@ -169,9 +172,11 @@ export async function createEvent(
   const sb = await createSupabaseServerClient();
 
   // Insert event
-  const { data: eventData, error: eventError } = await sb
-    .from("events")
-    .insert(event)
+  const { data: eventData, error: eventError } = await insertInto(
+    sb,
+    "events",
+    event,
+  )
     .select("id")
     .single();
 
@@ -180,31 +185,32 @@ export async function createEvent(
 
   // Insert ticket types
   if (ticketTypes.length > 0) {
-    const { error: ttError } = await sb
-      .from("ticket_types")
-      .insert(ticketTypes.map((tt) => ({ ...tt, event_id: eventId })));
+    const { error: ttError } = await insertInto(
+      sb,
+      "ticket_types",
+      ticketTypes.map((tt) => ({ ...tt, event_id: eventId })),
+    );
     if (ttError) throw ttError;
   }
 
   // Insert event tags
   if (tagIds && tagIds.length > 0) {
-    const { error: tagError } = await sb
-      .from("event_tags")
-      .insert(tagIds.map((tag_id) => ({ event_id: eventId, tag_id })));
+    const { error: tagError } = await insertInto(
+      sb,
+      "event_tags",
+      tagIds.map((tag_id) => ({ event_id: eventId, tag_id })),
+    );
     if (tagError) throw tagError;
   }
 
   return eventId;
 }
 
-/** Update an existing event. */
+  /** Update an existing event. */
 export async function updateEvent(id: string, updates: EventUpdate) {
   const sb = await createSupabaseServerClient();
 
-  const { error } = await sb
-    .from("events")
-    .update(updates)
-    .eq("id", id);
+  const { error } = await updateTable(sb, "events", updates).eq("id", id);
 
   if (error) throw error;
 }

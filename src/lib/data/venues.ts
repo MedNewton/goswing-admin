@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { insertInto, updateTable } from "@/lib/supabase/mutations";
 import { mapVenue, mapVenues } from "@/lib/mappers/venues";
 import type { VenueRow, VenueInsert, VenueUpdate } from "@/types/database";
 
@@ -56,9 +57,11 @@ export async function getVenuesForSelect() {
 export async function createVenue(venue: Omit<VenueInsert, "created_by_user_id">) {
   const sb = await createSupabaseServerClient();
 
-  const { data, error } = await sb
-    .from("venues")
-    .insert(venue)
+  const { data, error } = await insertInto(
+    sb,
+    "venues",
+    venue,
+  )
     .select("id")
     .single();
 
@@ -70,10 +73,7 @@ export async function createVenue(venue: Omit<VenueInsert, "created_by_user_id">
 export async function updateVenue(id: string, updates: VenueUpdate) {
   const sb = await createSupabaseServerClient();
 
-  const { error } = await sb
-    .from("venues")
-    .update(updates)
-    .eq("id", id);
+  const { error } = await updateTable(sb, "venues", updates).eq("id", id);
 
   if (error) throw error;
 }

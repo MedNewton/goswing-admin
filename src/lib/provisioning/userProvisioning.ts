@@ -1,4 +1,5 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { insertInto, upsertInto } from "@/lib/supabase/mutations";
 
 export interface ProvisionUserInput {
   userId: string;
@@ -39,7 +40,9 @@ export async function provisionUser(input: ProvisionUserInput): Promise<Provisio
   const displayName = normalizeDisplayName(input);
   const initials = normalizeInitials(displayName);
 
-  const { error: upsertProfileError } = await supabase.from("profiles").upsert(
+  const { error: upsertProfileError } = await upsertInto(
+    supabase,
+    "profiles",
     {
       user_id: input.userId,
       display_name: displayName,
@@ -68,12 +71,12 @@ export async function provisionUser(input: ProvisionUserInput): Promise<Provisio
   }
 
   if (existingOrganizers && existingOrganizers.length > 0) {
-    const organizer = existingOrganizers[0] as { id: string; city: string | null };
+    const organizer = existingOrganizers[0] as unknown as { id: string; city: string | null };
     return { needsOnboarding: !organizer.city };
   }
 
   const organizerName = normalizeOrganizerName(displayName, input.userId);
-  const { error: insertOrganizerError } = await supabase.from("organizers").insert({
+  const { error: insertOrganizerError } = await insertInto(supabase, "organizers", {
     owner_user_id: input.userId,
     name: organizerName,
   });
@@ -85,7 +88,7 @@ export async function provisionUser(input: ProvisionUserInput): Promise<Provisio
   // Retry once with a stronger unique suffix when the generated name collides.
   if (insertOrganizerError.code === "23505") {
     const fallbackName = `${organizerName}-${Date.now().toString().slice(-4)}`;
-    const { error: retryInsertError } = await supabase.from("organizers").insert({
+    const { error: retryInsertError } = await insertInto(supabase, "organizers", {
       owner_user_id: input.userId,
       name: fallbackName,
     });
