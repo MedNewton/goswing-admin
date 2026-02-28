@@ -39,6 +39,11 @@ export type OnboardingResult =
   | { success: true }
   | { success: false; error: string };
 
+function emptyStringToNull(value: string | null | undefined) {
+  if (value) return value;
+  return null;
+}
+
 export async function completeOnboardingAction(
   input: OnboardingInput,
 ): Promise<OnboardingResult> {
@@ -80,21 +85,21 @@ export async function completeOnboardingAction(
     .from("organizers")
     .update({
       name: data.name,
-      tagline: data.tagline || null,
-      about: data.about || null,
+      tagline: emptyStringToNull(data.tagline),
+      about: emptyStringToNull(data.about),
       city: data.city,
       country_code: data.country_code,
       email: data.email,
-      phone: data.phone || null,
-      website_url: data.website_url || null,
-      instagram_handle: data.instagram_handle || null,
-      facebook_handle: data.facebook_handle || null,
-      logo_url: data.logo_url || null,
-      cover_image_url: data.cover_image_url || null,
+      phone: emptyStringToNull(data.phone),
+      website_url: emptyStringToNull(data.website_url),
+      instagram_handle: emptyStringToNull(data.instagram_handle),
+      facebook_handle: emptyStringToNull(data.facebook_handle),
+      logo_url: emptyStringToNull(data.logo_url),
+      cover_image_url: emptyStringToNull(data.cover_image_url),
       established_year: data.established_year ?? null,
       specialties: specialtiesArray,
-      cancellation_policy: data.cancellation_policy || null,
-      refund_policy: data.refund_policy || null,
+      cancellation_policy: emptyStringToNull(data.cancellation_policy),
+      refund_policy: emptyStringToNull(data.refund_policy),
       response_time_hours: data.response_time_hours ?? null,
     })
     .eq("id", (organizer as { id: string }).id);

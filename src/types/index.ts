@@ -158,6 +158,7 @@ export interface Transaction {
   netFormatted: string;
   currency: string;
   date: string;
+  orderedAt?: string;       // ISO timestamp for precise date operations
   status: "completed" | "pending" | "failed";
   provider: string;
 }

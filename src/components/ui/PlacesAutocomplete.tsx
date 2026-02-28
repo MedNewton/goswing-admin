@@ -41,6 +41,14 @@ export function PlacesAutocomplete({
   const [inputValue, setInputValue] = useState(defaultValue);
   const [isLoaded, setIsLoaded] = useState(false);
 
+  const getPreferredPlaceLabel = useCallback(
+    (name: string | undefined, formattedAddress: string | undefined) => {
+      if (name) return name;
+      return formattedAddress ?? "";
+    },
+    []
+  );
+
   const initAutocomplete = useCallback(() => {
     if (!inputRef.current || !window.google?.maps?.places) return;
 
@@ -60,7 +68,7 @@ export function PlacesAutocomplete({
 
     autocompleteRef.current.addListener("place_changed", () => {
       const place = autocompleteRef.current?.getPlace();
-      if (!place || !place.address_components) return;
+      if (!place?.address_components) return;
 
       // Extract address components
       let city: string | null = null;
@@ -83,23 +91,27 @@ export function PlacesAutocomplete({
         }
       }
 
+      const selectedLabel = getPreferredPlaceLabel(
+        place.name,
+        place.formatted_address,
+      );
       const result: PlaceResult = {
-        name: place.name || "",
-        address: streetAddress || place.formatted_address || "",
+        name: place.name ?? "",
+        address: streetAddress ?? place.formatted_address ?? "",
         city,
         region,
         countryCode,
         lat: place.geometry?.location?.lat() ?? null,
         lng: place.geometry?.location?.lng() ?? null,
-        placeId: place.place_id || "",
+        placeId: place.place_id ?? "",
       };
 
-      setInputValue(place.name || place.formatted_address || "");
+      setInputValue(selectedLabel);
       onPlaceSelect(result);
     });
 
     setIsLoaded(true);
-  }, [onPlaceSelect]);
+  }, [getPreferredPlaceLabel, onPlaceSelect]);
 
   useEffect(() => {
     const apiKey = env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY;

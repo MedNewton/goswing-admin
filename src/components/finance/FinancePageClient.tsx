@@ -21,14 +21,15 @@ interface FinancePageClientProps {
 }
 
 function computeDailyRevenue(transactions: Transaction[]): Array<{ label: string; value: number; isToday: boolean }> {
-  // Build a map of date -> revenue from completed transactions
+  // Build a map of date -> revenue from ALL transactions
   const dailyMap: Record<string, number> = {};
   for (const tx of transactions) {
-    if (tx.status !== "completed") continue;
-    const parsed = new Date(tx.date);
+    const iso = tx.orderedAt ?? tx.date;
+    const parsed = new Date(iso);
     if (isNaN(parsed.getTime())) continue;
-    const key = parsed.toISOString().slice(0, 10);
-    dailyMap[key] = (dailyMap[key] ?? 0) + tx.netAmount;
+    // Use local date to avoid timezone shift
+    const key = `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, "0")}-${String(parsed.getDate()).padStart(2, "0")}`;
+    dailyMap[key] = (dailyMap[key] ?? 0) + tx.grossAmount;
   }
 
   // Generate 29 days: -14 ... 0 ... +14
@@ -39,7 +40,7 @@ function computeDailyRevenue(transactions: Transaction[]): Array<{ label: string
   for (let offset = -14; offset <= 14; offset++) {
     const d = new Date(today);
     d.setDate(d.getDate() + offset);
-    const key = d.toISOString().slice(0, 10);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     const dayNum = d.getDate();
     const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     const label = offset === 0 ? "Today" : `${monthNames[d.getMonth()]} ${dayNum}`;

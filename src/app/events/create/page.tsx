@@ -67,7 +67,7 @@ const createEventFormSchema = z.object({
   (data) => {
     // Validate end date/time is at least 30 min after start
     if (data.eventDate && data.startTime && data.endTime) {
-      const endDate = data.endDate || data.eventDate;
+      const endDate = resolveEventEndDate(data.endDate, data.eventDate);
       const startDateTime = new Date(`${data.eventDate}T${data.startTime}`);
       const endDateTime = new Date(`${endDate}T${data.endTime}`);
       const diffMs = endDateTime.getTime() - startDateTime.getTime();
@@ -85,6 +85,16 @@ const createEventFormSchema = z.object({
 );
 
 type CreateEventFormValues = z.infer<typeof createEventFormSchema>;
+
+function resolveEventEndDate(endDate: string | undefined, eventDate: string) {
+  if (endDate) return endDate;
+  return eventDate;
+}
+
+function getNestedValue(value: unknown, key: string) {
+  if (typeof value !== "object" || value === null) return undefined;
+  return (value as Record<string, unknown>)[key];
+}
 
 // ---------------------------------------------------------------------------
 // Page Component
@@ -151,7 +161,6 @@ export default function CreateEventPage() {
 
   const publishEvent = watch("publishEvent");
   const eventDate = watch("eventDate");
-  const startTime = watch("startTime");
 
   // Compute today's date string for min attribute on date inputs
   const todayStr = new Date().toISOString().split("T")[0];
@@ -227,13 +236,14 @@ export default function CreateEventPage() {
   // Helper to get nested field error message
   const fieldError = (path: string): string | undefined => {
     const parts = path.split(".");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let current: any = errors;
+    let current: unknown = errors;
     for (const part of parts) {
-      if (!current) return undefined;
-      current = current[part];
+      current = getNestedValue(current, part);
+      if (current === undefined) return undefined;
     }
-    return current?.message as string | undefined;
+
+    const message = getNestedValue(current, "message");
+    return typeof message === "string" ? message : undefined;
   };
 
   // Build venue options for the select dropdown

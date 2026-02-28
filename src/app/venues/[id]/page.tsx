@@ -37,6 +37,10 @@ const editVenueFormSchema = z.object({
 
 type EditVenueFormValues = z.infer<typeof editVenueFormSchema>;
 
+function hasAnyTruthyValue(values: Array<number | string | null | undefined>) {
+  return values.some(Boolean);
+}
+
 // ---------------------------------------------------------------------------
 // Page Component
 // ---------------------------------------------------------------------------
@@ -83,11 +87,11 @@ export default function VenueDetailPage({
         setVenue(data);
         reset({
           name: data.name,
-          address_line1: data.address || "",
-          city: data.city || "",
-          region: data.region || "",
-          country_code: data.countryCode || "",
-          venue_type: data.venueType || "",
+          address_line1: data.address ?? "",
+          city: data.city ?? "",
+          region: data.region ?? "",
+          country_code: data.countryCode ?? "",
+          venue_type: data.venueType ?? "",
           lat: data.lat ?? undefined,
           lng: data.lng ?? undefined,
         });
@@ -178,11 +182,11 @@ export default function VenueDetailPage({
     if (venue) {
       reset({
         name: venue.name,
-        address_line1: venue.address || "",
-        city: venue.city || "",
-        region: venue.region || "",
-        country_code: venue.countryCode || "",
-        venue_type: venue.venueType || "",
+        address_line1: venue.address ?? "",
+        city: venue.city ?? "",
+        region: venue.region ?? "",
+        country_code: venue.countryCode ?? "",
+        venue_type: venue.venueType ?? "",
         lat: venue.lat ?? undefined,
         lng: venue.lng ?? undefined,
       });
@@ -194,6 +198,7 @@ export default function VenueDetailPage({
   // Build location summary
   const locationParts = [address, city, region, countryCode].filter(Boolean);
   const locationSummary = locationParts.length > 0 ? locationParts.join(", ") : "No location set";
+  const hasCoordinatePreview = hasAnyTruthyValue([lat, lng]);
 
   if (isLoading) {
     return (
@@ -368,7 +373,7 @@ export default function VenueDetailPage({
                   <p className="text-xs font-medium uppercase text-gray-500">Location</p>
                   <p className="mt-1 text-sm text-gray-900">{locationSummary}</p>
                 </div>
-                {(lat || lng) && (
+                {hasCoordinatePreview && (
                   <div>
                     <p className="text-xs font-medium uppercase text-gray-500">Coordinates</p>
                     <p className="mt-1 text-sm text-gray-900">
@@ -467,7 +472,7 @@ export default function VenueDetailPage({
                   label="Search New Location"
                   placeholder="Search for a place or address..."
                   onPlaceSelect={handlePlaceSelect}
-                  defaultValue={venue?.address || ""}
+                  defaultValue={venue?.address ?? ""}
                 />
 
                 {/* Interactive Map */}

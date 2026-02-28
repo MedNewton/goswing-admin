@@ -66,7 +66,7 @@ const createEventSchema = z.object({
   (data) => {
     // Validate end date/time is at least 30 min after start
     if (data.eventDate && data.startTime && data.endTime) {
-      const endDate = data.endDate || data.eventDate;
+      const endDate = resolveEventEndDate(data.endDate, data.eventDate);
       const startDateTime = new Date(`${data.eventDate}T${data.startTime}`);
       const endDateTime = new Date(`${endDate}T${data.endTime}`);
       const diffMs = endDateTime.getTime() - startDateTime.getTime();
@@ -85,6 +85,22 @@ const createEventSchema = z.object({
 
 export type CreateEventInput = z.infer<typeof createEventSchema>;
 
+function emptyStringToNull(value: string | null | undefined) {
+  if (value) return value;
+  return null;
+}
+
+function trimToNull(value: string | null | undefined) {
+  const trimmed = value?.trim();
+  if (trimmed) return trimmed;
+  return null;
+}
+
+function resolveEventEndDate(endDate: string | undefined, eventDate: string) {
+  if (endDate) return endDate;
+  return eventDate;
+}
+
 // ---------------------------------------------------------------------------
 // Server Action
 // ---------------------------------------------------------------------------
@@ -102,7 +118,7 @@ export async function createEventAction(
     const fieldErrors: Record<string, string[]> = {};
     for (const issue of parsed.error.issues) {
       const path = issue.path.join(".");
-      if (!fieldErrors[path]) fieldErrors[path] = [];
+      fieldErrors[path] ??= [];
       fieldErrors[path].push(issue.message);
     }
     return { success: false, error: "Validation failed", fieldErrors };
@@ -115,7 +131,7 @@ export async function createEventAction(
     const organizer = await getOrganizerForCurrentUser();
 
     // Use selected venue ID
-    const venueId = data.venueId && data.venueId.trim() ? data.venueId.trim() : undefined;
+    const venueId = trimToNull(data.venueId) ?? undefined;
 
     // Build starts_at timestamp
     const startsAt = new Date(`${data.eventDate}T${data.startTime}`).toISOString();
@@ -141,14 +157,14 @@ export async function createEventAction(
     const eventId = await createEvent(
       {
         title: data.title,
-        description: data.description || null,
-        category: data.category || null,
+        description: emptyStringToNull(data.description),
+        category: emptyStringToNull(data.category),
         organizer_id: organizer.id,
         external_id: externalId,
         starts_at: startsAt,
         ends_at: endsAt,
         venue_id: venueId,
-        hero_image_url: data.heroImageUrl || null,
+        hero_image_url: emptyStringToNull(data.heroImageUrl),
         status: data.publishEvent ? "published" : "draft",
         currency: data.currency,
         min_price_cents: minPriceCents,
@@ -158,7 +174,7 @@ export async function createEventAction(
         name: tier.name,
         price_cents: Math.round(tier.price * 100),
         currency: data.currency,
-        description: tier.description || null,
+        description: emptyStringToNull(tier.description),
         capacity: typeof tier.capacity === "number" ? tier.capacity : null,
       })),
       data.tagIds,
@@ -209,7 +225,7 @@ export async function updateEventAction(
     const fieldErrors: Record<string, string[]> = {};
     for (const issue of parsed.error.issues) {
       const path = issue.path.join(".");
-      if (!fieldErrors[path]) fieldErrors[path] = [];
+      fieldErrors[path] ??= [];
       fieldErrors[path].push(issue.message);
     }
     return { success: false, error: "Validation failed", fieldErrors };
@@ -220,7 +236,7 @@ export async function updateEventAction(
   try {
     const sb = await createSupabaseServerClient();
 
-    const venueId = data.venueId?.trim() || null;
+    const venueId = trimToNull(data.venueId);
     const startsAt = new Date(`${data.eventDate}T${data.startTime}`).toISOString();
 
     let endsAt: string | null = null;
@@ -239,12 +255,12 @@ export async function updateEventAction(
       .from("events")
       .update({
         title: data.title,
-        description: data.description || null,
-        category: data.category || null,
+        description: emptyStringToNull(data.description),
+        category: emptyStringToNull(data.category),
         starts_at: startsAt,
         ends_at: endsAt,
         venue_id: venueId,
-        hero_image_url: data.heroImageUrl || null,
+        hero_image_url: emptyStringToNull(data.heroImageUrl),
         status: data.publishEvent ? "published" : "draft",
         currency: data.currency,
         min_price_cents: minPriceCents,
@@ -271,7 +287,7 @@ export async function updateEventAction(
             name: tier.name,
             price_cents: Math.round(tier.price * 100),
             currency: data.currency,
-            description: tier.description || null,
+            description: emptyStringToNull(tier.description),
             capacity: typeof tier.capacity === "number" ? tier.capacity : null,
           }))
         );
@@ -329,7 +345,6 @@ export async function deleteEventAction(eventId: string): Promise<DeleteEventRes
 export async function fetchEventForEdit(eventId: string) {
   const sb = await createSupabaseServerClient();
 
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const { data, error } = await sb
     .from("events")
     .select(`

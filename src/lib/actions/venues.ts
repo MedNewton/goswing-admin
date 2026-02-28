@@ -49,6 +49,12 @@ export type DeleteVenueResult =
   | { success: true }
   | { success: false; error: string };
 
+function normalizeOptionalText(value: string | null | undefined) {
+  const trimmed = value?.trim();
+  if (trimmed) return trimmed;
+  return null;
+}
+
 export async function createVenueAction(
   formData: CreateVenueInput
 ): Promise<VenueActionResult> {
@@ -57,7 +63,7 @@ export async function createVenueAction(
     const fieldErrors: Record<string, string[]> = {};
     for (const issue of parsed.error.issues) {
       const path = issue.path.join(".");
-      if (!fieldErrors[path]) fieldErrors[path] = [];
+      fieldErrors[path] ??= [];
       fieldErrors[path].push(issue.message);
     }
     return { success: false, error: "Validation failed", fieldErrors };
@@ -68,11 +74,11 @@ export async function createVenueAction(
   try {
     const venueId = await createVenue({
       name: data.name.trim(),
-      address_line1: data.address_line1?.trim() || null,
-      city: data.city?.trim() || null,
-      region: data.region?.trim() || null,
-      country_code: data.country_code?.trim() || null,
-      venue_type: data.venue_type?.trim() || null,
+      address_line1: normalizeOptionalText(data.address_line1),
+      city: normalizeOptionalText(data.city),
+      region: normalizeOptionalText(data.region),
+      country_code: normalizeOptionalText(data.country_code),
+      venue_type: normalizeOptionalText(data.venue_type),
       lat: data.lat ?? null,
       lng: data.lng ?? null,
     });
@@ -95,7 +101,7 @@ export async function updateVenueAction(
     const fieldErrors: Record<string, string[]> = {};
     for (const issue of parsed.error.issues) {
       const path = issue.path.join(".");
-      if (!fieldErrors[path]) fieldErrors[path] = [];
+      fieldErrors[path] ??= [];
       fieldErrors[path].push(issue.message);
     }
     return { success: false, error: "Validation failed", fieldErrors };
@@ -106,11 +112,11 @@ export async function updateVenueAction(
   try {
     await updateVenue(venueId, {
       name: data.name?.trim(),
-      address_line1: data.address_line1?.trim() || null,
-      city: data.city?.trim() || null,
-      region: data.region?.trim() || null,
-      country_code: data.country_code?.trim() || null,
-      venue_type: data.venue_type?.trim() || null,
+      address_line1: normalizeOptionalText(data.address_line1),
+      city: normalizeOptionalText(data.city),
+      region: normalizeOptionalText(data.region),
+      country_code: normalizeOptionalText(data.country_code),
+      venue_type: normalizeOptionalText(data.venue_type),
       lat: data.lat ?? null,
       lng: data.lng ?? null,
     });

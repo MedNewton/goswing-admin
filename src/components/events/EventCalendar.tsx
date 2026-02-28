@@ -25,16 +25,16 @@ export function EventCalendar({ events }: EventCalendarProps) {
 
   // Convert app events to FullCalendar event objects
   const calendarEvents = events.map((event) => {
-    const colors = statusColors[event.status] ?? statusColors["draft"]!;
+    const colors = statusColors[event.status] ?? statusColors.draft;
 
     return {
       id: event.id,
       title: event.title,
       start: event.startsAt ?? event.date,
       end: event.endsAt ?? undefined,
-      backgroundColor: colors!.bg,
-      borderColor: colors!.border,
-      textColor: colors!.text,
+      backgroundColor: colors.bg,
+      borderColor: colors.border,
+      textColor: colors.text,
       extendedProps: {
         location: event.location,
         status: event.status,

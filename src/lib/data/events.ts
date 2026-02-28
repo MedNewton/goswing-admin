@@ -33,7 +33,6 @@ export async function getEvents() {
 export async function getEvent(id: string) {
   const sb = await createSupabaseServerClient();
 
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const { data, error } = await sb
     .from("events")
     .select(`

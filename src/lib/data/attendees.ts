@@ -1,6 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Attendee } from "@/types";
-import { formatDate, formatMoney } from "@/lib/utils/format";
 
 /**
  * Fetch all attendees — people with reservations in "checkedIn" status
@@ -57,7 +56,10 @@ export async function getAttendees(filters?: { eventId?: string }) {
       [row.billing_first_name, row.billing_last_name].filter(Boolean).join(" ") ||
       "Guest";
 
-    const email = row.billing_email || "—";
+    let email = "—";
+    if (row.billing_email) {
+      email = row.billing_email;
+    }
 
     const items = row.reservation_items ?? [];
     const ticketType =

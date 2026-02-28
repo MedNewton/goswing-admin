@@ -3,6 +3,7 @@ import type { SetAllCookies } from "@supabase/ssr";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { env } from "@/env";
+import type { Database } from "@/types/database";
 
 export async function createSupabaseServerClient() {
   const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL;
@@ -33,7 +34,7 @@ export async function createSupabaseServerClient() {
     }
   };
 
-  return createServerClient(
+  return createServerClient<Database>(
     supabaseUrl,
     supabaseAnonKey,
     {

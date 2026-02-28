@@ -27,6 +27,21 @@ export default async function EventDetailsPage({
   if (!eventData) notFound();
 
   const { event, ticketTypes, organizer, venue } = eventData;
+  const hasOrganizerLocation = organizer
+    ? [organizer.city, organizer.country_code].some(Boolean)
+    : false;
+  const hasOrganizerContact = organizer
+    ? [organizer.email, organizer.phone, organizer.website_url].some(Boolean)
+    : false;
+  const hasOrganizerSocials = organizer
+    ? [organizer.instagram_handle, organizer.facebook_handle].some(Boolean)
+    : false;
+  const hasOrganizerPolicies = organizer
+    ? [organizer.cancellation_policy, organizer.refund_policy].some(Boolean)
+    : false;
+  const hasVenueLocation = venue
+    ? [venue.city, venue.region, venue.country_code].some(Boolean)
+    : false;
 
   return (
     <>
@@ -167,7 +182,7 @@ export default async function EventDetailsPage({
                       {organizer.tagline && (
                         <p className="text-sm text-gray-600">{organizer.tagline}</p>
                       )}
-                      {(organizer.city || organizer.country_code) && (
+                      {hasOrganizerLocation && (
                         <p className="text-sm text-gray-500">
                           {[organizer.city, organizer.country_code].filter(Boolean).join(", ")}
                         </p>
@@ -196,7 +211,7 @@ export default async function EventDetailsPage({
                   )}
 
                   {/* Contact info */}
-                  {(organizer.email || organizer.phone || organizer.website_url) && (
+                  {hasOrganizerContact && (
                     <div className="mt-4 space-y-1">
                       <h3 className="text-sm font-medium text-gray-700">Contact</h3>
                       {organizer.email && (
@@ -216,7 +231,7 @@ export default async function EventDetailsPage({
                   )}
 
                   {/* Social links */}
-                  {(organizer.instagram_handle || organizer.facebook_handle) && (
+                  {hasOrganizerSocials && (
                     <div className="mt-4 flex gap-4">
                       {organizer.instagram_handle && (
                         <a
@@ -242,7 +257,7 @@ export default async function EventDetailsPage({
                   )}
 
                   {/* Policies */}
-                  {(organizer.cancellation_policy || organizer.refund_policy) && (
+                  {hasOrganizerPolicies && (
                     <div className="mt-4 space-y-3 border-t border-gray-100 pt-4">
                       {organizer.cancellation_policy && (
                         <div>
@@ -300,7 +315,7 @@ export default async function EventDetailsPage({
                             </ul>
                           </div>
                         )}
-                        {(ticket.sales_start_at || ticket.sales_end_at) && (
+                        {[ticket.sales_start_at, ticket.sales_end_at].some(Boolean) && (
                           <div className="mt-2 text-xs text-gray-500">
                             {ticket.sales_start_at && (
                               <p>Sales start: {formatDateTime(ticket.sales_start_at)}</p>
@@ -327,7 +342,7 @@ export default async function EventDetailsPage({
                   {venue.address_line1 && (
                     <p className="mt-1 text-sm text-gray-600">{venue.address_line1}</p>
                   )}
-                  {(venue.city || venue.region || venue.country_code) && (
+                  {hasVenueLocation && (
                     <p className="text-sm text-gray-600">
                       {[venue.city, venue.region, venue.country_code].filter(Boolean).join(", ")}
                     </p>

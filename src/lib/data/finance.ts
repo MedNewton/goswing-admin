@@ -46,6 +46,7 @@ function mapReservationToTransaction(row: ReservationFinanceRow): Transaction {
     netFormatted: formatMoney(net, cur),
     currency: cur,
     date: formatDate(row.ordered_at),
+    orderedAt: row.ordered_at,
     status: normalizeFinanceStatus(row.status),
     provider: "stripe",
   };
