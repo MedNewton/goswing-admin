@@ -1,6 +1,7 @@
 "use server";
 
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { updateTable } from "@/lib/supabase/mutations";
 import { revalidatePath } from "next/cache";
 
 export type UpdateReservationStatusResult =
@@ -20,9 +21,7 @@ export async function updateReservationStatusAction(
   try {
     const sb = createSupabaseAdminClient();
 
-    const { data, error } = await sb
-      .from("reservations")
-      .update({ status: newStatus })
+    const { data, error } = await updateTable(sb, "reservations", { status: newStatus })
       .eq("id", reservationId)
       .select("id");
 
