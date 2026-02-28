@@ -21,7 +21,7 @@ export function ReviewCard({
   helpful = 0,
 }: ReviewCardProps) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-6">
+    <div className="rounded-[1.75rem] border border-gray-200 bg-gradient-to-br from-white to-slate-50 p-6 shadow-sm shadow-gray-100">
       <div className="flex items-start justify-between">
         <div className="flex gap-4">
           <Avatar
@@ -34,15 +34,16 @@ export function ReviewCard({
           <div>
             <h4 className="font-semibold text-gray-900">{userName}</h4>
             {eventName && (
-              <p className="text-sm text-gray-500">{eventName}</p>
+              <p className="mt-1 text-sm text-gray-500">{eventName}</p>
             )}
           </div>
         </div>
-        <span className="text-sm text-gray-500">{date}</span>
+        <span className="rounded-full bg-white px-3 py-1 text-sm text-gray-500 shadow-sm">
+          {date}
+        </span>
       </div>
 
-      {/* Star Rating */}
-      <div className="mt-3 flex items-center gap-1">
+      <div className="mt-4 flex items-center gap-1">
         {Array.from({ length: 5 }).map((_, i) => (
           <StarIcon
             key={i}
@@ -53,13 +54,11 @@ export function ReviewCard({
         ))}
       </div>
 
-      {/* Comment */}
-      <p className="mt-3 text-gray-700">{comment}</p>
+      <p className="mt-4 text-sm leading-7 text-gray-700">{comment}</p>
 
-      {/* Helpful count (display only) */}
       {helpful > 0 && (
-        <div className="mt-4 text-sm text-gray-500">
-          👍 {helpful} found this helpful
+        <div className="mt-5 inline-flex items-center rounded-full bg-gray-100 px-3 py-1.5 text-sm text-gray-500">
+          Helpful: {helpful}
         </div>
       )}
     </div>

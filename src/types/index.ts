@@ -29,6 +29,7 @@ export interface Event {
   venue?: string;
   capacity?: number;
   attendeeCount: number;
+  reservationCount?: number;
   status: "published" | "draft" | "completed" | "cancelled";
   category?: string;
   ticketsSold?: number;

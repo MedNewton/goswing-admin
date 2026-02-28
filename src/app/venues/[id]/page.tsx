@@ -1,13 +1,27 @@
 "use client";
 
 import { MainLayout } from "@/components/layout/MainLayout";
+import {
+  BuildingIcon,
+  CalendarIcon,
+  HomeIcon,
+  MapPinIcon,
+  SettingsIcon,
+} from "@/components/icons";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
 import { PlacesAutocomplete } from "@/components/ui/PlacesAutocomplete";
 import { LocationMapPicker } from "@/components/ui/LocationMapPicker";
-import { useState, useEffect, useTransition, use } from "react";
+import {
+  useState,
+  useEffect,
+  useTransition,
+  use,
+  type ComponentType,
+  type SVGProps,
+} from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -39,6 +53,64 @@ type EditVenueFormValues = z.infer<typeof editVenueFormSchema>;
 
 function hasAnyTruthyValue(values: Array<number | string | null | undefined>) {
   return values.some(Boolean);
+}
+
+type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
+
+function SectionHeader({
+  icon: Icon,
+  eyebrow,
+  title,
+  description,
+}: {
+  icon: IconComponent;
+  eyebrow: string;
+  title: string;
+  description?: string;
+}) {
+  return (
+    <div className="flex items-start gap-4">
+      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gray-950 text-white shadow-sm">
+        <Icon className="h-5 w-5" />
+      </div>
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">
+          {eyebrow}
+        </p>
+        <h2 className="mt-1 text-xl font-semibold text-gray-950">{title}</h2>
+        {description && (
+          <p className="mt-1 text-sm text-gray-500">{description}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DetailBlock({
+  icon: Icon,
+  label,
+  value,
+  hint,
+  className = "",
+}: {
+  icon: IconComponent;
+  label: string;
+  value: string;
+  hint?: string;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`rounded-3xl border border-gray-200 bg-white/80 p-5 shadow-sm shadow-gray-100 ${className}`}
+    >
+      <div className="flex items-center gap-2 text-gray-500">
+        <Icon className="h-4 w-4" />
+        <p className="text-xs font-semibold uppercase tracking-[0.2em]">{label}</p>
+      </div>
+      <p className="mt-3 text-base font-semibold text-gray-950">{value}</p>
+      {hint && <p className="mt-1 text-sm text-gray-500">{hint}</p>}
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -199,6 +271,16 @@ export default function VenueDetailPage({
   const locationParts = [address, city, region, countryCode].filter(Boolean);
   const locationSummary = locationParts.length > 0 ? locationParts.join(", ") : "No location set";
   const hasCoordinatePreview = hasAnyTruthyValue([lat, lng]);
+  const venueTypeLabel = venue?.venueType ? venue.venueType.replace(/_/g, " ") : null;
+  const formattedCreatedAt = venue
+    ? new Date(venue.createdAt).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "";
 
   if (isLoading) {
     return (
@@ -325,7 +407,7 @@ export default function VenueDetailPage({
         </div>
       )}
 
-      <div className="mx-auto max-w-2xl space-y-6">
+      <div className="mx-auto max-w-6xl space-y-6">
         {/* Server Error */}
         {serverError && (
           <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
@@ -336,193 +418,314 @@ export default function VenueDetailPage({
         {/* View Mode */}
         {!isEditing && venue && (
           <>
-            {/* Venue Details Card */}
-            <Card>
-              <h2 className="mb-4 text-lg font-semibold text-gray-900">
-                📍 Venue Details
-              </h2>
-              <div className="space-y-3">
+            <section className="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-gradient-to-br from-slate-950 via-slate-900 to-teal-800 p-8 text-white shadow-xl shadow-slate-200">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(255,255,255,0.18),_transparent_30%),radial-gradient(circle_at_bottom_left,_rgba(45,212,191,0.22),_transparent_34%)]" />
+              <div className="relative grid gap-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)]">
                 <div>
-                  <p className="text-xs font-medium uppercase text-gray-500">Name</p>
-                  <p className="mt-1 text-sm text-gray-900">{venue.name}</p>
-                </div>
-                {venue.venueType && (
-                  <div>
-                    <p className="text-xs font-medium uppercase text-gray-500">Type</p>
-                    <p className="mt-1 text-sm capitalize text-gray-900">
-                      {venue.venueType.replace(/_/g, " ")}
-                    </p>
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/12 text-white backdrop-blur">
+                    <BuildingIcon className="h-6 w-6" />
                   </div>
-                )}
-              </div>
-            </Card>
-
-            {/* Location Card */}
-            <Card>
-              <h2 className="mb-4 text-lg font-semibold text-gray-900">
-                🏙️ Location
-              </h2>
-              <div className="space-y-3">
-                {venue.address && (
-                  <div>
-                    <p className="text-xs font-medium uppercase text-gray-500">Address</p>
-                    <p className="mt-1 text-sm text-gray-900">{venue.address}</p>
-                  </div>
-                )}
-                <div>
-                  <p className="text-xs font-medium uppercase text-gray-500">Location</p>
-                  <p className="mt-1 text-sm text-gray-900">{locationSummary}</p>
-                </div>
-                {hasCoordinatePreview && (
-                  <div>
-                    <p className="text-xs font-medium uppercase text-gray-500">Coordinates</p>
-                    <p className="mt-1 text-sm text-gray-900">
-                      {lat}, {lng}
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Map placeholder */}
-              {lat && lng && (
-                <div className="mt-4 overflow-hidden rounded-lg border border-gray-200">
-                  <iframe
-                    title="Venue Location"
-                    width="100%"
-                    height="250"
-                    style={{ border: 0 }}
-                    loading="lazy"
-                    referrerPolicy="no-referrer-when-downgrade"
-                    src={`https://www.google.com/maps/embed/v1/place?key=${process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY ?? ""}&q=${lat},${lng}&zoom=15`}
-                  />
-                </div>
-              )}
-            </Card>
-
-            {/* Metadata Card */}
-            <Card>
-              <h2 className="mb-4 text-lg font-semibold text-gray-900">
-                ℹ️ Info
-              </h2>
-              <div className="space-y-3">
-                <div>
-                  <p className="text-xs font-medium uppercase text-gray-500">Created</p>
-                  <p className="mt-1 text-sm text-gray-900">
-                    {new Date(venue.createdAt).toLocaleDateString("en-US", {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
+                  <p className="mt-5 text-xs font-semibold uppercase tracking-[0.3em] text-teal-100/75">
+                    Venue Profile
                   </p>
+                  <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
+                    {venue.name}
+                  </h1>
+                  <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-200">
+                    Review the venue profile, location coverage, and system metadata from a single place.
+                  </p>
+
+                  <div className="mt-6 flex flex-wrap gap-3">
+                    <div className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-white/90 backdrop-blur">
+                      {venueTypeLabel ?? "Type not specified"}
+                    </div>
+                    <div className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-white/90 backdrop-blur">
+                      {locationSummary}
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs font-medium uppercase text-gray-500">Venue ID</p>
-                  <p className="mt-1 font-mono text-xs text-gray-500">{venue.id}</p>
+
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+                  <div className="rounded-3xl border border-white/12 bg-white/10 p-5 backdrop-blur">
+                    <div className="flex items-center gap-2 text-teal-100">
+                      <BuildingIcon className="h-4 w-4" />
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em]">
+                        Venue Type
+                      </p>
+                    </div>
+                    <p className="mt-3 text-lg font-semibold text-white">
+                      {venueTypeLabel ?? "Not set"}
+                    </p>
+                  </div>
+                  <div className="rounded-3xl border border-white/12 bg-white/10 p-5 backdrop-blur">
+                    <div className="flex items-center gap-2 text-teal-100">
+                      <MapPinIcon className="h-4 w-4" />
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em]">
+                        Geo Status
+                      </p>
+                    </div>
+                    <p className="mt-3 text-lg font-semibold text-white">
+                      {hasCoordinatePreview ? "Coordinates set" : "Map pending"}
+                    </p>
+                  </div>
+                  <div className="rounded-3xl border border-white/12 bg-white/10 p-5 backdrop-blur sm:col-span-2 lg:col-span-1">
+                    <div className="flex items-center gap-2 text-teal-100">
+                      <CalendarIcon className="h-4 w-4" />
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em]">
+                        Added
+                      </p>
+                    </div>
+                    <p className="mt-3 text-lg font-semibold text-white">
+                      {formattedCreatedAt}
+                    </p>
+                  </div>
                 </div>
               </div>
-            </Card>
+            </section>
+
+            <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
+              <div className="space-y-6">
+                <Card className="rounded-[2rem] border border-gray-200/80 bg-gradient-to-br from-white via-white to-slate-50 shadow-lg shadow-gray-100">
+                  <SectionHeader
+                    icon={BuildingIcon}
+                    eyebrow="Overview"
+                    title="Venue Details"
+                    description="Core profile details used across event creation and scheduling."
+                  />
+
+                  <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                    <DetailBlock
+                      icon={BuildingIcon}
+                      label="Venue Name"
+                      value={venue.name}
+                    />
+                    <DetailBlock
+                      icon={SettingsIcon}
+                      label="Venue Type"
+                      value={venueTypeLabel ?? "Not set"}
+                    />
+                  </div>
+                </Card>
+
+                <Card className="rounded-[2rem] border border-gray-200/80 bg-gradient-to-br from-white via-white to-teal-50/50 shadow-lg shadow-gray-100">
+                  <SectionHeader
+                    icon={MapPinIcon}
+                    eyebrow="Location"
+                    title="Address & Coverage"
+                    description="Street details, broader area, and coordinates for map-based discovery."
+                  />
+
+                  <div className="mt-6 grid gap-4">
+                    <DetailBlock
+                      icon={HomeIcon}
+                      label="Street Address"
+                      value={venue.address ?? "No street address set"}
+                    />
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <DetailBlock
+                        icon={MapPinIcon}
+                        label="Area"
+                        value={locationSummary}
+                      />
+                      <DetailBlock
+                        icon={MapPinIcon}
+                        label="Coordinates"
+                        value={hasCoordinatePreview ? `${lat}, ${lng}` : "Coordinates not set"}
+                        hint={hasCoordinatePreview ? "Used for the embedded location preview." : undefined}
+                      />
+                    </div>
+                  </div>
+                </Card>
+              </div>
+
+              <div className="space-y-6">
+                <Card className="rounded-[2rem] border border-gray-200/80 bg-white shadow-lg shadow-gray-100">
+                  <SectionHeader
+                    icon={MapPinIcon}
+                    eyebrow="Preview"
+                    title="Map View"
+                    description="A quick location preview powered by the saved venue coordinates."
+                  />
+
+                  {lat && lng ? (
+                    <div className="mt-6 overflow-hidden rounded-[1.5rem] border border-gray-200 bg-white">
+                      <iframe
+                        title="Venue Location"
+                        width="100%"
+                        height="340"
+                        style={{ border: 0 }}
+                        loading="lazy"
+                        referrerPolicy="no-referrer-when-downgrade"
+                        src={`https://www.google.com/maps/embed/v1/place?key=${process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY ?? ""}&q=${lat},${lng}&zoom=15`}
+                      />
+                    </div>
+                  ) : (
+                    <div className="mt-6 rounded-[1.5rem] border border-dashed border-gray-300 bg-gray-50 p-10 text-center">
+                      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-900 text-white">
+                        <MapPinIcon className="h-5 w-5" />
+                      </div>
+                      <p className="mt-4 text-sm font-medium text-gray-900">
+                        No coordinate preview available
+                      </p>
+                      <p className="mt-1 text-sm text-gray-500">
+                        Add latitude and longitude in edit mode to enable the embedded map.
+                      </p>
+                    </div>
+                  )}
+                </Card>
+
+                <Card className="rounded-[2rem] border border-gray-200/80 bg-gradient-to-br from-slate-50 via-white to-white shadow-lg shadow-gray-100">
+                  <SectionHeader
+                    icon={CalendarIcon}
+                    eyebrow="Metadata"
+                    title="System Info"
+                    description="Reference fields for support, auditing, and internal tracking."
+                  />
+
+                  <div className="mt-6 space-y-4">
+                    <DetailBlock
+                      icon={CalendarIcon}
+                      label="Created"
+                      value={formattedCreatedAt}
+                    />
+                    <DetailBlock
+                      icon={SettingsIcon}
+                      label="Venue ID"
+                      value={venue.id}
+                      className="font-mono"
+                    />
+                  </div>
+                </Card>
+              </div>
+            </div>
           </>
         )}
 
         {/* Edit Mode */}
         {isEditing && (
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            {/* Venue Details */}
-            <Card>
-              <h2 className="mb-4 text-lg font-semibold text-gray-900">
-                📍 Venue Details
-              </h2>
-              <div className="space-y-4">
-                <Input
-                  label="Venue Name"
-                  placeholder="e.g., Jazz Club Downtown"
-                  error={errors.name?.message}
-                  {...register("name")}
-                />
-                <Select
-                  label="Venue Type"
-                  options={[
-                    { value: "", label: "Select a type" },
-                    { value: "club", label: "Club" },
-                    { value: "bar", label: "Bar" },
-                    { value: "restaurant", label: "Restaurant" },
-                    { value: "concert_hall", label: "Concert Hall" },
-                    { value: "outdoor", label: "Outdoor Venue" },
-                    { value: "hotel", label: "Hotel" },
-                    { value: "conference_center", label: "Conference Center" },
-                    { value: "stadium", label: "Stadium" },
-                    { value: "theater", label: "Theater" },
-                    { value: "other", label: "Other" },
-                  ]}
-                  error={errors.venue_type?.message}
-                  {...register("venue_type")}
-                />
-              </div>
-            </Card>
-
-            {/* Location - Google Places */}
-            <Card>
-              <h2 className="mb-4 text-lg font-semibold text-gray-900">
-                🏙️ Location
-              </h2>
-              <div className="space-y-4">
-                <PlacesAutocomplete
-                  label="Search New Location"
-                  placeholder="Search for a place or address..."
-                  onPlaceSelect={handlePlaceSelect}
-                  defaultValue={venue?.address ?? ""}
-                />
-
-                {/* Interactive Map */}
-                {lat != null && lng != null && (
-                  <LocationMapPicker
-                    lat={lat}
-                    lng={lng}
-                    onLocationChange={(newLat, newLng) => {
-                      setValue("lat", newLat, { shouldDirty: true });
-                      setValue("lng", newLng, { shouldDirty: true });
-                    }}
-                  />
-                )}
-
-                {/* Editable fields */}
-                <div className="border-t border-gray-100 pt-4">
-                  <p className="mb-3 text-xs font-medium text-gray-500">
-                    Location details (editable):
-                  </p>
-                  <div className="space-y-4">
-                    <Input
-                      label="Address"
-                      placeholder="Street address"
-                      error={errors.address_line1?.message}
-                      {...register("address_line1")}
-                    />
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                      <Input
-                        label="City"
-                        placeholder="e.g., Paris"
-                        error={errors.city?.message}
-                        {...register("city")}
-                      />
-                      <Input
-                        label="Region / State"
-                        placeholder="e.g., Île-de-France"
-                        error={errors.region?.message}
-                        {...register("region")}
-                      />
-                    </div>
-                    <Input
-                      label="Country Code"
-                      placeholder="e.g., FR, US, MA"
-                      error={errors.country_code?.message}
-                      {...register("country_code")}
-                    />
+            <section className="rounded-[2rem] border border-amber-200 bg-gradient-to-r from-amber-50 via-white to-white p-6 shadow-sm">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-950 text-white">
+                    <SettingsIcon className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-amber-700">
+                      Editing
+                    </p>
+                    <h2 className="mt-1 text-2xl font-semibold text-gray-950">
+                      Update Venue Profile
+                    </h2>
+                    <p className="mt-1 text-sm text-gray-600">
+                      Adjust the profile and location details below. Changes apply after saving.
+                    </p>
                   </div>
                 </div>
+                <div className="rounded-2xl border border-amber-200 bg-white px-4 py-3 text-sm text-gray-600">
+                  Current location: <span className="font-medium text-gray-900">{locationSummary}</span>
+                </div>
               </div>
-            </Card>
+            </section>
+
+            <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(360px,1fr)]">
+              <Card className="rounded-[2rem] border border-gray-200/80 bg-gradient-to-br from-white via-white to-slate-50 shadow-lg shadow-gray-100">
+                <SectionHeader
+                  icon={BuildingIcon}
+                  eyebrow="Profile"
+                  title="Venue Details"
+                  description="Update the public-facing venue identity and classification."
+                />
+                <div className="mt-6 space-y-4">
+                  <Input
+                    label="Venue Name"
+                    placeholder="e.g., Jazz Club Downtown"
+                    error={errors.name?.message}
+                    {...register("name")}
+                  />
+                  <Select
+                    label="Venue Type"
+                    options={[
+                      { value: "", label: "Select a type" },
+                      { value: "club", label: "Club" },
+                      { value: "bar", label: "Bar" },
+                      { value: "restaurant", label: "Restaurant" },
+                      { value: "concert_hall", label: "Concert Hall" },
+                      { value: "outdoor", label: "Outdoor Venue" },
+                      { value: "hotel", label: "Hotel" },
+                      { value: "conference_center", label: "Conference Center" },
+                      { value: "stadium", label: "Stadium" },
+                      { value: "theater", label: "Theater" },
+                      { value: "other", label: "Other" },
+                    ]}
+                    error={errors.venue_type?.message}
+                    {...register("venue_type")}
+                  />
+                </div>
+              </Card>
+
+              <Card className="rounded-[2rem] border border-gray-200/80 bg-gradient-to-br from-white via-white to-teal-50/50 shadow-lg shadow-gray-100">
+                <SectionHeader
+                  icon={MapPinIcon}
+                  eyebrow="Location"
+                  title="Address & Map"
+                  description="Search for a place, adjust coordinates, and refine the saved address fields."
+                />
+                <div className="mt-6 space-y-4">
+                  <PlacesAutocomplete
+                    label="Search New Location"
+                    placeholder="Search for a place or address..."
+                    onPlaceSelect={handlePlaceSelect}
+                    defaultValue={venue?.address ?? ""}
+                  />
+
+                  {lat != null && lng != null && (
+                    <LocationMapPicker
+                      lat={lat}
+                      lng={lng}
+                      onLocationChange={(newLat, newLng) => {
+                        setValue("lat", newLat, { shouldDirty: true });
+                        setValue("lng", newLng, { shouldDirty: true });
+                      }}
+                    />
+                  )}
+
+                  <div className="rounded-3xl border border-gray-200 bg-white/80 p-5">
+                    <p className="mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">
+                      Location Details
+                    </p>
+                    <div className="space-y-4">
+                      <Input
+                        label="Address"
+                        placeholder="Street address"
+                        error={errors.address_line1?.message}
+                        {...register("address_line1")}
+                      />
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <Input
+                          label="City"
+                          placeholder="e.g., Paris"
+                          error={errors.city?.message}
+                          {...register("city")}
+                        />
+                        <Input
+                          label="Region / State"
+                          placeholder="e.g., Ile-de-France"
+                          error={errors.region?.message}
+                          {...register("region")}
+                        />
+                      </div>
+                      <Input
+                        label="Country Code"
+                        placeholder="e.g., FR, US, MA"
+                        error={errors.country_code?.message}
+                        {...register("country_code")}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            </div>
 
             {/* Action Buttons */}
             <div className="flex justify-end gap-3">

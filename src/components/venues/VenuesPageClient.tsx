@@ -5,6 +5,7 @@ import Link from "next/link";
 import { SearchBar } from "@/components/ui/SearchBar";
 import { Button } from "@/components/ui/Button";
 import { MapPinIcon } from "@/components/icons";
+import { VenueCard } from "@/components/venues/VenueCard";
 import type { Venue } from "@/types";
 
 interface VenuesPageClientProps {
@@ -56,36 +57,9 @@ export function VenuesPageClient({ venues }: VenuesPageClientProps) {
       ) : filtered.length === 0 ? (
         <p className="py-12 text-center text-gray-500">No venues match your search.</p>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((venue) => (
-            <Link
-              key={venue.id}
-              href={`/venues/${venue.id}`}
-              className="group relative overflow-hidden rounded-lg bg-white p-5 shadow-sm transition-shadow hover:shadow-md"
-            >
-              <div className="mb-3 flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-600">
-                    <MapPinIcon className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">{venue.name}</h3>
-                    {venue.venueType && (
-                      <span className="inline-block rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
-                        {venue.venueType}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <div className="space-y-1.5 text-sm text-gray-600">
-                {venue.address && <p>📍 {venue.address}</p>}
-                <p>
-                  🏙️{" "}
-                  {[venue.city, venue.region, venue.countryCode].filter(Boolean).join(", ") || "No location set"}
-                </p>
-              </div>
-            </Link>
+            <VenueCard key={venue.id} venue={venue} />
           ))}
         </div>
       )}

@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getCheckinSummary } from "@/lib/data/attendees";
 import { mapEvents, type EventQueryRow } from "@/lib/mappers/events";
 import type { Stats } from "@/types";
 import { formatMoney } from "@/lib/utils/format";
@@ -8,7 +9,7 @@ export async function getOverview() {
   const sb = await createSupabaseServerClient();
 
   // Run queries in parallel
-  const [eventsResult, reviewsResult, ticketsResult, paymentsResult] =
+  const [eventsResult, reviewsResult, ticketsResult, paymentsResult, checkinSummary] =
     await Promise.all([
       sb
         .from("events")
@@ -27,11 +28,22 @@ export async function getOverview() {
         .from("payments")
         .select("amount_cents, currency")
         .eq("status", "succeeded"),
+      getCheckinSummary(),
     ]);
 
   if (eventsResult.error) throw eventsResult.error;
 
-  const events = mapEvents((eventsResult.data ?? []) as EventQueryRow[]);
+  const checkinSummaryByEventId = new Map(
+    checkinSummary.map((item) => [item.eventId, item] as const),
+  );
+  const events = mapEvents((eventsResult.data ?? []) as EventQueryRow[]).map((event) => {
+    const summary = checkinSummaryByEventId.get(event.id);
+    return {
+      ...event,
+      attendeeCount: summary?.checkedIn ?? 0,
+      reservationCount: summary?.totalReservations ?? 0,
+    };
+  });
 
   // Review stats — RLS scopes to user's events via event_reviews_creator_read
   const reviews = (reviewsResult.data ?? []) as Array<{ rating: number | null }>;
@@ -55,7 +67,7 @@ export async function getOverview() {
   );
   const mainCurrency = payments[0]?.currency.trim() ?? "USD";
 
-  const totalAttendees = events.reduce((sum, e) => sum + e.attendeeCount, 0);
+  const totalAttendees = checkinSummary.reduce((sum, event) => sum + event.checkedIn, 0);
 
   const stats: Stats = {
     totalEvents: events.length,

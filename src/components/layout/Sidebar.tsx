@@ -24,9 +24,9 @@ const navigation = [
   { name: "Attendees", href: "/attendees", icon: UsersIcon },
   { name: "Reviews", href: "/reviews", icon: StarIcon },
   { name: "Music", href: "/music", icon: MusicIcon },
+  { name: "Finance", href: "/finance", icon: DollarIcon },
   { name: "Analytics", href: "/analytics", icon: ChartIcon },
   { name: "Marketing", href: "/marketing", icon: EyeIcon },
-  { name: "Finance", href: "/finance", icon: DollarIcon },
 ];
 
 export function Sidebar() {

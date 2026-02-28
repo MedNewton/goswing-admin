@@ -1,5 +1,6 @@
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/Button";
+import { getCheckinSummary } from "@/lib/data/attendees";
 import { getEvents } from "@/lib/data/events";
 import { EventsPageClient } from "@/components/events/EventsPageClient";
 import Link from "next/link";
@@ -10,7 +11,21 @@ export default async function EventsPage() {
   let events: Awaited<ReturnType<typeof getEvents>> = [];
 
   try {
-    events = await getEvents();
+    const [eventsData, checkinSummary] = await Promise.all([
+      getEvents(),
+      getCheckinSummary(),
+    ]);
+    const checkinSummaryByEventId = new Map(
+      checkinSummary.map((item) => [item.eventId, item] as const),
+    );
+    events = eventsData.map((event) => {
+      const summary = checkinSummaryByEventId.get(event.id);
+      return {
+        ...event,
+        attendeeCount: summary?.checkedIn ?? 0,
+        reservationCount: summary?.totalReservations ?? 0,
+      };
+    });
   } catch {
     // Will show empty state
   }
