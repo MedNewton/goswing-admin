@@ -67,7 +67,7 @@ function toDateKey(date: Date) {
 
 function fromDateKey(dateKey: string) {
   const [year, month, day] = dateKey.split("-").map(Number);
-  return new Date(year, (month ?? 1) - 1, day ?? 1);
+  return new Date(year ?? 1970, (month ?? 1) - 1, day ?? 1);
 }
 
 function buildChartData(

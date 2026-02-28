@@ -325,8 +325,8 @@ export default function SettingsPage() {
   const emailValue = watch("email");
   const websiteValue = watch("website_url");
   const establishedYearValue = watch("established_year");
-  const normalizedWebsiteValue = websiteValue.trim() ? websiteValue : undefined;
-  const normalizedEstablishedYearValue = establishedYearValue.trim()
+  const normalizedWebsiteValue = websiteValue?.trim() ? websiteValue : undefined;
+  const normalizedEstablishedYearValue = establishedYearValue?.trim()
     ? establishedYearValue
     : undefined;
 
