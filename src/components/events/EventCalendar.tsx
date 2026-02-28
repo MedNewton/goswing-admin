@@ -12,10 +12,18 @@ interface EventCalendarProps {
   events: Event[];
 }
 
+type StatusColor = { bg: string; border: string; text: string };
+
 // Map event status to colors
-const statusColors: Record<string, { bg: string; border: string; text: string }> = {
+const fallbackStatusColor: StatusColor = {
+  bg: "#FEF9C3",
+  border: "#CA8A04",
+  text: "#A16207",
+};
+
+const statusColors: Record<string, StatusColor> = {
   published: { bg: "#DCFCE7", border: "#16A34A", text: "#15803D" },
-  draft: { bg: "#FEF9C3", border: "#CA8A04", text: "#A16207" },
+  draft: fallbackStatusColor,
   completed: { bg: "#DBEAFE", border: "#2563EB", text: "#1D4ED8" },
   cancelled: { bg: "#FEE2E2", border: "#DC2626", text: "#B91C1C" },
 };
@@ -25,7 +33,7 @@ export function EventCalendar({ events }: EventCalendarProps) {
 
   // Convert app events to FullCalendar event objects
   const calendarEvents = events.map((event) => {
-    const colors = statusColors[event.status] ?? statusColors.draft;
+    const colors = statusColors[event.status] ?? fallbackStatusColor;
 
     return {
       id: event.id,

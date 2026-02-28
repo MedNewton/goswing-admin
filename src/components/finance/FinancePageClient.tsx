@@ -165,7 +165,7 @@ export function FinancePageClient({ transactions, stats }: FinancePageClientProp
                   // Show label for today, first, last, and every 7th day
                   const showLabel = item.isToday || i === 0 || i === dailyData.length - 1 || i % 7 === 0;
                   return (
-                    <div key={i} className="group flex min-w-0 flex-1 flex-col items-center gap-1">
+                    <div key={i} className="group flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1">
                       <span className="whitespace-nowrap text-[10px] font-medium text-gray-700 opacity-0 transition-opacity group-hover:opacity-100">
                         {formatMoney(item.value, currency)}
                       </span>
