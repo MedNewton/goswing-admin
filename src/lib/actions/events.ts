@@ -5,13 +5,14 @@ import { createEvent, getOrganizerForCurrentUser, getTags } from "@/lib/data/eve
 import { insertInto, updateTable } from "@/lib/supabase/mutations";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import type { EventUpdate } from "@/types/database";
+import type { EventUpdate, TicketTypeInsert, TicketTypeUpdate } from "@/types/database";
 
 // ---------------------------------------------------------------------------
 // Zod Schema
 // ---------------------------------------------------------------------------
 
 const ticketTierSchema = z.object({
+  id: z.string().uuid().optional(),
   name: z.string().min(1, "Ticket name is required"),
   price: z.coerce.number().min(0, "Price must be 0 or greater"),
   description: z.string().optional(),
@@ -237,6 +238,12 @@ export async function updateEventAction(
 
   try {
     const sb = await createSupabaseServerClient();
+    const { data: existingTicketTypeRows, error: existingTicketTypesError } = await sb
+      .from("ticket_types")
+      .select("id")
+      .eq("event_id", eventId);
+
+    if (existingTicketTypesError) throw existingTicketTypesError;
 
     const venueId = trimToNull(data.venueId);
     const startsAt = new Date(`${data.eventDate}T${data.startTime}`).toISOString();
@@ -251,6 +258,41 @@ export async function updateEventAction(
     const prices = data.ticketTiers.map((t) => t.price);
     const minPriceCents = Math.min(...prices) * 100;
     const isFree = minPriceCents === 0;
+    const existingTicketTypeIds = new Set(
+      ((existingTicketTypeRows ?? []) as Array<{ id: string }>).map((row) => row.id)
+    );
+    const submittedExistingTiers = data.ticketTiers.filter(
+      (tier): tier is typeof tier & { id: string } => Boolean(tier.id && existingTicketTypeIds.has(tier.id))
+    );
+    const submittedExistingIds = new Set(submittedExistingTiers.map((tier) => tier.id));
+    const removedTicketTypeIds = [...existingTicketTypeIds].filter((id) => !submittedExistingIds.has(id));
+
+    if (removedTicketTypeIds.length > 0) {
+      const [{ data: reservationItemRefs, error: reservationItemRefsError }, { data: ticketRefs, error: ticketRefsError }] =
+        await Promise.all([
+          sb
+            .from("reservation_items")
+            .select("ticket_type_id")
+            .in("ticket_type_id", removedTicketTypeIds)
+            .limit(1),
+          sb
+            .from("tickets")
+            .select("ticket_type_id")
+            .in("ticket_type_id", removedTicketTypeIds)
+            .limit(1),
+        ]);
+
+      if (reservationItemRefsError) throw reservationItemRefsError;
+      if (ticketRefsError) throw ticketRefsError;
+
+      if ((reservationItemRefs?.length ?? 0) > 0 || (ticketRefs?.length ?? 0) > 0) {
+        return {
+          success: false,
+          error: "You cannot remove ticket tiers that already have reservations. Edit the existing tier instead.",
+        };
+      }
+    }
+
     const eventUpdates: EventUpdate = {
       title: data.title,
       description: emptyStringToNull(data.description),
@@ -270,29 +312,51 @@ export async function updateEventAction(
 
     if (eventError) throw eventError;
 
-    // Delete old ticket types and insert new ones
-    const { error: deleteTicketsError } = await sb
-      .from("ticket_types")
-      .delete()
-      .eq("event_id", eventId);
+    for (const tier of submittedExistingTiers) {
+      const ticketTypeUpdates: TicketTypeUpdate = {
+        name: tier.name,
+        price_cents: Math.round(tier.price * 100),
+        currency: data.currency,
+        description: emptyStringToNull(tier.description),
+        capacity: typeof tier.capacity === "number" ? tier.capacity : null,
+      };
+      const { error: updateTicketTypeError } = await updateTable(
+        sb,
+        "ticket_types",
+        ticketTypeUpdates,
+      ).eq("id", tier.id);
 
-    if (deleteTicketsError) throw deleteTicketsError;
+      if (updateTicketTypeError) throw updateTicketTypeError;
+    }
 
-    if (data.ticketTiers.length > 0) {
+    const newTicketTiers: TicketTypeInsert[] = data.ticketTiers
+      .filter((tier) => !tier.id || !existingTicketTypeIds.has(tier.id))
+      .map((tier) => ({
+        event_id: eventId,
+        name: tier.name,
+        price_cents: Math.round(tier.price * 100),
+        currency: data.currency,
+        description: emptyStringToNull(tier.description),
+        capacity: typeof tier.capacity === "number" ? tier.capacity : null,
+      }));
+
+    if (newTicketTiers.length > 0) {
       const { error: insertTicketsError } = await insertInto(
         sb,
         "ticket_types",
-        data.ticketTiers.map((tier) => ({
-          event_id: eventId,
-          name: tier.name,
-          price_cents: Math.round(tier.price * 100),
-          currency: data.currency,
-          description: emptyStringToNull(tier.description),
-          capacity: typeof tier.capacity === "number" ? tier.capacity : null,
-        }))
+        newTicketTiers
       );
 
       if (insertTicketsError) throw insertTicketsError;
+    }
+
+    if (removedTicketTypeIds.length > 0) {
+      const { error: deleteTicketsError } = await sb
+        .from("ticket_types")
+        .delete()
+        .in("id", removedTicketTypeIds);
+
+      if (deleteTicketsError) throw deleteTicketsError;
     }
 
     // Delete old event tags and insert new ones

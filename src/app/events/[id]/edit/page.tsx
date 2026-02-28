@@ -28,6 +28,7 @@ import Link from "next/link";
 // ---------------------------------------------------------------------------
 
 const ticketTierSchema = z.object({
+  id: z.string().uuid().optional(),
   name: z.string().min(1, "Ticket name is required"),
   price: z.coerce.number().min(0, "Price must be 0 or greater"),
   description: z.string().optional(),
@@ -141,6 +142,7 @@ export default function EditEventPage({
           venueId: eventData.venueId,
           ticketTiers: eventData.ticketTypes.length > 0
             ? eventData.ticketTypes.map((tt) => ({
+                id: tt.id,
                 name: tt.name,
                 price: tt.price_cents / 100,
                 description: tt.description ?? "",
@@ -501,6 +503,7 @@ export default function EditEventPage({
                   )}
                 </div>
                 <div className="grid grid-cols-2 gap-4">
+                  <input type="hidden" {...register(`ticketTiers.${index}.id`)} />
                   <Input label="Ticket Name" placeholder="e.g., General Admission" error={fieldError(`ticketTiers.${index}.name`)} {...register(`ticketTiers.${index}.name`)} />
                   <Input label="Price" placeholder="0.00" type="number" step="0.01" min="0" error={fieldError(`ticketTiers.${index}.price`)} {...register(`ticketTiers.${index}.price`)} />
                 </div>
@@ -510,12 +513,12 @@ export default function EditEventPage({
                 </div>
               </div>
             ))}
-            <Button
-              variant="outline"
-              size="sm"
-              type="button"
-              onClick={() => append({ name: "", price: 0, description: "", capacity: "" as unknown as undefined })}
-            >
+              <Button
+                variant="outline"
+                size="sm"
+                type="button"
+                onClick={() => append({ name: "", price: 0, description: "", capacity: "" as unknown as undefined })}
+              >
               + Add Ticket Tier
             </Button>
           </div>
