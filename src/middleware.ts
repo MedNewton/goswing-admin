@@ -1,6 +1,10 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { createClient } from "@supabase/supabase-js";
-import { NextResponse, type NextRequest } from "next/server";
+import {
+  NextResponse,
+  type NextFetchEvent,
+  type NextRequest,
+} from "next/server";
 
 const isPublicRoute = createRouteMatcher([
   "/login(.*)",
@@ -10,7 +14,9 @@ const isPublicRoute = createRouteMatcher([
 const isOnboardingRoute = createRouteMatcher(["/onboarding(.*)"]);
 const isApiRoute = createRouteMatcher(["/api(.*)"]);
 
-const hasClerkSecret = Boolean(process.env.CLERK_SECRET_KEY);
+const hasClerkConfig = Boolean(
+  process.env.CLERK_SECRET_KEY && process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
+);
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_DATABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -75,9 +81,25 @@ const fallbackMiddleware = (req: NextRequest) => {
   return NextResponse.redirect(loginUrl);
 };
 
-export default hasClerkSecret
-  ? protectedMiddleware
-  : fallbackMiddleware;
+export default async function middleware(
+  req: NextRequest,
+  event: NextFetchEvent,
+) {
+  if (!hasClerkConfig) {
+    return fallbackMiddleware(req);
+  }
+
+  try {
+    return await protectedMiddleware(req, event);
+  } catch (error) {
+    console.error("[middleware] falling back after Clerk failure", {
+      path: req.nextUrl.pathname,
+      message: error instanceof Error ? error.message : String(error),
+    });
+
+    return fallbackMiddleware(req);
+  }
+}
 
 export const config = {
   matcher: [
