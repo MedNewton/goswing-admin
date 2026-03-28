@@ -14,7 +14,7 @@ export function translate(locale: Locale, key: TranslationKey): string {
 /** Read locale from cookie on the client. */
 export function getClientLocale(): Locale {
   if (typeof document === "undefined") return "fr";
-  const match = document.cookie.match(/(?:^|; )locale=([^;]*)/);
+  const match = /(?:^|; )locale=([^;]*)/.exec(document.cookie);
   const value = match?.[1];
   if (value === "en" || value === "fr") return value;
   return "fr";
