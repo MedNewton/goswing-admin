@@ -7,8 +7,10 @@ import {
 } from "next/server";
 
 const isPublicRoute = createRouteMatcher([
+  "/",
   "/login(.*)",
   "/api/webhooks/clerk(.*)",
+  "/discover(.*)",
 ]);
 
 const isOnboardingRoute = createRouteMatcher(["/onboarding(.*)"]);

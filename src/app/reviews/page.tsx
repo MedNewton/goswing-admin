@@ -17,7 +17,8 @@ export default async function ReviewsPage() {
   }
 
   return (
-    <MainLayout title="Reviews & Ratings">
+    <MainLayout>
+      <h1 className="mb-6 text-2xl font-semibold text-gray-900">Reviews &amp; Ratings</h1>
       <ReviewsPageClient reviews={reviews} stats={reviewStats} />
     </MainLayout>
   );

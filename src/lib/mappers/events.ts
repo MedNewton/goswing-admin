@@ -7,6 +7,10 @@ export interface EventQueryRow extends EventRow {
   venues?: Pick<VenueRow, "name" | "city"> | null;
   organizers?: Pick<OrganizerRow, "name"> | null;
   event_tags?: Array<{ tags: Pick<TagRow, "label"> | null }>;
+  // Aggregated counts (optional, populated by enriched queries)
+  _songSuggestionsCount?: number;
+  _checkedInCount?: number;
+  _reviewScore?: number | null;
 }
 
 /** Map a single DB event row (with optional joins) to the UI view model. */
@@ -36,6 +40,14 @@ export function mapEvent(row: EventQueryRow): Event {
     tags: row.event_tags
       ?.map((et) => et.tags?.label)
       .filter((l): l is string => !!l),
+    // New fields
+    songSuggestionsCount: row._songSuggestionsCount,
+    checkedInCount: row._checkedInCount,
+    reviewScore: row._reviewScore,
+    waitlistEnabled: row.waitlist_enabled,
+    approvalMode: row.approval_mode,
+    sharingEnabled: row.sharing_enabled,
+    policies: row.policies,
   };
 }
 

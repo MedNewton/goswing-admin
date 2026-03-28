@@ -56,6 +56,11 @@ export function EventActions({ eventId }: { eventId: string }) {
           >
             Delete
           </Button>
+          <Link href={`/events/${eventId}/overview`}>
+            <Button variant="outline" size="sm">
+              Overview
+            </Button>
+          </Link>
           <Link href={`/events/${eventId}/edit`}>
             <Button variant="outline" size="sm">
               Edit Event

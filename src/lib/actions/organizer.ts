@@ -21,6 +21,12 @@ const onboardingSchema = z.object({
   website_url: z.string().url("Invalid URL").optional().or(z.literal("")),
   instagram_handle: z.string().max(100).optional().or(z.literal("")),
   facebook_handle: z.string().max(100).optional().or(z.literal("")),
+  tiktok_handle: z.string().max(100).optional().or(z.literal("")),
+  youtube_handle: z.string().max(100).optional().or(z.literal("")),
+  twitter_handle: z.string().max(100).optional().or(z.literal("")),
+  pinterest_handle: z.string().max(100).optional().or(z.literal("")),
+  snapchat_handle: z.string().max(100).optional().or(z.literal("")),
+  google_business_url: z.string().url("Invalid URL").optional().or(z.literal("")),
   logo_url: z.string().optional().or(z.literal("")),
   cover_image_url: z.string().optional().or(z.literal("")),
   established_year: z.coerce.number().int().min(1900).max(2100).optional().or(z.literal("").transform(() => undefined)),
@@ -93,6 +99,12 @@ export async function completeOnboardingAction(
       website_url: emptyStringToNull(data.website_url),
       instagram_handle: emptyStringToNull(data.instagram_handle),
       facebook_handle: emptyStringToNull(data.facebook_handle),
+      tiktok_handle: emptyStringToNull(data.tiktok_handle),
+      youtube_handle: emptyStringToNull(data.youtube_handle),
+      twitter_handle: emptyStringToNull(data.twitter_handle),
+      pinterest_handle: emptyStringToNull(data.pinterest_handle),
+      snapchat_handle: emptyStringToNull(data.snapchat_handle),
+      google_business_url: emptyStringToNull(data.google_business_url),
       logo_url: emptyStringToNull(data.logo_url),
       cover_image_url: emptyStringToNull(data.cover_image_url),
       established_year: data.established_year ?? null,
@@ -182,7 +194,7 @@ export async function fetchOrganizerForOnboarding() {
 
   const { data, error } = await sb
     .from("organizers")
-    .select("id, name, tagline, about, city, country_code, email, phone, website_url, instagram_handle, facebook_handle, logo_url, cover_image_url, established_year, specialties, cancellation_policy, refund_policy, response_time_hours")
+    .select("id, name, tagline, about, city, country_code, email, phone, website_url, instagram_handle, facebook_handle, tiktok_handle, youtube_handle, twitter_handle, pinterest_handle, snapchat_handle, google_business_url, logo_url, cover_image_url, established_year, specialties, cancellation_policy, refund_policy, response_time_hours")
     .eq("owner_user_id", userId)
     .limit(1)
     .single();
@@ -203,6 +215,12 @@ export async function fetchOrganizerForOnboarding() {
     website_url: string | null;
     instagram_handle: string | null;
     facebook_handle: string | null;
+    tiktok_handle: string | null;
+    youtube_handle: string | null;
+    twitter_handle: string | null;
+    pinterest_handle: string | null;
+    snapchat_handle: string | null;
+    google_business_url: string | null;
     logo_url: string | null;
     cover_image_url: string | null;
     established_year: number | null;

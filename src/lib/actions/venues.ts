@@ -21,6 +21,9 @@ const createVenueSchema = z.object({
   venue_type: z.string().optional().or(z.literal("")),
   lat: z.coerce.number().optional(),
   lng: z.coerce.number().optional(),
+  postal_code: z.string().optional().or(z.literal("")),
+  capacity: z.coerce.number().int().positive().optional().or(z.literal("").transform(() => undefined)),
+  organizer_id: z.string().uuid().optional().or(z.literal("")),
 });
 
 const updateVenueSchema = z.object({
@@ -32,6 +35,9 @@ const updateVenueSchema = z.object({
   venue_type: z.string().optional().or(z.literal("")).nullable(),
   lat: z.coerce.number().optional().nullable(),
   lng: z.coerce.number().optional().nullable(),
+  postal_code: z.string().optional().or(z.literal("")).nullable(),
+  capacity: z.coerce.number().int().positive().optional().nullable(),
+  organizer_id: z.string().uuid().optional().or(z.literal("")).nullable(),
 });
 
 export type CreateVenueInput = z.infer<typeof createVenueSchema>;
@@ -81,6 +87,9 @@ export async function createVenueAction(
       venue_type: normalizeOptionalText(data.venue_type),
       lat: data.lat ?? null,
       lng: data.lng ?? null,
+      postal_code: normalizeOptionalText(data.postal_code),
+      capacity: typeof data.capacity === "number" ? data.capacity : null,
+      organizer_id: normalizeOptionalText(data.organizer_id),
     });
 
     revalidatePath("/venues");
@@ -119,6 +128,9 @@ export async function updateVenueAction(
       venue_type: normalizeOptionalText(data.venue_type),
       lat: data.lat ?? null,
       lng: data.lng ?? null,
+      postal_code: normalizeOptionalText(data.postal_code),
+      capacity: data.capacity ?? null,
+      organizer_id: normalizeOptionalText(data.organizer_id),
     });
 
     revalidatePath("/venues");

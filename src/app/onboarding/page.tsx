@@ -32,6 +32,12 @@ const onboardingFormSchema = z.object({
   website_url: z.union([z.string().url("Invalid URL"), z.literal("")]).optional(),
   instagram_handle: z.string().max(100).optional().or(z.literal("")),
   facebook_handle: z.string().max(100).optional().or(z.literal("")),
+  tiktok_handle: z.string().max(100).optional().or(z.literal("")),
+  youtube_handle: z.string().max(100).optional().or(z.literal("")),
+  twitter_handle: z.string().max(100).optional().or(z.literal("")),
+  pinterest_handle: z.string().max(100).optional().or(z.literal("")),
+  snapchat_handle: z.string().max(100).optional().or(z.literal("")),
+  google_business_url: z.union([z.string().url("Invalid URL"), z.literal("")]).optional(),
   logo_url: z.string().optional().or(z.literal("")),
   cover_image_url: z.string().optional().or(z.literal("")),
   established_year: z.string().optional().or(z.literal("")),
@@ -120,6 +126,12 @@ export default function OnboardingPage() {
       website_url: "",
       instagram_handle: "",
       facebook_handle: "",
+      tiktok_handle: "",
+      youtube_handle: "",
+      twitter_handle: "",
+      pinterest_handle: "",
+      snapchat_handle: "",
+      google_business_url: "",
       logo_url: "",
       cover_image_url: "",
       established_year: "",
@@ -147,6 +159,12 @@ export default function OnboardingPage() {
             website_url: org.website_url ?? "",
             instagram_handle: org.instagram_handle ?? "",
             facebook_handle: org.facebook_handle ?? "",
+            tiktok_handle: org.tiktok_handle ?? "",
+            youtube_handle: org.youtube_handle ?? "",
+            twitter_handle: org.twitter_handle ?? "",
+            pinterest_handle: org.pinterest_handle ?? "",
+            snapchat_handle: org.snapchat_handle ?? "",
+            google_business_url: org.google_business_url ?? "",
             logo_url: org.logo_url ?? "",
             cover_image_url: org.cover_image_url ?? "",
             established_year: org.established_year?.toString() ?? "",
@@ -236,7 +254,7 @@ export default function OnboardingPage() {
           response_time_hours: data.response_time_hours ? Number(data.response_time_hours) : undefined,
         } as Parameters<typeof completeOnboardingAction>[0]);
         if (result.success) {
-          window.location.href = "/";
+          window.location.href = "/overview";
           return;
         } else {
           setServerError(result.error);
@@ -493,6 +511,48 @@ export default function OnboardingPage() {
                   placeholder="@yourpage"
                   error={errors.facebook_handle?.message}
                   {...register("facebook_handle")}
+                />
+              </div>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <Input
+                  label="TikTok"
+                  placeholder="@yourhandle"
+                  error={errors.tiktok_handle?.message}
+                  {...register("tiktok_handle")}
+                />
+                <Input
+                  label="YouTube"
+                  placeholder="@yourchannel"
+                  error={errors.youtube_handle?.message}
+                  {...register("youtube_handle")}
+                />
+              </div>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <Input
+                  label="Twitter / X"
+                  placeholder="@yourhandle"
+                  error={errors.twitter_handle?.message}
+                  {...register("twitter_handle")}
+                />
+                <Input
+                  label="Snapchat"
+                  placeholder="@yourhandle"
+                  error={errors.snapchat_handle?.message}
+                  {...register("snapchat_handle")}
+                />
+              </div>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <Input
+                  label="Pinterest"
+                  placeholder="@yourprofile"
+                  error={errors.pinterest_handle?.message}
+                  {...register("pinterest_handle")}
+                />
+                <Input
+                  label="Google Business"
+                  placeholder="https://business.google.com/..."
+                  error={errors.google_business_url?.message}
+                  {...register("google_business_url")}
                 />
               </div>
             </div>

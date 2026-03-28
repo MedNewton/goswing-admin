@@ -45,6 +45,8 @@ const editVenueFormSchema = z.object({
   region: z.string().optional().or(z.literal("")),
   country_code: z.string().optional().or(z.literal("")),
   venue_type: z.string().optional().or(z.literal("")),
+  postal_code: z.string().optional().or(z.literal("")),
+  capacity: z.union([z.coerce.number().int().positive(), z.literal(""), z.undefined()]).optional(),
   lat: z.coerce.number().optional(),
   lng: z.coerce.number().optional(),
 });
@@ -148,6 +150,8 @@ export default function VenueDetailPage({
       region: "",
       country_code: "",
       venue_type: "",
+      postal_code: "",
+      capacity: "" as unknown as undefined,
     },
   });
 
@@ -164,6 +168,8 @@ export default function VenueDetailPage({
           region: data.region ?? "",
           country_code: data.countryCode ?? "",
           venue_type: data.venueType ?? "",
+          postal_code: data.postalCode ?? "",
+          capacity: data.capacity ?? ("" as unknown as undefined),
           lat: data.lat ?? undefined,
           lng: data.lng ?? undefined,
         });
@@ -194,6 +200,8 @@ export default function VenueDetailPage({
           region: data.region,
           country_code: data.country_code,
           venue_type: data.venue_type,
+          postal_code: data.postal_code,
+          capacity: typeof data.capacity === "number" ? data.capacity : null,
           lat: data.lat,
           lng: data.lng,
         });
@@ -259,6 +267,8 @@ export default function VenueDetailPage({
         region: venue.region ?? "",
         country_code: venue.countryCode ?? "",
         venue_type: venue.venueType ?? "",
+        postal_code: venue.postalCode ?? "",
+        capacity: venue.capacity ?? ("" as unknown as undefined),
         lat: venue.lat ?? undefined,
         lng: venue.lng ?? undefined,
       });
@@ -284,7 +294,8 @@ export default function VenueDetailPage({
 
   if (isLoading) {
     return (
-      <MainLayout title="Venue Details">
+      <MainLayout>
+        <h1 className="mb-6 text-2xl font-semibold text-gray-900">Venue Details</h1>
         <div className="flex items-center justify-center py-20">
           <div className="text-center">
             <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-gray-900" />
@@ -297,7 +308,8 @@ export default function VenueDetailPage({
 
   if (!venue && !isLoading) {
     return (
-      <MainLayout title="Venue Not Found">
+      <MainLayout>
+        <h1 className="mb-6 text-2xl font-semibold text-gray-900">Venue Not Found</h1>
         <div className="flex items-center justify-center py-20">
           <div className="text-center">
             <p className="text-lg font-medium text-gray-900">Venue not found</p>
@@ -319,9 +331,11 @@ export default function VenueDetailPage({
   }
 
   return (
-    <MainLayout
-      title={isEditing ? "Edit Venue" : venue?.name ?? "Venue Details"}
-      actions={
+    <MainLayout>
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-2xl font-semibold text-gray-900">
+          {isEditing ? "Edit Venue" : venue?.name ?? "Venue Details"}
+        </h1>
         <div className="flex gap-2">
           <Button
             variant="outline"
@@ -329,7 +343,7 @@ export default function VenueDetailPage({
             type="button"
             onClick={() => router.push("/venues")}
           >
-            ← Back
+            &larr; Back
           </Button>
           {!isEditing ? (
             <>
@@ -373,8 +387,7 @@ export default function VenueDetailPage({
             </>
           )}
         </div>
-      }
-    >
+      </div>
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
@@ -504,6 +517,13 @@ export default function VenueDetailPage({
                       label="Venue Type"
                       value={venueTypeLabel ?? "Not set"}
                     />
+                    {venue.capacity && (
+                      <DetailBlock
+                        icon={BuildingIcon}
+                        label="Capacity"
+                        value={venue.capacity.toLocaleString()}
+                      />
+                    )}
                   </div>
                 </Card>
 
@@ -643,24 +663,33 @@ export default function VenueDetailPage({
                     error={errors.name?.message}
                     {...register("name")}
                   />
-                  <Select
-                    label="Venue Type"
-                    options={[
-                      { value: "", label: "Select a type" },
-                      { value: "club", label: "Club" },
-                      { value: "bar", label: "Bar" },
-                      { value: "restaurant", label: "Restaurant" },
-                      { value: "concert_hall", label: "Concert Hall" },
-                      { value: "outdoor", label: "Outdoor Venue" },
-                      { value: "hotel", label: "Hotel" },
-                      { value: "conference_center", label: "Conference Center" },
-                      { value: "stadium", label: "Stadium" },
-                      { value: "theater", label: "Theater" },
-                      { value: "other", label: "Other" },
-                    ]}
-                    error={errors.venue_type?.message}
-                    {...register("venue_type")}
-                  />
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <Select
+                      label="Venue Type"
+                      options={[
+                        { value: "", label: "Select a type" },
+                        { value: "club", label: "Club" },
+                        { value: "bar", label: "Bar" },
+                        { value: "restaurant", label: "Restaurant" },
+                        { value: "concert_hall", label: "Concert Hall" },
+                        { value: "outdoor", label: "Outdoor Venue" },
+                        { value: "hotel", label: "Hotel" },
+                        { value: "conference_center", label: "Conference Center" },
+                        { value: "stadium", label: "Stadium" },
+                        { value: "theater", label: "Theater" },
+                        { value: "other", label: "Other" },
+                      ]}
+                      error={errors.venue_type?.message}
+                      {...register("venue_type")}
+                    />
+                    <Input
+                      label="Capacity"
+                      placeholder="e.g., 500"
+                      type="number"
+                      min="1"
+                      {...register("capacity")}
+                    />
+                  </div>
                 </div>
               </Card>
 
@@ -715,12 +744,20 @@ export default function VenueDetailPage({
                           {...register("region")}
                         />
                       </div>
-                      <Input
-                        label="Country Code"
-                        placeholder="e.g., FR, US, MA"
-                        error={errors.country_code?.message}
-                        {...register("country_code")}
-                      />
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <Input
+                          label="Country Code"
+                          placeholder="e.g., FR, US, MA"
+                          error={errors.country_code?.message}
+                          {...register("country_code")}
+                        />
+                        <Input
+                          label="Postal Code"
+                          placeholder="e.g., 75001"
+                          error={errors.postal_code?.message}
+                          {...register("postal_code")}
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>

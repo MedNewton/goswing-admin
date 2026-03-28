@@ -14,7 +14,8 @@ export default async function OrdersPage() {
   }
 
   return (
-    <MainLayout title="Orders">
+    <MainLayout>
+      <h1 className="mb-6 text-2xl font-semibold text-gray-900">Orders</h1>
       <OrdersPageClient orders={orders} />
     </MainLayout>
   );

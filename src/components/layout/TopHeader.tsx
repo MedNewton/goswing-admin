@@ -2,33 +2,25 @@
 
 import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 import Link from "next/link";
-import { BellIcon, PlusIcon } from "@/components/icons";
+import { BellIcon } from "@/components/icons";
+import { Button } from "@/components/ui/Button";
 
-interface TopHeaderProps {
-  title: string;
-  actions?: React.ReactNode;
-}
-
-export function TopHeader({ title, actions }: TopHeaderProps) {
+export function TopHeader() {
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-gray-200 bg-white px-6">
-      {/* Page Title */}
-      <h1 className="text-2xl font-semibold text-gray-900">{title}</h1>
+      {/* Logo */}
+      <Link href="/overview" className="text-xl font-bold text-gray-900">
+        GoSwing
+      </Link>
 
       {/* Right Side Actions */}
       <div className="flex items-center gap-4">
-        {/* Custom Actions (optional) */}
-        {actions}
-
-        {/* Create Button */}
+        {/* Create Event Button */}
         <SignedIn>
-          <Link
-            href="/events/create"
-            aria-label="Create event"
-            title="Create event"
-            className="inline-flex items-center justify-center text-gray-700 transition-colors hover:text-gray-900"
-          >
-            <PlusIcon className="h-4 w-4" />
+          <Link href="/events/create">
+            <Button variant="primary" size="sm">
+              Create Event
+            </Button>
           </Link>
         </SignedIn>
 

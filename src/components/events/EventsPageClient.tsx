@@ -13,21 +13,54 @@ interface EventsPageClientProps {
 }
 
 type ViewMode = "list" | "calendar";
+type StatusFilter = "all" | "published" | "draft" | "completed" | "cancelled";
+type SortBy = "date" | "attendees" | "rating" | "title";
+
+const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
+  { value: "all", label: "All Status" },
+  { value: "published", label: "Published" },
+  { value: "draft", label: "Draft" },
+  { value: "completed", label: "Completed" },
+  { value: "cancelled", label: "Cancelled" },
+];
+
+const SORT_OPTIONS: { value: SortBy; label: string }[] = [
+  { value: "date", label: "Date" },
+  { value: "attendees", label: "Attendees" },
+  { value: "rating", label: "Rating" },
+  { value: "title", label: "Title" },
+];
 
 export function EventsPageClient({ events }: EventsPageClientProps) {
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [sortBy, setSortBy] = useState<SortBy>("date");
 
-  // Filter events based on search query
-  const filteredEvents = events.filter((event) => {
-    if (!searchQuery.trim()) return true;
-    const query = searchQuery.toLowerCase();
-    return (
-      event.title.toLowerCase().includes(query) ||
-      event.location.toLowerCase().includes(query) ||
-      event.status.toLowerCase().includes(query)
-    );
-  });
+  // Filter and sort events
+  const filteredEvents = events
+    .filter((event) => {
+      if (statusFilter !== "all" && event.status !== statusFilter) return false;
+      if (!searchQuery.trim()) return true;
+      const query = searchQuery.toLowerCase();
+      return (
+        event.title.toLowerCase().includes(query) ||
+        event.location.toLowerCase().includes(query)
+      );
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case "attendees":
+          return (b.attendeeCount ?? 0) - (a.attendeeCount ?? 0);
+        case "rating":
+          return (b.reviewScore ?? 0) - (a.reviewScore ?? 0);
+        case "title":
+          return a.title.localeCompare(b.title);
+        case "date":
+        default:
+          return (b.startsAt ?? b.date).localeCompare(a.startsAt ?? a.date);
+      }
+    });
 
   return (
     <div className="space-y-6">
@@ -39,8 +72,32 @@ export function EventsPageClient({ events }: EventsPageClientProps) {
           value={searchQuery}
           onChange={setSearchQuery}
         />
-        <Button variant="outline">All Status</Button>
-        <Button variant="outline">More Filters</Button>
+
+        {/* Status Dropdown */}
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+          className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
+        >
+          {STATUS_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+
+        {/* Sort Dropdown */}
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value as SortBy)}
+          className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
+        >
+          {SORT_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              Sort: {opt.label}
+            </option>
+          ))}
+        </select>
 
         {/* View Toggle */}
         <div className="ml-auto flex items-center gap-1 rounded-lg border border-gray-200 bg-gray-50 p-1">
@@ -52,7 +109,7 @@ export function EventsPageClient({ events }: EventsPageClientProps) {
                 : "text-gray-600 hover:text-gray-900"
             }`}
           >
-            📋 List
+            List
           </button>
           <button
             onClick={() => setViewMode("calendar")}
@@ -62,7 +119,7 @@ export function EventsPageClient({ events }: EventsPageClientProps) {
                 : "text-gray-600 hover:text-gray-900"
             }`}
           >
-            📅 Calendar
+            Calendar
           </button>
         </div>
       </div>
@@ -71,11 +128,11 @@ export function EventsPageClient({ events }: EventsPageClientProps) {
       {filteredEvents.length === 0 ? (
         <div className="py-12 text-center">
           <p className="text-gray-500">
-            {searchQuery
-              ? "No events match your search."
+            {searchQuery || statusFilter !== "all"
+              ? "No events match your filters."
               : "No events found. Create your first event to get started."}
           </p>
-          {!searchQuery && (
+          {!searchQuery && statusFilter === "all" && (
             <Link href="/events/create">
               <Button variant="primary" className="mt-4">
                 Create Event

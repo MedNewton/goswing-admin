@@ -14,12 +14,14 @@ import {
   DollarIcon,
   MapPinIcon,
   BuildingIcon,
+  SettingsIcon,
+  HelpIcon,
 } from "@/components/icons";
 
 const navigation = [
-  { name: "Overview", href: "/", icon: HomeIcon },
+  { name: "Overview", href: "/overview", icon: HomeIcon },
   { name: "Events", href: "/events", icon: CalendarIcon },
-  { name: "Venues", href: "/venues", icon: MapPinIcon },
+  { name: "Venue", href: "/venues", icon: MapPinIcon },
   { name: "Orders", href: "/orders", icon: ShoppingBagIcon },
   { name: "Attendees", href: "/attendees", icon: UsersIcon },
   { name: "Reviews", href: "/reviews", icon: StarIcon },
@@ -29,8 +31,19 @@ const navigation = [
   { name: "Marketing", href: "/marketing", icon: EyeIcon },
 ];
 
+const bottomNavigation = [
+  { name: "Help Center", href: "/help", icon: HelpIcon },
+  { name: "Profile", href: "/settings", icon: BuildingIcon },
+  { name: "Settings", href: "/settings/general", icon: SettingsIcon },
+];
+
 export function Sidebar() {
   const pathname = usePathname();
+
+  const isLinkActive = (href: string) => {
+    if (href === "/overview") return pathname === "/overview";
+    return pathname === href || pathname.startsWith(href + "/");
+  };
 
   return (
     <aside
@@ -47,7 +60,7 @@ export function Sidebar() {
       <nav className="flex h-[calc(100vh-4rem)] flex-col p-2">
         <div className="flex-1 space-y-1">
           {navigation.map((item) => {
-            const isActive = pathname === item.href;
+            const isActive = isLinkActive(item.href);
             const Icon = item.icon;
 
             return (
@@ -61,8 +74,8 @@ export function Sidebar() {
                 }`}
                 title={item.name}
               >
-                <Icon className={`h-5 w-5 flex-shrink-0 ${isActive ? "invert" : ""}`} />
-                <span className={`whitespace-nowrap opacity-0 transition-opacity duration-300 group-hover:opacity-100 ${isActive ? 'text-white' : "text-black"}`}>
+                <Icon className={`h-5 w-5 flex-shrink-0 ${isActive ? "text-white" : "text-gray-600"}`} />
+                <span className="whitespace-nowrap opacity-0 transition-opacity duration-300 group-hover:opacity-100">
                   {item.name}
                 </span>
               </Link>
@@ -71,26 +84,29 @@ export function Sidebar() {
         </div>
 
         {/* Bottom section */}
-        <div className="border-t border-gray-100 pt-2 pb-2">
-          {(() => {
-            const isActive = pathname === "/settings";
+        <div className="space-y-1 border-t border-gray-100 pt-2 pb-2">
+          {bottomNavigation.map((item) => {
+            const isActive = isLinkActive(item.href);
+            const Icon = item.icon;
+
             return (
               <Link
-                href="/settings"
+                key={item.name}
+                href={item.href}
                 className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                   isActive
                     ? "bg-gray-900 text-white"
                     : "text-gray-900 hover:bg-gray-50"
                 }`}
-                title="Organizer Profile"
+                title={item.name}
               >
-                <BuildingIcon className={`h-5 w-5 flex-shrink-0 ${isActive ? "invert" : ""}`} />
-                <span className={`whitespace-nowrap opacity-0 transition-opacity duration-300 group-hover:opacity-100 ${isActive ? 'text-white' : "text-black"}`}>
-                  Organizer Profile
+                <Icon className={`h-5 w-5 flex-shrink-0 ${isActive ? "text-white" : "text-gray-600"}`} />
+                <span className="whitespace-nowrap opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+                  {item.name}
                 </span>
               </Link>
             );
-          })()}
+          })}
         </div>
       </nav>
     </aside>

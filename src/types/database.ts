@@ -39,6 +39,9 @@ export interface Database {
       event_song_suggestions: TableDef<EventSongSuggestionRow, EventSongSuggestionInsert, EventSongSuggestionUpdate>;
       tags: TableDef<TagRow, TagInsert, TagUpdate>;
       event_tags: TableDef<EventTagRow, EventTagInsert, EventTagUpdate>;
+      organizer_tags: TableDef<OrganizerTagRow, OrganizerTagInsert, OrganizerTagUpdate>;
+      event_gallery: TableDef<EventGalleryRow, EventGalleryInsert, EventGalleryUpdate>;
+      organizer_gallery: TableDef<OrganizerGalleryRow, OrganizerGalleryInsert, OrganizerGalleryUpdate>;
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -63,6 +66,7 @@ export interface ProfileRow {
   deactivated_at: Timestamp | null;
   deleted_at: Timestamp | null;
   updated_at: Timestamp;
+  occupation: string | null;
 }
 export interface ProfileInsert {
   user_id: string;
@@ -77,6 +81,7 @@ export interface ProfileInsert {
   account_status?: "active" | "deactivated" | "deleted";
   deactivated_at?: Timestamp | null;
   deleted_at?: Timestamp | null;
+  occupation?: string | null;
 }
 export interface ProfileUpdate {
   display_name?: string | null;
@@ -90,6 +95,7 @@ export interface ProfileUpdate {
   account_status?: "active" | "deactivated" | "deleted";
   deactivated_at?: Timestamp | null;
   deleted_at?: Timestamp | null;
+  occupation?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -118,6 +124,12 @@ export interface OrganizerRow {
   refund_policy: string | null;
   response_time_hours: number | null;
   updated_at: Timestamp | null;
+  tiktok_handle: string | null;
+  youtube_handle: string | null;
+  twitter_handle: string | null;
+  pinterest_handle: string | null;
+  snapchat_handle: string | null;
+  google_business_url: string | null;
 }
 export interface OrganizerInsert {
   name: string;
@@ -139,6 +151,12 @@ export interface OrganizerInsert {
   cancellation_policy?: string | null;
   refund_policy?: string | null;
   response_time_hours?: number | null;
+  tiktok_handle?: string | null;
+  youtube_handle?: string | null;
+  twitter_handle?: string | null;
+  pinterest_handle?: string | null;
+  snapchat_handle?: string | null;
+  google_business_url?: string | null;
 }
 export interface OrganizerUpdate {
   name?: string;
@@ -159,6 +177,12 @@ export interface OrganizerUpdate {
   cancellation_policy?: string | null;
   refund_policy?: string | null;
   response_time_hours?: number | null;
+  tiktok_handle?: string | null;
+  youtube_handle?: string | null;
+  twitter_handle?: string | null;
+  pinterest_handle?: string | null;
+  snapchat_handle?: string | null;
+  google_business_url?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -177,6 +201,9 @@ export interface VenueRow {
   venue_type: string | null;
   created_by_user_id: string | null;
   created_at: Timestamp;
+  postal_code: string | null;
+  capacity: number | null;
+  organizer_id: string | null;
 }
 export interface VenueInsert {
   name: string;
@@ -189,6 +216,9 @@ export interface VenueInsert {
   timezone?: string | null;
   venue_type?: string | null;
   created_by_user_id?: string | null;
+  postal_code?: string | null;
+  capacity?: number | null;
+  organizer_id?: string | null;
 }
 export interface VenueUpdate {
   name?: string;
@@ -200,6 +230,9 @@ export interface VenueUpdate {
   lng?: number | null;
   timezone?: string | null;
   venue_type?: string | null;
+  postal_code?: string | null;
+  capacity?: number | null;
+  organizer_id?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -224,6 +257,10 @@ export interface EventRow {
   created_by_user_id: string | null;
   created_at: Timestamp;
   updated_at: Timestamp;
+  waitlist_enabled: boolean;
+  approval_mode: string;
+  sharing_enabled: boolean;
+  policies: EventPolicy[];
 }
 export interface EventInsert {
   title: string;
@@ -240,6 +277,10 @@ export interface EventInsert {
   min_price_cents?: number | null;
   is_free?: boolean;
   created_by_user_id?: string | null;
+  waitlist_enabled?: boolean;
+  approval_mode?: string;
+  sharing_enabled?: boolean;
+  policies?: EventPolicy[];
 }
 export interface EventUpdate {
   title?: string;
@@ -254,6 +295,16 @@ export interface EventUpdate {
   currency?: string;
   min_price_cents?: number | null;
   is_free?: boolean;
+  waitlist_enabled?: boolean;
+  approval_mode?: string;
+  sharing_enabled?: boolean;
+  policies?: EventPolicy[];
+}
+
+/** A single event policy entry stored in the policies JSONB column. */
+export interface EventPolicy {
+  title: string;
+  description: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -271,6 +322,8 @@ export interface TicketTypeRow {
   sales_start_at: Timestamp | null;
   sales_end_at: Timestamp | null;
   created_at: Timestamp;
+  is_free: boolean;
+  free_for_ladies: boolean;
 }
 export interface TicketTypeInsert {
   event_id: string;
@@ -282,6 +335,8 @@ export interface TicketTypeInsert {
   capacity?: number | null;
   sales_start_at?: Timestamp | null;
   sales_end_at?: Timestamp | null;
+  is_free?: boolean;
+  free_for_ladies?: boolean;
 }
 export interface TicketTypeUpdate {
   name?: string;
@@ -292,6 +347,8 @@ export interface TicketTypeUpdate {
   capacity?: number | null;
   sales_start_at?: Timestamp | null;
   sales_end_at?: Timestamp | null;
+  is_free?: boolean;
+  free_for_ladies?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -676,6 +733,72 @@ export interface EventTagInsert {
   tag_id: string;
 }
 export type EventTagUpdate = never; // junction rows are only inserted/deleted
+
+// ---------------------------------------------------------------------------
+// organizer_tags (junction)
+// ---------------------------------------------------------------------------
+export interface OrganizerTagRow {
+  organizer_id: string;
+  tag_id: string;
+  created_at: Timestamp;
+}
+export interface OrganizerTagInsert {
+  organizer_id: string;
+  tag_id: string;
+}
+export type OrganizerTagUpdate = never; // junction rows are only inserted/deleted
+
+// ---------------------------------------------------------------------------
+// event_gallery
+// ---------------------------------------------------------------------------
+export interface EventGalleryRow {
+  id: string;
+  event_id: string;
+  media_url: string;
+  media_type: string;
+  caption: string | null;
+  sort_order: number | null;
+  created_at: Timestamp;
+}
+export interface EventGalleryInsert {
+  event_id: string;
+  media_url: string;
+  media_type?: string;
+  caption?: string | null;
+  sort_order?: number | null;
+}
+export interface EventGalleryUpdate {
+  media_url?: string;
+  media_type?: string;
+  caption?: string | null;
+  sort_order?: number | null;
+}
+
+// ---------------------------------------------------------------------------
+// organizer_gallery
+// ---------------------------------------------------------------------------
+export interface OrganizerGalleryRow {
+  id: string;
+  organizer_id: string;
+  image_url: string;
+  caption: string | null;
+  sort_order: number | null;
+  created_at: Timestamp;
+  media_type: string;
+}
+export interface OrganizerGalleryInsert {
+  organizer_id: string;
+  image_url: string;
+  media_type?: string;
+  caption?: string | null;
+  sort_order?: number | null;
+}
+export interface OrganizerGalleryUpdate {
+  image_url?: string;
+  media_type?: string;
+  caption?: string | null;
+  sort_order?: number | null;
+}
 
 // ---------------------------------------------------------------------------
 // Convenience row-type aliases

@@ -18,7 +18,8 @@ export default async function AttendeesPage() {
   }
 
   return (
-    <MainLayout title="All Attendees">
+    <MainLayout>
+      <h1 className="mb-6 text-2xl font-semibold text-gray-900">All Attendees</h1>
       <AttendeesPageClient attendees={attendees} checkinSummary={checkinSummary} />
     </MainLayout>
   );

@@ -51,6 +51,8 @@ const ticketTierSchema = z.object({
   price: z.coerce.number().min(0, "Price must be 0 or greater"),
   description: z.string().optional(),
   capacity: z.union([z.coerce.number().int().positive(), z.literal(""), z.undefined()]).optional(),
+  is_free: z.boolean().optional(),
+  free_for_ladies: z.boolean().optional(),
 });
 
 const editEventFormSchema = z.object({
@@ -67,6 +69,9 @@ const editEventFormSchema = z.object({
   currency: z.string(),
   tagIds: z.array(z.string()).optional(),
   publishEvent: z.boolean(),
+  waitlistEnabled: z.boolean().optional(),
+  approvalMode: z.enum(["auto", "manual"]).optional(),
+  sharingEnabled: z.boolean().optional(),
   contactEmail: z.union([z.string().email("Invalid email"), z.literal("")]).optional(),
   contactPhone: z.string().optional(),
 });
@@ -224,11 +229,16 @@ export default function EditEventPage({
                 price: tt.price_cents / 100,
                 description: tt.description ?? "",
                 capacity: tt.capacity ?? ("" as unknown as undefined),
+                is_free: tt.is_free ?? false,
+                free_for_ladies: tt.free_for_ladies ?? false,
               }))
-            : [{ name: "Standard", price: 0, description: "", capacity: "" as unknown as undefined }],
+            : [{ name: "Standard", price: 0, description: "", capacity: "" as unknown as undefined, is_free: false, free_for_ladies: false }],
           currency: eventData.currency,
           tagIds: eventData.tagIds,
           publishEvent: eventData.status === "published",
+          waitlistEnabled: eventData.waitlistEnabled ?? false,
+          approvalMode: (eventData.approvalMode as "auto" | "manual") ?? "auto",
+          sharingEnabled: eventData.sharingEnabled ?? true,
           contactEmail: "",
           contactPhone: "",
         };
@@ -294,9 +304,14 @@ export default function EditEventPage({
         const result: UpdateEventResult = await updateEventAction(eventId, {
           ...data,
           tagIds: selectedTagIds,
+          waitlistEnabled: data.waitlistEnabled ?? false,
+          approvalMode: data.approvalMode ?? "auto",
+          sharingEnabled: data.sharingEnabled ?? true,
           ticketTiers: data.ticketTiers.map((t) => ({
             ...t,
             capacity: typeof t.capacity === "number" ? t.capacity : undefined,
+            is_free: t.is_free ?? false,
+            free_for_ladies: t.free_for_ladies ?? false,
           })),
         });
 
@@ -362,7 +377,8 @@ export default function EditEventPage({
 
   if (loading) {
     return (
-      <MainLayout title="Edit Event">
+      <MainLayout>
+        <h1 className="mb-6 text-2xl font-semibold text-gray-900">Edit Event</h1>
         <div className="flex items-center justify-center py-20">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-green-500" />
         </div>
@@ -371,9 +387,9 @@ export default function EditEventPage({
   }
 
   return (
-    <MainLayout
-      title="Edit Event"
-      actions={
+    <MainLayout>
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-2xl font-semibold text-gray-900">Edit Event</h1>
         <div className="flex gap-2">
           <Button
             variant="outline"
@@ -393,8 +409,7 @@ export default function EditEventPage({
             {isPending ? "Saving..." : "Save Changes"}
           </Button>
         </div>
-      }
-    >
+      </div>
       <form
         onSubmit={handleSubmit(onSubmit)}
         className="mx-auto max-w-7xl space-y-6"
@@ -687,13 +702,31 @@ export default function EditEventPage({
                     <Input label="Description (optional)" placeholder="What's included" {...register(`ticketTiers.${index}.description`)} />
                     <Input label="Capacity (optional)" placeholder="e.g., 100" type="number" min="1" {...register(`ticketTiers.${index}.capacity`)} />
                   </div>
+                  <div className="mt-4 flex flex-wrap gap-6">
+                    <label className="flex items-center gap-2 text-sm text-gray-700">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                        {...register(`ticketTiers.${index}.is_free`)}
+                      />
+                      Free ticket
+                    </label>
+                    <label className="flex items-center gap-2 text-sm text-gray-700">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                        {...register(`ticketTiers.${index}.free_for_ladies`)}
+                      />
+                      Free for ladies
+                    </label>
+                  </div>
                 </div>
               ))}
               <Button
                 variant="outline"
                 size="sm"
                 type="button"
-                onClick={() => append({ name: "", price: 0, description: "", capacity: "" as unknown as undefined })}
+                onClick={() => append({ name: "", price: 0, description: "", capacity: "" as unknown as undefined, is_free: false, free_for_ladies: false })}
               >
                 + Add Ticket Tier
               </Button>
@@ -705,12 +738,44 @@ export default function EditEventPage({
           <Card className="rounded-[2rem] border border-gray-200/80 bg-gradient-to-br from-white via-white to-slate-50 shadow-lg shadow-gray-100">
             <SectionHeader
               icon={SettingsIcon}
-              eyebrow="Publishing"
+              eyebrow="Publishing & Settings"
               title="Event Settings"
-              description="Decide whether this event is saved as draft or published."
+              description="Control publishing status, waitlist, approval mode, and sharing."
             />
-            <div className="mt-6 rounded-3xl border border-gray-200 bg-white/80 p-5">
-              <Toggle label="Publish Event" checked={publishEvent} onChange={(checked) => setValue("publishEvent", checked)} />
+            <div className="mt-6 space-y-4">
+              <div className="rounded-3xl border border-gray-200 bg-white/80 p-5">
+                <Toggle label="Publish Event" checked={publishEvent} onChange={(checked) => setValue("publishEvent", checked)} />
+              </div>
+              <div className="rounded-3xl border border-gray-200 bg-white/80 p-5">
+                <Toggle
+                  label="Enable Waitlist"
+                  checked={watch("waitlistEnabled") ?? false}
+                  onChange={(checked) => setValue("waitlistEnabled", checked)}
+                />
+                <p className="mt-1 text-xs text-gray-500">Allow attendees to join a waitlist when tickets sell out.</p>
+              </div>
+              <div className="rounded-3xl border border-gray-200 bg-white/80 p-5">
+                <Toggle
+                  label="Enable Social Sharing"
+                  checked={watch("sharingEnabled") ?? true}
+                  onChange={(checked) => setValue("sharingEnabled", checked)}
+                />
+                <p className="mt-1 text-xs text-gray-500">Show share buttons on the public event page.</p>
+              </div>
+              <div className="rounded-3xl border border-gray-200 bg-white/80 p-5">
+                <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                  Approval Mode
+                </label>
+                <select
+                  value={watch("approvalMode") ?? "auto"}
+                  onChange={(e) => setValue("approvalMode", e.target.value as "auto" | "manual")}
+                  className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 shadow-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
+                >
+                  <option value="auto">Auto-approve reservations</option>
+                  <option value="manual">Manually approve reservations</option>
+                </select>
+                <p className="mt-1 text-xs text-gray-500">Choose whether bookings are automatically confirmed or require your approval.</p>
+              </div>
             </div>
           </Card>
 

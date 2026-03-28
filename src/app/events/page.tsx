@@ -31,16 +31,15 @@ export default async function EventsPage() {
   }
 
   return (
-    <MainLayout
-      title="Events Management"
-      actions={
+    <MainLayout>
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-2xl font-semibold text-gray-900">Events Management</h1>
         <Link href="/events/create">
           <Button variant="primary" size="sm">
             + Create Event
           </Button>
         </Link>
-      }
-    >
+      </div>
       <EventsPageClient events={events} />
     </MainLayout>
   );

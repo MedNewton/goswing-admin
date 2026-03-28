@@ -15,8 +15,8 @@ export default function LoginPage() {
           <SignIn
             path="/login"
             routing="path"
-            fallbackRedirectUrl="/"
-            forceRedirectUrl="/"
+            fallbackRedirectUrl="/overview"
+            forceRedirectUrl="/overview"
           />
         </div>
       </div>

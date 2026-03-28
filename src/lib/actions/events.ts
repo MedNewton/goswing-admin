@@ -17,6 +17,13 @@ const ticketTierSchema = z.object({
   price: z.coerce.number().min(0, "Price must be 0 or greater"),
   description: z.string().optional(),
   capacity: z.coerce.number().int().positive().optional().or(z.literal("")),
+  is_free: z.boolean().default(false),
+  free_for_ladies: z.boolean().default(false),
+});
+
+const eventPolicySchema = z.object({
+  title: z.string().min(1),
+  description: z.string().min(1),
 });
 
 const createEventSchema = z.object({
@@ -46,6 +53,10 @@ const createEventSchema = z.object({
 
   // Settings
   publishEvent: z.boolean().default(false),
+  waitlistEnabled: z.boolean().default(false),
+  approvalMode: z.enum(["auto", "manual"]).default("auto"),
+  sharingEnabled: z.boolean().default(true),
+  policies: z.array(eventPolicySchema).optional(),
 
   // Contact
   contactEmail: z.string().email().optional().or(z.literal("")),
@@ -172,13 +183,19 @@ export async function createEventAction(
         currency: data.currency,
         min_price_cents: minPriceCents,
         is_free: isFree,
+        waitlist_enabled: data.waitlistEnabled,
+        approval_mode: data.approvalMode,
+        sharing_enabled: data.sharingEnabled,
+        policies: data.policies ?? [],
       },
       data.ticketTiers.map((tier) => ({
         name: tier.name,
-        price_cents: Math.round(tier.price * 100),
+        price_cents: tier.is_free ? 0 : Math.round(tier.price * 100),
         currency: data.currency,
         description: emptyStringToNull(tier.description),
         capacity: typeof tier.capacity === "number" ? tier.capacity : null,
+        is_free: tier.is_free,
+        free_for_ladies: tier.free_for_ladies,
       })),
       data.tagIds,
     );
@@ -209,6 +226,10 @@ const updateEventSchema = z.object({
   currency: z.string().default("USD"),
   tagIds: z.array(z.string()).optional(),
   publishEvent: z.boolean().default(false),
+  waitlistEnabled: z.boolean().default(false),
+  approvalMode: z.enum(["auto", "manual"]).default("auto"),
+  sharingEnabled: z.boolean().default(true),
+  policies: z.array(eventPolicySchema).optional(),
   contactEmail: z.string().email().optional().or(z.literal("")),
   contactPhone: z.string().optional(),
 });
@@ -305,6 +326,10 @@ export async function updateEventAction(
       currency: data.currency,
       min_price_cents: minPriceCents,
       is_free: isFree,
+      waitlist_enabled: data.waitlistEnabled,
+      approval_mode: data.approvalMode,
+      sharing_enabled: data.sharingEnabled,
+      policies: data.policies ?? [],
     };
 
     // Update the event
@@ -315,10 +340,12 @@ export async function updateEventAction(
     for (const tier of submittedExistingTiers) {
       const ticketTypeUpdates: TicketTypeUpdate = {
         name: tier.name,
-        price_cents: Math.round(tier.price * 100),
+        price_cents: tier.is_free ? 0 : Math.round(tier.price * 100),
         currency: data.currency,
         description: emptyStringToNull(tier.description),
         capacity: typeof tier.capacity === "number" ? tier.capacity : null,
+        is_free: tier.is_free,
+        free_for_ladies: tier.free_for_ladies,
       };
       const { error: updateTicketTypeError } = await updateTable(
         sb,
@@ -334,10 +361,12 @@ export async function updateEventAction(
       .map((tier) => ({
         event_id: eventId,
         name: tier.name,
-        price_cents: Math.round(tier.price * 100),
+        price_cents: tier.is_free ? 0 : Math.round(tier.price * 100),
         currency: data.currency,
         description: emptyStringToNull(tier.description),
         capacity: typeof tier.capacity === "number" ? tier.capacity : null,
+        is_free: tier.is_free,
+        free_for_ladies: tier.free_for_ladies,
       }));
 
     if (newTicketTiers.length > 0) {
@@ -416,7 +445,7 @@ export async function fetchEventForEdit(eventId: string) {
     .select(`
       *,
       venues ( name, city ),
-      ticket_types ( id, name, description, price_cents, currency, capacity ),
+      ticket_types ( id, name, description, price_cents, currency, capacity, is_free, free_for_ladies ),
       event_tags ( tags ( id, label, slug, type ) )
     `)
     .eq("id", eventId)
@@ -432,6 +461,8 @@ export async function fetchEventForEdit(eventId: string) {
     price_cents: number;
     currency: string;
     capacity: number | null;
+    is_free: boolean;
+    free_for_ladies: boolean;
   }>;
 
   const eventTags = (row.event_tags ?? []) as Array<{
@@ -452,6 +483,10 @@ export async function fetchEventForEdit(eventId: string) {
     status: row.status as string,
     ticketTypes,
     tagIds,
+    waitlistEnabled: (row.waitlist_enabled as boolean) ?? false,
+    approvalMode: (row.approval_mode as string) ?? "auto",
+    sharingEnabled: (row.sharing_enabled as boolean) ?? true,
+    policies: (row.policies as Array<{ title: string; description: string }>) ?? [],
   };
 }
 

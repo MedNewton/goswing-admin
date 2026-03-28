@@ -49,6 +49,22 @@ export async function getVenuesForSelect() {
   return (data ?? []) as Array<{ id: string; name: string; city: string | null }>;
 }
 
+/** Fetch the single venue linked to an organizer (one-to-one). */
+export async function getVenueByOrganizer(organizerId: string) {
+  const sb = await createSupabaseServerClient();
+
+  const { data, error } = await sb
+    .from("venues")
+    .select("*")
+    .eq("organizer_id", organizerId)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) return null;
+  return mapVenue(data as VenueRow);
+}
+
 // ---------------------------------------------------------------------------
 // Mutations
 // ---------------------------------------------------------------------------

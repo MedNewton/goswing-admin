@@ -14,9 +14,8 @@ export default async function MusicPage() {
   }
 
   return (
-    <MainLayout
-      title="Music Suggestions"
-    >
+    <MainLayout>
+      <h1 className="mb-6 text-2xl font-semibold text-gray-900">Music Suggestions</h1>
       <MusicPageClient songs={songs} />
     </MainLayout>
   );

@@ -17,7 +17,8 @@ export default async function FinancePage() {
   }
 
   return (
-    <MainLayout title="Finance Dashboard">
+    <MainLayout>
+      <h1 className="mb-6 text-2xl font-semibold text-gray-900">Finance Dashboard</h1>
       <FinancePageClient transactions={transactions} stats={financeStats} />
     </MainLayout>
   );

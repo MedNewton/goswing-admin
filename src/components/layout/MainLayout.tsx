@@ -5,18 +5,16 @@ import { TopHeader } from "./TopHeader";
 
 interface MainLayoutProps {
   children: React.ReactNode;
-  title: string;
-  actions?: React.ReactNode;
 }
 
-export function MainLayout({ children, title, actions }: MainLayoutProps) {
+export function MainLayout({ children }: MainLayoutProps) {
   return (
     <div className="min-h-screen bg-gray-50">
       <Sidebar />
 
       {/* Main Content Area - fixed padding, sidebar overlays */}
       <div className="pl-16">
-        <TopHeader title={title} actions={actions} />
+        <TopHeader />
 
         {/* Page Content */}
         <main className="p-6">{children}</main>

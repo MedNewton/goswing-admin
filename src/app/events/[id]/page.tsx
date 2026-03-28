@@ -15,9 +15,12 @@ import { Badge } from "@/components/ui/Badge";
 import { Avatar } from "@/components/ui/Avatar";
 import { EventActions } from "@/components/events/EventActions";
 import { getEvent } from "@/lib/data/events";
+import { getEventGallery } from "@/lib/data/gallery";
+import { getReviews } from "@/lib/data/reviews";
 import { formatPrice, formatDate, formatTime, formatDateTime } from "@/lib/utils/format";
 import { notFound } from "next/navigation";
 import type { ComponentType, ReactNode, SVGProps } from "react";
+import type { GalleryItem, Review } from "@/types";
 
 export const dynamic = "force-dynamic";
 
@@ -114,9 +117,15 @@ export default async function EventDetailsPage({
   const { id } = await params;
 
   let eventData: Awaited<ReturnType<typeof getEvent>> | null = null;
+  let gallery: GalleryItem[] = [];
+  let reviews: Review[] = [];
 
   try {
-    eventData = await getEvent(id);
+    [eventData, gallery, reviews] = await Promise.all([
+      getEvent(id),
+      getEventGallery(id),
+      getReviews({ eventId: id }),
+    ]);
   } catch {
     notFound();
   }
@@ -148,10 +157,11 @@ export default async function EventDetailsPage({
 
   return (
     <>
-      <MainLayout
-        title="Event Details"
-        actions={<EventActions eventId={id} />}
-      >
+      <MainLayout>
+        <div className="mb-6 flex items-center justify-between">
+          <h1 className="text-2xl font-semibold text-gray-900">Event Details</h1>
+          <EventActions eventId={id} />
+        </div>
         <div className="mx-auto max-w-7xl">
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             {/* Main Content */}
@@ -283,6 +293,99 @@ export default async function EventDetailsPage({
                   </div>
                 )}
               </div>
+
+              {/* Event Gallery */}
+              {gallery.length > 0 && (
+                <div className="mt-6 rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100">
+                  <SectionHeader
+                    icon={StarIcon}
+                    eyebrow="Media"
+                    title="Event Gallery"
+                    description={`${gallery.length} photo${gallery.length !== 1 ? "s" : ""}`}
+                  />
+                  <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                    {gallery.map((item) => (
+                      <div
+                        key={item.id}
+                        className="group relative aspect-square overflow-hidden rounded-2xl border border-gray-200"
+                      >
+                        <img
+                          src={item.mediaUrl}
+                          alt={item.caption ?? "Event photo"}
+                          className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                        />
+                        {item.caption && (
+                          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-3">
+                            <p className="text-xs text-white">{item.caption}</p>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Reviews */}
+              {reviews.length > 0 && (
+                <div className="mt-6 rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100">
+                  <SectionHeader
+                    icon={StarIcon}
+                    eyebrow="Feedback"
+                    title="Reviews"
+                    description={`${reviews.length} review${reviews.length !== 1 ? "s" : ""}`}
+                  />
+                  <div className="mt-6 space-y-4">
+                    {reviews.slice(0, 5).map((review) => (
+                      <div
+                        key={review.id}
+                        className="rounded-2xl border border-gray-100 bg-gray-50 p-4"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            {review.userAvatar ? (
+                              <img
+                                src={review.userAvatar}
+                                alt={review.userName}
+                                className="h-8 w-8 rounded-full object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-200 text-xs font-medium text-gray-600">
+                                {review.userName.charAt(0).toUpperCase()}
+                              </div>
+                            )}
+                            <div>
+                              <p className="text-sm font-medium text-gray-900">
+                                {review.userName}
+                              </p>
+                              <p className="text-xs text-gray-500">{review.date}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            {Array.from({ length: 5 }).map((_, i) => (
+                              <StarIcon
+                                key={i}
+                                className={`h-4 w-4 ${
+                                  i < review.rating
+                                    ? "fill-amber-400 text-amber-400"
+                                    : "text-gray-200"
+                                }`}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                        {review.comment && (
+                          <p className="mt-3 text-sm text-gray-700">{review.comment}</p>
+                        )}
+                      </div>
+                    ))}
+                    {reviews.length > 5 && (
+                      <p className="text-center text-sm text-gray-500">
+                        +{reviews.length - 5} more reviews
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Organizer */}
               {organizer && (
@@ -549,17 +652,28 @@ export default async function EventDetailsPage({
                   )}
                   </div>
                   {venue.lat && venue.lng ? (
-                    <div className="mt-4 overflow-hidden rounded-[1.5rem] border border-gray-200">
-                      <iframe
-                        title="Venue location"
-                        width="100%"
-                        height="260"
-                        style={{ border: 0 }}
-                        loading="lazy"
-                        referrerPolicy="no-referrer-when-downgrade"
-                        src={`https://www.google.com/maps/embed/v1/place?key=${process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY ?? ""}&q=${venue.lat},${venue.lng}&zoom=15`}
-                      />
-                    </div>
+                    <>
+                      <div className="mt-4 overflow-hidden rounded-[1.5rem] border border-gray-200">
+                        <iframe
+                          title="Venue location"
+                          width="100%"
+                          height="260"
+                          style={{ border: 0 }}
+                          loading="lazy"
+                          referrerPolicy="no-referrer-when-downgrade"
+                          src={`https://www.google.com/maps/embed/v1/place?key=${process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY ?? ""}&q=${venue.lat},${venue.lng}&zoom=15`}
+                        />
+                      </div>
+                      <a
+                        href={`https://www.google.com/maps/dir/?api=1&destination=${venue.lat},${venue.lng}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                      >
+                        <MapPinIcon className="h-4 w-4" />
+                        Get Directions
+                      </a>
+                    </>
                   ) : (
                     <div className="mt-4 flex h-48 items-center justify-center rounded-[1.5rem] border border-dashed border-gray-300 bg-gray-50 text-sm text-gray-500">
                       No map available

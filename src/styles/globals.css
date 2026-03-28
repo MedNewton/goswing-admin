@@ -1,5 +1,14 @@
 @import "tailwindcss";
 
+/* Hide scrollbar for slideable components */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 /* FullCalendar custom styles */
 .event-calendar .fc {
   --fc-border-color: #e5e7eb;
@@ -131,9 +140,11 @@ body {
     Ubuntu, Cantarell, Fira Sans, Droid Sans, Helvetica Neue, sans-serif;
 }
 
-a {
-  color: inherit;
-  text-decoration: none;
+@layer base {
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
 }
 
 * {

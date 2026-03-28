@@ -12,7 +12,10 @@ export type {
   Insert,
   Update,
   TableName,
+  EventPolicy,
 } from "./database";
+
+import type { EventPolicy } from "./database";
 
 // ---------------------------------------------------------------------------
 // Events
@@ -40,6 +43,14 @@ export interface Event {
   organizerId?: string;
   organizerName?: string;
   tags?: string[];
+  // New fields
+  songSuggestionsCount?: number;
+  checkedInCount?: number;
+  reviewScore?: number | null;
+  waitlistEnabled?: boolean;
+  approvalMode?: string;
+  sharingEnabled?: boolean;
+  policies?: EventPolicy[];
 }
 
 // ---------------------------------------------------------------------------
@@ -56,6 +67,9 @@ export interface Venue {
   lng: number | null;
   venueType: string | null;
   createdAt: string;
+  postalCode: string | null;
+  capacity: number | null;
+  organizerId: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -177,4 +191,40 @@ export interface Stats {
   conversionRate?: number;
   totalRevenue?: number;
   totalRevenueFormatted?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Gallery
+// ---------------------------------------------------------------------------
+export interface GalleryItem {
+  id: string;
+  mediaUrl: string;
+  mediaType: "image" | "video";
+  caption?: string;
+  sortOrder: number;
+}
+
+// ---------------------------------------------------------------------------
+// Event Overview (analytics)
+// ---------------------------------------------------------------------------
+export interface TicketSalesBreakdown {
+  ticketTypeName: string;
+  ticketsSold: number;
+  revenue: number;       // cents
+  revenueFormatted: string;
+}
+
+export interface EventOverview {
+  eventId: string;
+  reservationsCount: number;
+  songSuggestionsCount: number;
+  checkedInCount: number;
+  reviewScore: number | null;
+  reviewCount: number;
+  totalTicketsSold: number;
+  totalRevenue: number;   // cents
+  totalRevenueFormatted: string;
+  ticketSalesBreakdown: TicketSalesBreakdown[];
+  conversionRate: number | null;  // percentage
+  cancellationRate: number | null; // percentage
 }

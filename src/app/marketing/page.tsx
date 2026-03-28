@@ -3,7 +3,6 @@ import { StatCard } from "@/components/ui/StatCard";
 import { Card } from "@/components/ui/Card";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/Table";
 import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
 import { ChartIcon, EyeIcon } from "@/components/icons";
 
 const stats = [
@@ -86,15 +85,21 @@ const quickActions = [
 
 export default function MarketingPage() {
   return (
-    <MainLayout
-      title="Marketing Center"
-      actions={
-        <Button variant="primary" size="sm">
-          ➕ Create Campaign
-        </Button>
-      }
-    >
-      <div className="space-y-6">
+    <MainLayout>
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-2xl font-semibold text-gray-900">Marketing Center</h1>
+      </div>
+      <div className="relative space-y-6">
+        {/* Coming Soon Overlay */}
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+          <div className="rounded-2xl bg-white/90 px-8 py-6 text-center shadow-lg backdrop-blur">
+            <p className="text-2xl font-bold text-gray-900">Coming Soon</p>
+            <p className="mt-2 text-sm text-gray-500">
+              Marketing tools are under development and will be available soon.
+            </p>
+          </div>
+        </div>
+        <div className="select-none blur-sm">
         {/* Stats Grid */}
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
           {stats.map((stat) => (
@@ -224,6 +229,7 @@ export default function MarketingPage() {
               ))}
             </div>
           </Card>
+        </div>
         </div>
       </div>
     </MainLayout>

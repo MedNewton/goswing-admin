@@ -25,6 +25,8 @@ const createVenueFormSchema = z.object({
   region: z.string().optional().or(z.literal("")),
   country_code: z.string().optional().or(z.literal("")),
   venue_type: z.string().optional().or(z.literal("")),
+  postal_code: z.string().optional().or(z.literal("")),
+  capacity: z.union([z.coerce.number().int().positive(), z.literal(""), z.undefined()]).optional(),
   lat: z.coerce.number().optional(),
   lng: z.coerce.number().optional(),
 });
@@ -55,6 +57,8 @@ export default function CreateVenuePage() {
       region: "",
       country_code: "",
       venue_type: "",
+      postal_code: "",
+      capacity: "" as unknown as undefined,
     },
   });
 
@@ -76,6 +80,8 @@ export default function CreateVenuePage() {
           region: data.region,
           country_code: data.country_code,
           venue_type: data.venue_type,
+          postal_code: data.postal_code,
+          capacity: typeof data.capacity === "number" ? data.capacity : undefined,
           lat: data.lat,
           lng: data.lng,
         });
@@ -122,9 +128,9 @@ export default function CreateVenuePage() {
     .join(", ");
 
   return (
-    <MainLayout
-      title="Create New Venue"
-      actions={
+    <MainLayout>
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-2xl font-semibold text-gray-900">Create New Venue</h1>
         <div className="flex gap-2">
           <Button
             variant="outline"
@@ -144,8 +150,7 @@ export default function CreateVenuePage() {
             {isPending ? "Saving..." : "Save Venue"}
           </Button>
         </div>
-      }
-    >
+      </div>
       <form
         onSubmit={handleSubmit(onSubmit)}
         className="mx-auto max-w-2xl space-y-6"
@@ -169,24 +174,33 @@ export default function CreateVenuePage() {
               error={errors.name?.message}
               {...register("name")}
             />
-            <Select
-              label="Venue Type"
-              options={[
-                { value: "", label: "Select a type" },
-                { value: "club", label: "Club" },
-                { value: "bar", label: "Bar" },
-                { value: "restaurant", label: "Restaurant" },
-                { value: "concert_hall", label: "Concert Hall" },
-                { value: "outdoor", label: "Outdoor Venue" },
-                { value: "hotel", label: "Hotel" },
-                { value: "conference_center", label: "Conference Center" },
-                { value: "stadium", label: "Stadium" },
-                { value: "theater", label: "Theater" },
-                { value: "other", label: "Other" },
-              ]}
-              error={errors.venue_type?.message}
-              {...register("venue_type")}
-            />
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <Select
+                label="Venue Type"
+                options={[
+                  { value: "", label: "Select a type" },
+                  { value: "club", label: "Club" },
+                  { value: "bar", label: "Bar" },
+                  { value: "restaurant", label: "Restaurant" },
+                  { value: "concert_hall", label: "Concert Hall" },
+                  { value: "outdoor", label: "Outdoor Venue" },
+                  { value: "hotel", label: "Hotel" },
+                  { value: "conference_center", label: "Conference Center" },
+                  { value: "stadium", label: "Stadium" },
+                  { value: "theater", label: "Theater" },
+                  { value: "other", label: "Other" },
+                ]}
+                error={errors.venue_type?.message}
+                {...register("venue_type")}
+              />
+              <Input
+                label="Capacity"
+                placeholder="e.g., 500"
+                type="number"
+                min="1"
+                {...register("capacity")}
+              />
+            </div>
           </div>
         </Card>
 
@@ -252,12 +266,20 @@ export default function CreateVenuePage() {
                     {...register("region")}
                   />
                 </div>
-                <Input
-                  label="Country Code"
-                  placeholder="e.g., FR, US, MA"
-                  error={errors.country_code?.message}
-                  {...register("country_code")}
-                />
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <Input
+                    label="Country Code"
+                    placeholder="e.g., FR, US, MA"
+                    error={errors.country_code?.message}
+                    {...register("country_code")}
+                  />
+                  <Input
+                    label="Postal Code"
+                    placeholder="e.g., 75001"
+                    error={errors.postal_code?.message}
+                    {...register("postal_code")}
+                  />
+                </div>
               </div>
             </div>
           </div>

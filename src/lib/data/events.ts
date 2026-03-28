@@ -3,18 +3,17 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { insertInto, updateTable } from "@/lib/supabase/mutations";
 import { mapEvent, mapEvents, type EventQueryRow } from "@/lib/mappers/events";
 import type { EventInsert, EventUpdate, TicketTypeInsert } from "@/types/database";
+import type { EventOverview, TicketSalesBreakdown } from "@/types";
+import { formatMoney } from "@/lib/utils/format";
 
 // ---------------------------------------------------------------------------
 // Queries
 // ---------------------------------------------------------------------------
 
-/** Fetch all events created by the current user. */
+/** Fetch all events created by the current user, enriched with counts. */
 export async function getEvents() {
   const sb = await createSupabaseServerClient();
 
-  // Events are filtered by RLS policy (events_creator_read) which checks:
-  // created_by_user_id = requesting_user_id()
-  // We also add an explicit filter to ensure we only get user's own events
   const { data, error } = await sb
     .from("events")
     .select(`
@@ -27,7 +26,64 @@ export async function getEvents() {
     .order("starts_at", { ascending: false });
 
   if (error) throw error;
-  return mapEvents((data ?? []) as EventQueryRow[]);
+
+  const events = (data ?? []) as EventQueryRow[];
+  if (events.length === 0) return mapEvents(events);
+
+  // Enrich events with aggregated counts in parallel
+  const eventIds = events.map((e) => e.id);
+
+  // Fetch aggregated counts in parallel
+  const [songsResult, checkinsResult, reviewsResult, reservationsResult] = await Promise.all([
+    sb.from("event_song_suggestions").select("event_id").in("event_id", eventIds),
+    sb.from("ticket_checkins").select("ticket_id, tickets!inner(event_id)").in("tickets.event_id", eventIds).eq("result", "accepted"),
+    sb.from("event_reviews").select("event_id, rating").in("event_id", eventIds),
+    sb.from("reservations").select("event_id").in("event_id", eventIds).eq("status", "confirmed"),
+  ]);
+
+  const songCounts: Record<string, number> = {};
+  for (const r of (songsResult.data ?? []) as Array<{ event_id: string }>) {
+    songCounts[r.event_id] = (songCounts[r.event_id] ?? 0) + 1;
+  }
+
+  const checkinCounts: Record<string, number> = {};
+  for (const r of (checkinsResult.data ?? []) as Array<{ tickets: { event_id: string } }>) {
+    const eid = r.tickets.event_id;
+    checkinCounts[eid] = (checkinCounts[eid] ?? 0) + 1;
+  }
+
+  const reviewStats: Record<string, number> = {};
+  const reviewGrouped: Record<string, number[]> = {};
+  for (const r of (reviewsResult.data ?? []) as Array<{ event_id: string; rating: number }>) {
+    (reviewGrouped[r.event_id] ??= []).push(r.rating);
+  }
+  for (const [eid, ratings] of Object.entries(reviewGrouped)) {
+    reviewStats[eid] = ratings.reduce((a, b) => a + b, 0) / ratings.length;
+  }
+
+  const reservationCounts: Record<string, number> = {};
+  for (const r of (reservationsResult.data ?? []) as Array<{ event_id: string }>) {
+    reservationCounts[r.event_id] = (reservationCounts[r.event_id] ?? 0) + 1;
+  }
+
+  // Merge counts into event rows
+  for (const event of events) {
+    event._songSuggestionsCount = songCounts[event.id] ?? 0;
+    event._checkedInCount = checkinCounts[event.id] ?? 0;
+    event._reviewScore = reviewStats[event.id] ?? null;
+    // Also set reservationCount on mapped result
+  }
+
+  const mapped = mapEvents(events);
+  for (let i = 0; i < mapped.length; i++) {
+    const event = events[i];
+    const mappedEvent = mapped[i];
+    if (event && mappedEvent) {
+      mappedEvent.reservationCount = reservationCounts[event.id] ?? 0;
+    }
+  }
+
+  return mapped;
 }
 
 /** Fetch a single event by ID with full relations. */
@@ -92,6 +148,77 @@ export async function getEvent(id: string) {
       lat: number | null;
       lng: number | null;
     } | null,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Event Overview (analytics for a single event)
+// ---------------------------------------------------------------------------
+
+/** Fetch full analytics overview for a single event. */
+export async function getEventOverview(eventId: string): Promise<EventOverview> {
+  const sb = await createSupabaseServerClient();
+
+  const [reservationsResult, songsResult, checkinsResult, reviewsResult, itemsResult] = await Promise.all([
+    sb.from("reservations").select("id, status, total_amount_cents, currency").eq("event_id", eventId),
+    sb.from("event_song_suggestions").select("id").eq("event_id", eventId),
+    sb.from("ticket_checkins").select("id, tickets!inner(event_id)").eq("tickets.event_id", eventId).eq("result", "accepted"),
+    sb.from("event_reviews").select("rating").eq("event_id", eventId),
+    sb.from("reservation_items").select("ticket_type_name_snapshot, quantity, line_total_cents, currency, reservations!inner(event_id, status)").eq("reservations.event_id", eventId).eq("reservations.status", "confirmed").eq("is_removed", false),
+  ]);
+
+  type ReservationAgg = { id: string; status: string; total_amount_cents: number; currency: string };
+  const allReservations = (reservationsResult.data ?? []) as ReservationAgg[];
+  const confirmedReservations = allReservations.filter((r) => r.status === "confirmed");
+  const cancelledReservations = allReservations.filter((r) => r.status === "cancelled");
+
+  const totalRevenueCents = confirmedReservations.reduce((sum, r) => sum + r.total_amount_cents, 0);
+  const currency = confirmedReservations[0]?.currency ?? "USD";
+
+  // Reviews
+  const ratings = ((reviewsResult.data ?? []) as Array<{ rating: number }>).map((r) => r.rating);
+  const reviewScore = ratings.length > 0 ? ratings.reduce((a, b) => a + b, 0) / ratings.length : null;
+
+  // Ticket sales breakdown by type
+  const breakdownMap: Record<string, { sold: number; revenue: number }> = {};
+  for (const item of (itemsResult.data ?? []) as Array<{
+    ticket_type_name_snapshot: string;
+    quantity: number;
+    line_total_cents: number;
+  }>) {
+    const entry = (breakdownMap[item.ticket_type_name_snapshot] ??= { sold: 0, revenue: 0 });
+    entry.sold += item.quantity;
+    entry.revenue += item.line_total_cents;
+  }
+
+  const ticketSalesBreakdown: TicketSalesBreakdown[] = Object.entries(breakdownMap).map(
+    ([name, { sold, revenue }]) => ({
+      ticketTypeName: name,
+      ticketsSold: sold,
+      revenue,
+      revenueFormatted: formatMoney(revenue, currency),
+    }),
+  );
+
+  const totalTicketsSold = ticketSalesBreakdown.reduce((sum, b) => sum + b.ticketsSold, 0);
+
+  // Rates
+  const totalBought = confirmedReservations.length + cancelledReservations.length;
+  const cancellationRate = totalBought > 0 ? (cancelledReservations.length / totalBought) * 100 : null;
+
+  return {
+    eventId,
+    reservationsCount: confirmedReservations.length,
+    songSuggestionsCount: (songsResult.data ?? []).length,
+    checkedInCount: (checkinsResult.data ?? []).length,
+    reviewScore: reviewScore ? Math.round(reviewScore * 10) / 10 : null,
+    reviewCount: ratings.length,
+    totalTicketsSold,
+    totalRevenue: totalRevenueCents,
+    totalRevenueFormatted: formatMoney(totalRevenueCents, currency),
+    ticketSalesBreakdown,
+    conversionRate: null, // requires page view tracking (not yet available)
+    cancellationRate: cancellationRate ? Math.round(cancellationRate * 10) / 10 : null,
   };
 }
 

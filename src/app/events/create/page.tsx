@@ -30,6 +30,8 @@ const ticketTierSchema = z.object({
   price: z.coerce.number().min(0, "Price must be 0 or greater"),
   description: z.string().optional(),
   capacity: z.union([z.coerce.number().int().positive(), z.literal(""), z.undefined()]).optional(),
+  is_free: z.boolean().optional(),
+  free_for_ladies: z.boolean().optional(),
 });
 
 const createEventFormSchema = z.object({
@@ -46,6 +48,9 @@ const createEventFormSchema = z.object({
   currency: z.string(),
   tagIds: z.array(z.string()).optional(),
   publishEvent: z.boolean(),
+  waitlistEnabled: z.boolean().optional(),
+  approvalMode: z.enum(["auto", "manual"]).optional(),
+  sharingEnabled: z.boolean().optional(),
   contactEmail: z.union([z.string().email("Invalid email"), z.literal("")]).optional(),
   contactPhone: z.string().optional(),
 }).refine(
@@ -216,9 +221,14 @@ export default function CreateEventPage() {
         const result: CreateEventResult = await createEventAction({
           ...data,
           tagIds: selectedTagIds,
+          waitlistEnabled: data.waitlistEnabled ?? false,
+          approvalMode: data.approvalMode ?? "auto",
+          sharingEnabled: data.sharingEnabled ?? true,
           ticketTiers: data.ticketTiers.map((t) => ({
             ...t,
             capacity: typeof t.capacity === "number" ? t.capacity : undefined,
+            is_free: t.is_free ?? false,
+            free_for_ladies: t.free_for_ladies ?? false,
           })),
         });
 
@@ -256,9 +266,9 @@ export default function CreateEventPage() {
   ];
 
   return (
-    <MainLayout
-      title="Create New Event"
-      actions={
+    <MainLayout>
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-2xl font-semibold text-gray-900">Create New Event</h1>
         <div className="flex gap-2">
           <Button
             variant="outline"
@@ -278,8 +288,7 @@ export default function CreateEventPage() {
             {isPending ? "Saving..." : "Save"}
           </Button>
         </div>
-      }
-    >
+      </div>
       <form
         onSubmit={handleSubmit(onSubmit)}
         className="mx-auto max-w-4xl space-y-6"
@@ -596,6 +605,24 @@ export default function CreateEventPage() {
                     {...register(`ticketTiers.${index}.capacity`)}
                   />
                 </div>
+                <div className="mt-3 flex flex-wrap gap-6">
+                  <label className="flex items-center gap-2 text-sm text-gray-700">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                      {...register(`ticketTiers.${index}.is_free`)}
+                    />
+                    Free ticket
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-gray-700">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                      {...register(`ticketTiers.${index}.free_for_ladies`)}
+                    />
+                    Free for ladies
+                  </label>
+                </div>
               </div>
             ))}
 
@@ -628,6 +655,32 @@ export default function CreateEventPage() {
               checked={publishEvent}
               onChange={(checked) => setValue("publishEvent", checked)}
             />
+            <Toggle
+              label="Enable Waitlist"
+              checked={watch("waitlistEnabled") ?? false}
+              onChange={(checked) => setValue("waitlistEnabled", checked)}
+            />
+            <p className="-mt-2 ml-11 text-xs text-gray-500">Allow attendees to join a waitlist when tickets sell out.</p>
+            <Toggle
+              label="Enable Social Sharing"
+              checked={watch("sharingEnabled") ?? true}
+              onChange={(checked) => setValue("sharingEnabled", checked)}
+            />
+            <p className="-mt-2 ml-11 text-xs text-gray-500">Show share buttons on the public event page.</p>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                Approval Mode
+              </label>
+              <select
+                value={watch("approvalMode") ?? "auto"}
+                onChange={(e) => setValue("approvalMode", e.target.value as "auto" | "manual")}
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-500"
+              >
+                <option value="auto">Auto-approve reservations</option>
+                <option value="manual">Manually approve reservations</option>
+              </select>
+              <p className="mt-1 text-xs text-gray-500">Choose whether bookings are automatically confirmed or require your approval.</p>
+            </div>
           </div>
         </Card>
 
