@@ -1,12 +1,21 @@
 "use client";
 
 import { MainLayout } from "@/components/layout/MainLayout";
-import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { Select } from "@/components/ui/Select";
 import { Toggle } from "@/components/ui/Toggle";
 import { Button } from "@/components/ui/Button";
+import {
+  CalendarIcon,
+  MapPinIcon,
+  DollarIcon,
+  SettingsIcon,
+  MailIcon,
+  EditIcon,
+  PlusIcon,
+  EyeIcon,
+} from "@/components/icons";
 import { useState, useEffect, useTransition, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useFieldArray } from "react-hook-form";
@@ -20,6 +29,7 @@ import {
 } from "@/lib/actions/events";
 import { fetchVenuesForSelect } from "@/lib/actions/venues";
 import Link from "next/link";
+import type { ComponentType, SVGProps } from "react";
 
 // ---------------------------------------------------------------------------
 // Zod Schema (mirrors server-side for client validation)
@@ -55,7 +65,6 @@ const createEventFormSchema = z.object({
   contactPhone: z.string().optional(),
 }).refine(
   (data) => {
-    // Validate start date/time is in the future
     if (data.eventDate && data.startTime) {
       const startDateTime = new Date(`${data.eventDate}T${data.startTime}`);
       if (startDateTime <= new Date()) {
@@ -70,7 +79,6 @@ const createEventFormSchema = z.object({
   }
 ).refine(
   (data) => {
-    // Validate end date/time is at least 30 min after start
     if (data.eventDate && data.startTime && data.endTime) {
       const endDate = resolveEventEndDate(data.endDate, data.eventDate);
       const startDateTime = new Date(`${data.eventDate}T${data.startTime}`);
@@ -102,6 +110,41 @@ function getNestedValue(value: unknown, key: string) {
 }
 
 // ---------------------------------------------------------------------------
+// Shared UI pieces
+// ---------------------------------------------------------------------------
+
+type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
+
+function SectionHeader({
+  icon: Icon,
+  eyebrow,
+  title,
+  description,
+}: {
+  icon: IconComponent;
+  eyebrow: string;
+  title: string;
+  description?: string;
+}) {
+  return (
+    <div className="flex items-start gap-4">
+      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gray-950 text-white shadow-sm">
+        <Icon className="h-5 w-5" />
+      </div>
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">
+          {eyebrow}
+        </p>
+        <h2 className="mt-1 text-xl font-semibold text-gray-950">{title}</h2>
+        {description && (
+          <p className="mt-1 text-sm text-gray-500">{description}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Page Component
 // ---------------------------------------------------------------------------
 
@@ -119,7 +162,6 @@ export default function CreateEventPage() {
   const [imageError, setImageError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Fetch venues and tags on mount
   useEffect(() => {
     fetchVenuesForSelect()
       .then((data) => setVenues(data))
@@ -167,17 +209,13 @@ export default function CreateEventPage() {
   const publishEvent = watch("publishEvent");
   const eventDate = watch("eventDate");
 
-  // Compute today's date string for min attribute on date inputs
   const todayStr = new Date().toISOString().split("T")[0];
-
-  // Compute min end date (must be >= event start date)
   const minEndDate = eventDate || todayStr;
 
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Show preview immediately
     const previewUrl = URL.createObjectURL(file);
     setImagePreview(previewUrl);
     setImageError(null);
@@ -186,9 +224,7 @@ export default function CreateEventPage() {
     try {
       const formData = new FormData();
       formData.append("file", file);
-
       const result = await uploadEventImageAction(formData);
-
       if (result.success) {
         setValue("heroImageUrl", result.url);
       } else {
@@ -243,7 +279,6 @@ export default function CreateEventPage() {
     });
   };
 
-  // Helper to get nested field error message
   const fieldError = (path: string): string | undefined => {
     const parts = path.split(".");
     let current: unknown = errors;
@@ -251,12 +286,10 @@ export default function CreateEventPage() {
       current = getNestedValue(current, part);
       if (current === undefined) return undefined;
     }
-
     const message = getNestedValue(current, "message");
     return typeof message === "string" ? message : undefined;
   };
 
-  // Build venue options for the select dropdown
   const venueOptions = [
     { value: "", label: venuesLoading ? "Loading venues..." : "Select a venue (optional)" },
     ...venues.map((v) => ({
@@ -267,46 +300,66 @@ export default function CreateEventPage() {
 
   return (
     <MainLayout>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-gray-900">Create New Event</h1>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            type="button"
-            onClick={() => router.push("/events")}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="primary"
-            size="sm"
-            type="button"
-            disabled={isPending}
-            onClick={handleSubmit(onSubmit)}
-          >
-            {isPending ? "Saving..." : "Save"}
-          </Button>
-        </div>
-      </div>
       <form
         onSubmit={handleSubmit(onSubmit)}
         className="mx-auto max-w-4xl space-y-6"
       >
+        {/* Hero Header */}
+        <section className="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-gradient-to-br from-slate-950 via-slate-900 to-teal-800 p-8 text-white shadow-xl shadow-slate-200">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(255,255,255,0.18),_transparent_30%),radial-gradient(circle_at_bottom_left,_rgba(45,212,191,0.22),_transparent_34%)]" />
+          <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-4">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/12 text-white backdrop-blur">
+                <PlusIcon className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-teal-100/75">
+                  New Event
+                </p>
+                <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">
+                  Create Event
+                </h1>
+                <p className="mt-1 max-w-lg text-sm text-slate-300">
+                  Fill out the details below to publish a new event for your audience.
+                </p>
+              </div>
+            </div>
+            <div className="flex shrink-0 gap-3">
+              <button
+                type="button"
+                onClick={() => router.push("/events")}
+                className="rounded-xl border border-white/20 bg-white/10 px-5 py-2.5 text-sm font-medium text-white backdrop-blur transition-colors hover:bg-white/20"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={handleSubmit(onSubmit)}
+                className="cursor-pointer rounded-xl bg-white px-5 py-2.5 text-sm font-semibold text-gray-950 shadow-sm transition-colors hover:bg-gray-100 disabled:opacity-50"
+              >
+                {isPending ? "Saving..." : "Save Event"}
+              </button>
+            </div>
+          </div>
+        </section>
         {/* Server Error */}
         {serverError && (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
             {serverError}
           </div>
         )}
 
         {/* Event Image */}
-        <Card>
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">
-            📷 Event Image
-          </h2>
-          <div className="flex items-center gap-4">
-            <div className="relative h-32 w-32 overflow-hidden rounded-lg border-2 border-dashed border-gray-300 bg-gray-50">
+        <div className="rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100 sm:p-8">
+          <SectionHeader
+            icon={EyeIcon}
+            eyebrow="Media"
+            title="Event Image"
+            description="Upload a hero image for your event page."
+          />
+          <div className="mt-6 flex items-center gap-5">
+            <div className="relative h-32 w-32 shrink-0 overflow-hidden rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50">
               {imagePreview ? (
                 <>
                   <img
@@ -321,8 +374,8 @@ export default function CreateEventPage() {
                   )}
                 </>
               ) : (
-                <div className="flex h-full items-center justify-center text-gray-400">
-                  <span className="text-4xl">+</span>
+                <div className="flex h-full items-center justify-center text-gray-300">
+                  <PlusIcon className="h-8 w-8" />
                 </div>
               )}
             </div>
@@ -368,14 +421,17 @@ export default function CreateEventPage() {
               </p>
             </div>
           </div>
-        </Card>
+        </div>
 
         {/* Event Details */}
-        <Card>
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">
-            📝 Event Details
-          </h2>
-          <div className="space-y-4">
+        <div className="rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100 sm:p-8">
+          <SectionHeader
+            icon={EditIcon}
+            eyebrow="Details"
+            title="Event Details"
+            description="Give your event a name, description, and category."
+          />
+          <div className="mt-6 space-y-4">
             <Input
               label="Event Title"
               placeholder="e.g., Summer Jazz Night"
@@ -414,7 +470,6 @@ export default function CreateEventPage() {
                 <p className="text-sm text-gray-400">No tags available</p>
               ) : (
                 <>
-                  {/* Selected tags */}
                   {selectedTagIds.length > 0 && (
                     <div className="mb-2 flex flex-wrap gap-2">
                       {selectedTagIds.map((tagId) => {
@@ -442,9 +497,8 @@ export default function CreateEventPage() {
                       })}
                     </div>
                   )}
-                  {/* Dropdown to add tags */}
                   <select
-                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-500"
+                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-500"
                     value=""
                     onChange={(e) => {
                       const val = e.target.value;
@@ -466,14 +520,17 @@ export default function CreateEventPage() {
               )}
             </div>
           </div>
-        </Card>
+        </div>
 
         {/* Date & Time */}
-        <Card>
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">
-            📅 Date & Time
-          </h2>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100 sm:p-8">
+          <SectionHeader
+            icon={CalendarIcon}
+            eyebrow="Schedule"
+            title="Date & Time"
+            description="When does your event start and end?"
+          />
+          <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
             <Input
               label="Event Date"
               type="date"
@@ -501,17 +558,20 @@ export default function CreateEventPage() {
               {...register("endTime")}
             />
           </div>
-          <p className="mt-2 text-xs text-gray-400">
+          <p className="mt-3 text-xs text-gray-400">
             End time must be at least 30 minutes after start time.
           </p>
-        </Card>
+        </div>
 
         {/* Location */}
-        <Card>
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">
-            📍 Location
-          </h2>
-          <div className="space-y-4">
+        <div className="rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100 sm:p-8">
+          <SectionHeader
+            icon={MapPinIcon}
+            eyebrow="Location"
+            title="Venue"
+            description="Choose where your event takes place."
+          />
+          <div className="mt-6 space-y-4">
             <Select
               label="Venue"
               options={venueOptions}
@@ -528,14 +588,18 @@ export default function CreateEventPage() {
               </Link>
             </div>
           </div>
-        </Card>
+        </div>
 
         {/* Pricing */}
-        <Card>
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">
-            💰 Pricing
-          </h2>
-          <div className="mb-4">
+        <div className="rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100 sm:p-8">
+          <SectionHeader
+            icon={DollarIcon}
+            eyebrow="Pricing"
+            title="Tickets & Pricing"
+            description="Set up your ticket tiers and pricing."
+          />
+
+          <div className="mt-6 mb-4">
             <Select
               label="Currency"
               options={[
@@ -557,18 +621,24 @@ export default function CreateEventPage() {
             {fields.map((field, index) => (
               <div
                 key={field.id}
-                className="rounded-lg border border-gray-200 p-4"
+                className="rounded-2xl border border-gray-200 bg-gray-50/50 p-5"
               >
-                <div className="mb-3 flex items-center justify-between">
-                  <h3 className="font-medium text-gray-900">
-                    Ticket Tier {index + 1}
-                  </h3>
+                <div className="mb-4 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gray-900 text-xs font-bold text-white">
+                      {index + 1}
+                    </div>
+                    <h3 className="font-medium text-gray-900">
+                      Ticket Tier {index + 1}
+                    </h3>
+                  </div>
                   {fields.length > 1 && (
                     <Button
                       variant="ghost"
                       size="sm"
                       type="button"
                       onClick={() => remove(index)}
+                      className="text-red-500 hover:text-red-600"
                     >
                       Remove
                     </Button>
@@ -605,7 +675,7 @@ export default function CreateEventPage() {
                     {...register(`ticketTiers.${index}.capacity`)}
                   />
                 </div>
-                <div className="mt-3 flex flex-wrap gap-6">
+                <div className="mt-4 flex flex-wrap gap-6">
                   <label className="flex items-center gap-2 text-sm text-gray-700">
                     <input
                       type="checkbox"
@@ -626,9 +696,7 @@ export default function CreateEventPage() {
               </div>
             ))}
 
-            <Button
-              variant="outline"
-              size="sm"
+            <button
               type="button"
               onClick={() =>
                 append({
@@ -638,58 +706,70 @@ export default function CreateEventPage() {
                   capacity: "" as unknown as undefined,
                 })
               }
+              className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-200 py-4 text-sm font-medium text-gray-500 transition-colors hover:border-gray-300 hover:bg-gray-50 hover:text-gray-700"
             >
-              + Add Ticket Tier
-            </Button>
+              <PlusIcon className="h-4 w-4" />
+              Add Ticket Tier
+            </button>
           </div>
-        </Card>
+        </div>
 
         {/* Event Settings */}
-        <Card>
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">
-            ⚙️ Event Settings
-          </h2>
-          <div className="space-y-4">
+        <div className="rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100 sm:p-8">
+          <SectionHeader
+            icon={SettingsIcon}
+            eyebrow="Configuration"
+            title="Event Settings"
+            description="Control publishing, waitlist, and approval behavior."
+          />
+          <div className="mt-6 space-y-5">
             <Toggle
               label="Publish Event"
               checked={publishEvent}
               onChange={(checked) => setValue("publishEvent", checked)}
             />
-            <Toggle
-              label="Enable Waitlist"
-              checked={watch("waitlistEnabled") ?? false}
-              onChange={(checked) => setValue("waitlistEnabled", checked)}
-            />
-            <p className="-mt-2 ml-11 text-xs text-gray-500">Allow attendees to join a waitlist when tickets sell out.</p>
-            <Toggle
-              label="Enable Social Sharing"
-              checked={watch("sharingEnabled") ?? true}
-              onChange={(checked) => setValue("sharingEnabled", checked)}
-            />
-            <p className="-mt-2 ml-11 text-xs text-gray-500">Show share buttons on the public event page.</p>
-            <div>
+            <div className="border-t border-gray-100 pt-5">
+              <Toggle
+                label="Enable Waitlist"
+                checked={watch("waitlistEnabled") ?? false}
+                onChange={(checked) => setValue("waitlistEnabled", checked)}
+              />
+              <p className="mt-1 ml-11 text-xs text-gray-500">Allow attendees to join a waitlist when tickets sell out.</p>
+            </div>
+            <div className="border-t border-gray-100 pt-5">
+              <Toggle
+                label="Enable Social Sharing"
+                checked={watch("sharingEnabled") ?? true}
+                onChange={(checked) => setValue("sharingEnabled", checked)}
+              />
+              <p className="mt-1 ml-11 text-xs text-gray-500">Show share buttons on the public event page.</p>
+            </div>
+            <div className="border-t border-gray-100 pt-5">
               <label className="mb-1.5 block text-sm font-medium text-gray-700">
                 Approval Mode
               </label>
               <select
                 value={watch("approvalMode") ?? "auto"}
                 onChange={(e) => setValue("approvalMode", e.target.value as "auto" | "manual")}
-                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-500"
+                className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-500"
               >
                 <option value="auto">Auto-approve reservations</option>
                 <option value="manual">Manually approve reservations</option>
               </select>
-              <p className="mt-1 text-xs text-gray-500">Choose whether bookings are automatically confirmed or require your approval.</p>
+              <p className="mt-1.5 text-xs text-gray-500">Choose whether bookings are automatically confirmed or require your approval.</p>
             </div>
           </div>
-        </Card>
+        </div>
 
         {/* Contact Information */}
-        <Card>
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">
-            📧 Contact Information
-          </h2>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100 sm:p-8">
+          <SectionHeader
+            icon={MailIcon}
+            eyebrow="Support"
+            title="Contact Information"
+            description="How can attendees reach you about this event?"
+          />
+          <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
             <Input
               label="Contact Email"
               type="email"
@@ -705,10 +785,10 @@ export default function CreateEventPage() {
               {...register("contactPhone")}
             />
           </div>
-        </Card>
+        </div>
 
         {/* Action Buttons */}
-        <div className="flex justify-end gap-3">
+        <div className="flex justify-end gap-3 pb-6">
           <Button
             variant="outline"
             type="button"
@@ -717,7 +797,7 @@ export default function CreateEventPage() {
             Cancel
           </Button>
           <Button variant="primary" type="submit" disabled={isPending}>
-            {isPending ? "Saving..." : "Save"}
+            {isPending ? "Saving..." : "Save Event"}
           </Button>
         </div>
       </form>

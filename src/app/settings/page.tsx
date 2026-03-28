@@ -1,9 +1,15 @@
 "use client";
 
 import { MainLayout } from "@/components/layout/MainLayout";
-import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import {
+  SettingsIcon,
+  UsersIcon,
+  MailIcon,
+  BellIcon,
+  ChevronRightIcon,
+} from "@/components/icons";
 import { useState, useEffect, useTransition, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -15,6 +21,7 @@ import {
 } from "@/lib/actions/profile";
 import { uploadOrganizerImageAction } from "@/lib/actions/organizer";
 import Link from "next/link";
+import type { ComponentType, SVGProps } from "react";
 
 // ---------------------------------------------------------------------------
 // Zod Schema
@@ -34,29 +41,79 @@ type ProfileFormValues = z.infer<typeof profileFormSchema>;
 // Settings Links
 // ---------------------------------------------------------------------------
 
-const SETTINGS_LINKS = [
+const SETTINGS_LINKS: {
+  label: string;
+  description: string;
+  href: string;
+  icon: ComponentType<SVGProps<SVGSVGElement>>;
+  tone: string;
+  danger?: boolean;
+}[] = [
   {
     label: "General Settings",
     description: "App preferences and display options",
     href: "/settings/general",
+    icon: SettingsIcon,
+    tone: "bg-sky-50 text-sky-600",
   },
   {
     label: "Notifications",
     description: "Manage email and push notification preferences",
     href: "/settings/general",
+    icon: BellIcon,
+    tone: "bg-amber-50 text-amber-600",
   },
   {
     label: "Security & Password",
     description: "Change password, enable two-factor authentication",
     href: "/settings/general",
+    icon: SettingsIcon,
+    tone: "bg-emerald-50 text-emerald-600",
   },
   {
     label: "Delete Account",
     description: "Permanently delete your account and data",
     href: "/settings/general",
+    icon: UsersIcon,
+    tone: "bg-red-50 text-red-600",
     danger: true,
   },
 ];
+
+// ---------------------------------------------------------------------------
+// Shared UI
+// ---------------------------------------------------------------------------
+
+type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
+
+function SectionHeader({
+  icon: Icon,
+  eyebrow,
+  title,
+  description,
+}: {
+  icon: IconComponent;
+  eyebrow: string;
+  title: string;
+  description?: string;
+}) {
+  return (
+    <div className="flex items-start gap-4">
+      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gray-950 text-white shadow-sm">
+        <Icon className="h-5 w-5" />
+      </div>
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">
+          {eyebrow}
+        </p>
+        <h2 className="mt-1 text-xl font-semibold text-gray-950">{title}</h2>
+        {description && (
+          <p className="mt-1 text-sm text-gray-500">{description}</p>
+        )}
+      </div>
+    </div>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Page Component
@@ -68,7 +125,6 @@ export default function ProfileSettingsPage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Avatar states
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
@@ -91,7 +147,6 @@ export default function ProfileSettingsPage() {
     },
   });
 
-  // Load profile data
   useEffect(() => {
     void (async () => {
       try {
@@ -180,34 +235,51 @@ export default function ProfileSettingsPage() {
 
   return (
     <MainLayout>
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900">My Profile</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Manage your personal information and account settings.
-        </p>
-      </div>
+      {/* Hero Header */}
+      <section className="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-gradient-to-br from-slate-950 via-slate-900 to-teal-800 p-8 text-white shadow-xl shadow-slate-200">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(255,255,255,0.18),_transparent_30%),radial-gradient(circle_at_bottom_left,_rgba(45,212,191,0.22),_transparent_34%)]" />
+        <div className="relative flex items-start gap-4">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/12 text-white backdrop-blur">
+            <UsersIcon className="h-6 w-6" />
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-teal-100/75">
+              Account
+            </p>
+            <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">
+              My Profile
+            </h1>
+            <p className="mt-1 max-w-lg text-sm text-slate-300">
+              Manage your personal information and account settings.
+            </p>
+          </div>
+        </div>
+      </section>
 
-      <div className="mx-auto max-w-3xl space-y-6">
+      <div className="mx-auto mt-6 max-w-3xl space-y-6">
         {/* Messages */}
         {serverError && (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
             {serverError}
           </div>
         )}
         {successMessage && (
-          <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-700">
+          <div className="rounded-2xl border border-green-200 bg-green-50 p-4 text-sm text-green-700">
             {successMessage}
           </div>
         )}
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           {/* Profile Picture */}
-          <Card>
-            <h2 className="mb-4 text-lg font-semibold text-gray-900">
-              Profile Picture
-            </h2>
-            <div className="flex items-center gap-5">
-              <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-full border-2 border-dashed border-gray-300 bg-gray-50">
+          <div className="rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100 sm:p-8">
+            <SectionHeader
+              icon={UsersIcon}
+              eyebrow="Avatar"
+              title="Profile Picture"
+              description="Upload a photo so people can recognize you."
+            />
+            <div className="mt-6 flex items-center gap-5">
+              <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-full border-2 border-dashed border-gray-200 bg-gray-50">
                 {avatarPreview ? (
                   <>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -223,8 +295,8 @@ export default function ProfileSettingsPage() {
                     )}
                   </>
                 ) : (
-                  <div className="flex h-full items-center justify-center text-gray-400">
-                    <span className="text-3xl">+</span>
+                  <div className="flex h-full items-center justify-center text-gray-300">
+                    <UsersIcon className="h-8 w-8" />
                   </div>
                 )}
               </div>
@@ -271,14 +343,17 @@ export default function ProfileSettingsPage() {
                 </p>
               </div>
             </div>
-          </Card>
+          </div>
 
           {/* Personal Information */}
-          <Card>
-            <h2 className="mb-4 text-lg font-semibold text-gray-900">
-              Personal Information
-            </h2>
-            <div className="space-y-4">
+          <div className="rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100 sm:p-8">
+            <SectionHeader
+              icon={MailIcon}
+              eyebrow="Personal"
+              title="Personal Information"
+              description="Your name, email, and contact details."
+            />
+            <div className="mt-6 space-y-4">
               <Input
                 label="Full Name"
                 placeholder="Your name"
@@ -308,7 +383,7 @@ export default function ProfileSettingsPage() {
                 />
               </div>
             </div>
-          </Card>
+          </div>
 
           {/* Save Button */}
           <div className="flex justify-end">
@@ -318,19 +393,25 @@ export default function ProfileSettingsPage() {
           </div>
         </form>
 
-        {/* Settings & Account */}
-        <Card>
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">
-            Account & Settings
-          </h2>
-          <div className="divide-y divide-gray-100">
+        {/* Account & Settings */}
+        <div className="rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100 sm:p-8">
+          <SectionHeader
+            icon={SettingsIcon}
+            eyebrow="Configuration"
+            title="Account & Settings"
+            description="Manage your preferences, notifications, and security."
+          />
+          <div className="mt-6 space-y-3">
             {SETTINGS_LINKS.map((item) => (
               <Link
                 key={item.label}
                 href={item.href}
-                className="flex items-center justify-between py-4 first:pt-0 last:pb-0"
+                className="group flex items-center gap-4 rounded-2xl border border-gray-100 px-5 py-4 transition-all hover:-translate-y-0.5 hover:border-gray-200 hover:shadow-md"
               >
-                <div>
+                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${item.tone}`}>
+                  <item.icon className="h-5 w-5" />
+                </div>
+                <div className="min-w-0 flex-1">
                   <p
                     className={`text-sm font-medium ${
                       item.danger ? "text-red-600" : "text-gray-900"
@@ -340,11 +421,13 @@ export default function ProfileSettingsPage() {
                   </p>
                   <p className="text-xs text-gray-500">{item.description}</p>
                 </div>
-                <span className="text-gray-400">&rsaquo;</span>
+                <div className="rounded-full bg-gray-100 p-1.5 text-gray-400 transition-transform group-hover:translate-x-0.5">
+                  <ChevronRightIcon className="h-4 w-4" />
+                </div>
               </Link>
             ))}
           </div>
-        </Card>
+        </div>
       </div>
     </MainLayout>
   );
