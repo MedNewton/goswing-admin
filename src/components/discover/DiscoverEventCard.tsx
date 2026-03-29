@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import type { Event } from "@/types";
 import { CalendarIcon, MapPinIcon } from "@/components/icons";
 import { t, type Locale } from "@/lib/i18n";
@@ -10,11 +11,11 @@ export function DiscoverEventCard({ event, locale }: { event: Event; locale: Loc
       className="group relative block overflow-hidden rounded-2xl border border-gray-100 bg-white transition-all hover:-translate-y-1 hover:shadow-lg"
     >
       <div className="relative aspect-[16/9] overflow-hidden bg-gray-100">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <Image
           src={event.image}
           alt={event.title}
-          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+          fill
+          className="object-cover transition-transform duration-500 group-hover:scale-105"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
         <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">

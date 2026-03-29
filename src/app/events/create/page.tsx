@@ -29,6 +29,7 @@ import {
 } from "@/lib/actions/events";
 import { fetchVenuesForSelect } from "@/lib/actions/venues";
 import Link from "next/link";
+import Image from "next/image";
 import type { ComponentType, SVGProps } from "react";
 import { getClientLocale, translate } from "@/lib/i18n/client";
 import type { Locale } from "@/lib/i18n";
@@ -369,10 +370,11 @@ export default function CreateEventPage() {
             <div className="relative h-32 w-32 shrink-0 overflow-hidden rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50">
               {imagePreview ? (
                 <>
-                  <img
+                  <Image
                     src={imagePreview}
                     alt="Event preview"
-                    className="h-full w-full object-cover"
+                    fill
+                    className="object-cover"
                   />
                   {isUploadingImage && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/50">

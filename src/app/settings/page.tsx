@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
@@ -287,11 +288,11 @@ export default function ProfileSettingsPage() {
               <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-full border-2 border-dashed border-gray-200 bg-gray-50">
                 {avatarPreview ? (
                   <>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
+                    <Image
                       src={avatarPreview}
                       alt="Profile"
-                      className="h-full w-full object-cover"
+                      fill
+                      className="object-cover"
                     />
                     {isUploadingAvatar && (
                       <div className="absolute inset-0 flex items-center justify-center bg-black/50">

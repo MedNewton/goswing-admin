@@ -28,6 +28,7 @@ import type { ComponentType, SVGProps } from "react";
 import { getClientLocale, translate } from "@/lib/i18n/client";
 import type { Locale } from "@/lib/i18n";
 import { LanguageSwitcher } from "@/components/discover/LanguageSwitcher";
+import Image from "next/image";
 
 // ---------------------------------------------------------------------------
 // Zod Schema
@@ -282,8 +283,8 @@ export default function OnboardingPage() {
         // Use venue location for the organization as well
         const result: OnboardingResult = await completeOnboardingAction({
           ...data,
-          city: data.venue_city || data.city || "",
-          country_code: data.venue_country_code || data.country_code || "",
+          city: data.venue_city ?? data.city ?? "",
+          country_code: data.venue_country_code ?? data.country_code ?? "",
           venue_capacity: typeof data.venue_capacity === "number" ? data.venue_capacity : undefined,
           venue_lat: data.venue_lat,
           venue_lng: data.venue_lng,
@@ -366,8 +367,7 @@ export default function OnboardingPage() {
                   <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full border-2 border-dashed border-gray-200 bg-gray-50">
                     {logoPreview ? (
                       <>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={logoPreview} alt="Logo preview" className="h-full w-full object-cover" />
+                        <Image src={logoPreview} alt="Logo preview" fill className="object-cover" />
                         {isUploadingLogo && (
                           <div className="absolute inset-0 flex items-center justify-center bg-black/50">
                             <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
@@ -425,8 +425,7 @@ export default function OnboardingPage() {
                 <div className="relative h-40 w-full overflow-hidden rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50">
                   {coverPreview ? (
                     <>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={coverPreview} alt="Cover preview" className="h-full w-full object-cover" />
+                      <Image src={coverPreview} alt="Cover preview" fill className="object-cover" />
                       {isUploadingCover && (
                         <div className="absolute inset-0 flex items-center justify-center bg-black/50">
                           <div className="h-6 w-6 animate-spin rounded-full border-2 border-white border-t-transparent" />

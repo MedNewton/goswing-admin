@@ -40,6 +40,7 @@ import {
 } from "@/lib/actions/events";
 import { fetchVenuesForSelect } from "@/lib/actions/venues";
 import Link from "next/link";
+import Image from "next/image";
 import { getClientLocale, translate } from "@/lib/i18n/client";
 import type { Locale } from "@/lib/i18n";
 
@@ -592,7 +593,7 @@ export default function EditEventPage({
               <div className="relative aspect-[4/3] overflow-hidden rounded-[1.5rem] border-2 border-dashed border-gray-300 bg-gray-50">
                 {imagePreview ? (
                   <>
-                    <img src={imagePreview} alt="Event preview" className="h-full w-full object-cover" />
+                    <Image src={imagePreview} alt="Event preview" fill className="object-cover" />
                     {isUploadingImage && (
                       <div className="absolute inset-0 flex items-center justify-center bg-black/50">
                         <div className="h-8 w-8 animate-spin rounded-full border-2 border-white border-t-transparent" />

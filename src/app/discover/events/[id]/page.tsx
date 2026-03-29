@@ -10,6 +10,7 @@ import {
 } from "@/components/icons";
 import { formatMoney, formatDateTime, formatDate, formatTime } from "@/lib/utils/format";
 import Link from "next/link";
+import Image from "next/image";
 import type { ComponentType, ReactNode, SVGProps } from "react";
 import { getLocale, t } from "@/lib/i18n";
 
@@ -142,11 +143,11 @@ export default async function PublicEventDetailPage({
           <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-xl shadow-gray-200">
             <div className="relative h-[360px] overflow-hidden sm:h-[420px]">
               {event.image ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
+                <Image
                   src={event.image}
                   alt={event.title}
-                  className="h-full w-full object-cover"
+                  fill
+                  className="object-cover"
                 />
               ) : (
                 <div className="flex h-full w-full items-center justify-center bg-gray-200">
@@ -324,10 +325,11 @@ export default async function PublicEventDetailPage({
 
               <div className="mt-6 flex items-center gap-4 rounded-3xl border border-gray-100 bg-gradient-to-r from-white to-slate-50 p-5">
                 {organizer.logo_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
+                  <Image
                     src={organizer.logo_url}
                     alt={organizer.name}
+                    width={48}
+                    height={48}
                     className="h-12 w-12 rounded-full object-cover"
                   />
                 ) : (

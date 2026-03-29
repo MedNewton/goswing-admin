@@ -15,6 +15,7 @@ import { getOverview } from "@/lib/data/overview";
 import { formatCompactNumber } from "@/lib/utils/format";
 import { getLocale, t } from "@/lib/i18n";
 import Link from "next/link";
+import Image from "next/image";
 
 export const dynamic = "force-dynamic";
 
@@ -136,9 +137,11 @@ export default async function Home() {
                   className="group flex flex-col gap-4 rounded-[1.5rem] border border-gray-200 bg-gradient-to-r from-white to-slate-50 p-5 transition-all hover:-translate-y-0.5 hover:shadow-md lg:flex-row lg:items-center lg:justify-between"
                 >
                   <div className="flex min-w-0 items-center gap-4">
-                    <img
+                    <Image
                       src={event.image}
                       alt={event.title}
+                      width={64}
+                      height={64}
                       className="h-16 w-16 rounded-2xl object-cover"
                     />
                     <div className="min-w-0">

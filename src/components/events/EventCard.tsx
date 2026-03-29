@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import type { Event } from "@/types";
 import { Badge } from "@/components/ui/Badge";
 import {
@@ -28,10 +29,11 @@ export function EventCard({ event }: EventCardProps) {
     <div className="group relative overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm transition-all hover:-translate-y-1 hover:shadow-xl">
       <Link href={`/events/${event.id}`} className="block">
         <div className="relative h-56 overflow-hidden">
-          <img
+          <Image
             src={event.image}
             alt={event.title}
-            className="h-full w-full object-cover transition-transform group-hover:scale-105"
+            fill
+            className="object-cover transition-transform group-hover:scale-105"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-gray-950/80 via-gray-950/15 to-transparent" />
           <div className="absolute left-4 top-4 flex items-center gap-2">

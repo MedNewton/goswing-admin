@@ -21,6 +21,7 @@ import { getReviews } from "@/lib/data/reviews";
 import { formatPrice, formatDate, formatTime, formatDateTime } from "@/lib/utils/format";
 import { getLocale, t } from "@/lib/i18n";
 import { notFound } from "next/navigation";
+import Image from "next/image";
 import type { ComponentType, ReactNode, SVGProps } from "react";
 import type { GalleryItem, Review } from "@/types";
 
@@ -171,10 +172,11 @@ export default async function EventDetailsPage({
             <div className="lg:col-span-2">
               <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-xl shadow-gray-200">
                 <div className="relative h-[420px] overflow-hidden">
-                  <img
+                  <Image
                     src={event.image}
                     alt={event.title}
-                    className="h-full w-full object-cover"
+                    fill
+                    className="object-cover"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/45 to-transparent" />
                   <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(255,255,255,0.16),_transparent_32%),radial-gradient(circle_at_bottom_left,_rgba(45,212,191,0.18),_transparent_34%)]" />
@@ -312,10 +314,11 @@ export default async function EventDetailsPage({
                         key={item.id}
                         className="group relative aspect-square overflow-hidden rounded-2xl border border-gray-200"
                       >
-                        <img
+                        <Image
                           src={item.mediaUrl}
                           alt={item.caption ?? t(locale, "adminEvent.eventPhoto")}
-                          className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                          fill
+                          className="object-cover transition-transform group-hover:scale-105"
                         />
                         {item.caption && (
                           <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-3">
@@ -346,9 +349,11 @@ export default async function EventDetailsPage({
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
                             {review.userAvatar ? (
-                              <img
+                              <Image
                                 src={review.userAvatar}
                                 alt={review.userName}
+                                width={32}
+                                height={32}
                                 className="h-8 w-8 rounded-full object-cover"
                               />
                             ) : (
@@ -402,9 +407,11 @@ export default async function EventDetailsPage({
 
                   <div className="mt-6 flex items-center gap-4 rounded-3xl border border-gray-100 bg-gradient-to-r from-white to-slate-50 p-5">
                     {organizer.logo_url ? (
-                      <img
+                      <Image
                         src={organizer.logo_url}
                         alt={organizer.name}
+                        width={48}
+                        height={48}
                         className="h-12 w-12 rounded-full object-cover"
                       />
                     ) : (

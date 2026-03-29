@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import type { Event } from "@/types";
 import { CalendarIcon, MapPinIcon } from "@/components/icons";
 import { translate, getClientLocale } from "@/lib/i18n/client";
@@ -65,11 +66,11 @@ export function HeroSlider({ events }: { events: Event[] }) {
             i === current ? "opacity-100" : "opacity-0 pointer-events-none"
           }`}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <Image
             src={e.image}
             alt={e.title}
-            className="h-full w-full object-cover"
+            fill
+            className="object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(255,255,255,0.1),_transparent_32%),radial-gradient(circle_at_bottom_left,_rgba(45,212,191,0.15),_transparent_34%)]" />

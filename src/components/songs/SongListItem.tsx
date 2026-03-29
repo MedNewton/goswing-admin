@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { ChevronRightIcon, MusicIcon } from "@/components/icons";
 
 interface SongListItemProps {
@@ -13,10 +14,11 @@ export function SongListItem({ title, artist, artworkUrl, deezerLink, eventName 
     <div className="flex flex-col gap-4 rounded-[1.5rem] border border-gray-200 bg-gradient-to-r from-white to-slate-50 p-5 transition-all hover:-translate-y-0.5 hover:shadow-md sm:flex-row sm:items-center sm:justify-between">
       <div className="flex min-w-0 items-center gap-4">
         {artworkUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <Image
             src={artworkUrl}
             alt={`${title} artwork`}
+            width={48}
+            height={48}
             className="h-12 w-12 rounded-2xl object-cover"
           />
         ) : (
