@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getCurrentUserId } from "@/lib/data/auth";
 import type { Attendee } from "@/types";
 
 /**
@@ -82,7 +83,7 @@ export async function getAttendees(filters?: { eventId?: string }) {
   });
 }
 
-/** Get check-in summary counts per event. */
+/** Get check-in summary counts per event (only current user's events). */
 export async function getCheckinSummary(): Promise<
   Array<{
     eventId: string;
@@ -92,6 +93,7 @@ export async function getCheckinSummary(): Promise<
   }>
 > {
   const sb = await createSupabaseServerClient();
+  const userId = await getCurrentUserId();
 
   const { data, error } = await sb
     .from("events")
@@ -100,6 +102,7 @@ export async function getCheckinSummary(): Promise<
       title,
       reservations ( id, status )
     `)
+    .eq("created_by_user_id", userId)
     .order("starts_at", { ascending: false });
 
   if (error) throw error;

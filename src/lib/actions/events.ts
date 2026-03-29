@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { createEvent, getOrganizerForCurrentUser, getTags } from "@/lib/data/events";
+import { getCurrentUserId } from "@/lib/data/auth";
 import { insertInto, updateTable } from "@/lib/supabase/mutations";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
@@ -259,6 +260,19 @@ export async function updateEventAction(
 
   try {
     const sb = await createSupabaseServerClient();
+    const userId = await getCurrentUserId();
+
+    // Verify ownership
+    const { data: ownerCheck, error: ownerError } = await sb
+      .from("events")
+      .select("id")
+      .eq("id", eventId)
+      .eq("created_by_user_id", userId)
+      .single();
+    if (ownerError || !ownerCheck) {
+      return { success: false, error: "Event not found or access denied" };
+    }
+
     const { data: existingTicketTypeRows, error: existingTicketTypesError } = await sb
       .from("ticket_types")
       .select("id")
@@ -439,6 +453,7 @@ export async function deleteEventAction(eventId: string): Promise<DeleteEventRes
 
 export async function fetchEventForEdit(eventId: string) {
   const sb = await createSupabaseServerClient();
+  const userId = await getCurrentUserId();
 
   const { data, error } = await sb
     .from("events")
@@ -449,6 +464,7 @@ export async function fetchEventForEdit(eventId: string) {
       event_tags ( tags ( id, label, slug, type ) )
     `)
     .eq("id", eventId)
+    .eq("created_by_user_id", userId)
     .single();
 
   if (error) throw error;

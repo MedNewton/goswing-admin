@@ -1,10 +1,10 @@
-import { auth } from "@clerk/nextjs/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { insertInto, updateTable } from "@/lib/supabase/mutations";
 import { mapEvent, mapEvents, type EventQueryRow } from "@/lib/mappers/events";
 import type { EventInsert, EventUpdate, TicketTypeInsert } from "@/types/database";
 import type { EventOverview, TicketSalesBreakdown } from "@/types";
 import { formatMoney } from "@/lib/utils/format";
+import { getCurrentUserId } from "@/lib/data/auth";
 
 // ---------------------------------------------------------------------------
 // Queries
@@ -13,6 +13,7 @@ import { formatMoney } from "@/lib/utils/format";
 /** Fetch all events created by the current user, enriched with counts. */
 export async function getEvents() {
   const sb = await createSupabaseServerClient();
+  const userId = await getCurrentUserId();
 
   const { data, error } = await sb
     .from("events")
@@ -22,7 +23,7 @@ export async function getEvents() {
       organizers ( name ),
       event_tags ( tags ( label ) )
     `)
-    .not("created_by_user_id", "is", null)
+    .eq("created_by_user_id", userId)
     .order("starts_at", { ascending: false });
 
   if (error) throw error;
@@ -86,9 +87,10 @@ export async function getEvents() {
   return mapped;
 }
 
-/** Fetch a single event by ID with full relations. */
+/** Fetch a single event by ID with full relations (only if owned by current user). */
 export async function getEvent(id: string) {
   const sb = await createSupabaseServerClient();
+  const userId = await getCurrentUserId();
 
   const { data, error } = await sb
     .from("events")
@@ -100,6 +102,7 @@ export async function getEvent(id: string) {
       ticket_types ( id, name, description, price_cents, currency, benefits, capacity, sales_start_at, sales_end_at )
     `)
     .eq("id", id)
+    .eq("created_by_user_id", userId)
     .single();
 
   if (error) throw error;
@@ -155,9 +158,19 @@ export async function getEvent(id: string) {
 // Event Overview (analytics for a single event)
 // ---------------------------------------------------------------------------
 
-/** Fetch full analytics overview for a single event. */
+/** Fetch full analytics overview for a single event (ownership verified). */
 export async function getEventOverview(eventId: string): Promise<EventOverview> {
   const sb = await createSupabaseServerClient();
+  const userId = await getCurrentUserId();
+
+  // Verify the event belongs to the current user
+  const { data: ownerCheck, error: ownerError } = await sb
+    .from("events")
+    .select("id")
+    .eq("id", eventId)
+    .eq("created_by_user_id", userId)
+    .single();
+  if (ownerError || !ownerCheck) throw new Error("Event not found or access denied");
 
   const [reservationsResult, songsResult, checkinsResult, reviewsResult, itemsResult] = await Promise.all([
     sb.from("reservations").select("id, status, total_amount_cents, currency").eq("event_id", eventId),
@@ -247,11 +260,7 @@ export async function getTags() {
 /** Fetch the organizer row owned by the current authenticated user. */
 export async function getOrganizerForCurrentUser() {
   const sb = await createSupabaseServerClient();
-  const { userId } = await auth();
-
-  if (!userId) {
-    throw new Error("Not authenticated");
-  }
+  const userId = await getCurrentUserId();
 
   const { data, error } = await sb
     .from("organizers")
@@ -333,23 +342,28 @@ export async function createEvent(
   return eventId;
 }
 
-  /** Update an existing event. */
+  /** Update an existing event (only if owned by current user). */
 export async function updateEvent(id: string, updates: EventUpdate) {
   const sb = await createSupabaseServerClient();
+  const userId = await getCurrentUserId();
 
-  const { error } = await updateTable(sb, "events", updates).eq("id", id);
+  const { error } = await updateTable(sb, "events", updates)
+    .eq("id", id)
+    .eq("created_by_user_id", userId);
 
   if (error) throw error;
 }
 
-/** Delete an event. */
+/** Delete an event (only if owned by current user). */
 export async function deleteEvent(id: string) {
   const sb = await createSupabaseServerClient();
+  const userId = await getCurrentUserId();
 
   const { error } = await sb
     .from("events")
     .delete()
-    .eq("id", id);
+    .eq("id", id)
+    .eq("created_by_user_id", userId);
 
   if (error) throw error;
 }

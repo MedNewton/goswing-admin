@@ -3,10 +3,12 @@ import { getCheckinSummary } from "@/lib/data/attendees";
 import { mapEvents, type EventQueryRow } from "@/lib/mappers/events";
 import type { Stats } from "@/types";
 import { formatMoney } from "@/lib/utils/format";
+import { getCurrentUserId } from "@/lib/data/auth";
 
 /** Fetch dashboard overview stats + recent events. */
 export async function getOverview() {
   const sb = await createSupabaseServerClient();
+  const userId = await getCurrentUserId();
 
   // Run queries in parallel
   const [eventsResult, reviewsResult, ticketsResult, paymentsResult, checkinSummary] =
@@ -16,7 +18,7 @@ export async function getOverview() {
         .select(
           `*, venues ( name, city ), organizers ( name ), event_tags ( tags ( label ) )`,
         )
-        .not("created_by_user_id", "is", null)
+        .eq("created_by_user_id", userId)
         .order("starts_at", { ascending: false }),
       sb
         .from("event_reviews")
