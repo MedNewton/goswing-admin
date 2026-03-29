@@ -4,6 +4,8 @@ import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
+import { PlacesAutocomplete } from "@/components/ui/PlacesAutocomplete";
+import { LocationMapPicker } from "@/components/ui/LocationMapPicker";
 import {
   UsersIcon,
   BuildingIcon,
@@ -55,6 +57,8 @@ const onboardingFormSchema = z.object({
   venue_country_code: z.string().optional().or(z.literal("")),
   venue_postal_code: z.string().optional().or(z.literal("")),
   venue_capacity: z.union([z.coerce.number().int().positive(), z.literal(""), z.undefined()]).optional(),
+  venue_lat: z.coerce.number().optional(),
+  venue_lng: z.coerce.number().optional(),
 });
 
 type OnboardingFormValues = z.infer<typeof onboardingFormSchema>;
@@ -175,6 +179,7 @@ export default function OnboardingPage() {
     handleSubmit,
     reset,
     setValue,
+    watch,
     formState: { errors },
   } = useForm<OnboardingFormValues>({
     resolver: zodResolver(onboardingFormSchema),
@@ -231,6 +236,8 @@ export default function OnboardingPage() {
             venue_country_code: org.venue?.country_code ?? "",
             venue_postal_code: org.venue?.postal_code ?? "",
             venue_capacity: org.venue?.capacity ?? ("" as unknown as undefined),
+            venue_lat: org.venue?.lat ?? undefined,
+            venue_lng: org.venue?.lng ?? undefined,
           });
           if (org.logo_url) setLogoPreview(org.logo_url);
           if (org.cover_image_url) setCoverPreview(org.cover_image_url);
@@ -309,6 +316,8 @@ export default function OnboardingPage() {
         const result: OnboardingResult = await completeOnboardingAction({
           ...data,
           venue_capacity: typeof data.venue_capacity === "number" ? data.venue_capacity : undefined,
+          venue_lat: data.venue_lat,
+          venue_lng: data.venue_lng,
         } as Parameters<typeof completeOnboardingAction>[0]);
         if (result.success) {
           window.location.href = "/overview";
@@ -653,39 +662,89 @@ export default function OnboardingPage() {
                 description={translate(locale, "onboarding.addressDesc")}
               />
               <div className="mt-6 space-y-4">
-                <Input
-                  label={translate(locale, "onboarding.addressLabel")}
-                  placeholder={translate(locale, "onboarding.addressPlaceholder")}
-                  error={errors.venue_address?.message}
-                  {...register("venue_address")}
+                <PlacesAutocomplete
+                  label={translate(locale, "createVenue.searchLocation")}
+                  placeholder={translate(locale, "createVenue.searchPlaceholder")}
+                  onPlaceSelect={(place) => {
+                    const currentName = watch("venue_name");
+                    if (!currentName && place.name) {
+                      setValue("venue_name", place.name);
+                    }
+                    if (place.address) setValue("venue_address", place.address);
+                    if (place.city) setValue("venue_city", place.city);
+                    if (place.region) setValue("venue_region", place.region);
+                    if (place.countryCode) setValue("venue_country_code", place.countryCode);
+                    if (place.lat) setValue("venue_lat", place.lat);
+                    if (place.lng) setValue("venue_lng", place.lng);
+                  }}
                 />
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <Input
-                    label={translate(locale, "onboarding.cityLabel")}
-                    placeholder={translate(locale, "onboarding.cityPlaceholder")}
-                    error={errors.venue_city?.message}
-                    {...register("venue_city")}
+
+                {/* Location summary */}
+                {(() => {
+                  const summary = [watch("venue_address"), watch("venue_city"), watch("venue_region"), watch("venue_country_code")].filter(Boolean).join(", ");
+                  return summary ? (
+                    <div className="rounded-lg border border-green-200 bg-green-50 p-3">
+                      <p className="text-xs font-medium text-green-700">
+                        {translate(locale, "createVenue.selectedLocation")}
+                      </p>
+                      <p className="mt-1 text-sm text-green-800">{summary}</p>
+                    </div>
+                  ) : null;
+                })()}
+
+                {/* Interactive Map */}
+                {watch("venue_lat") != null && watch("venue_lng") != null && (
+                  <LocationMapPicker
+                    lat={watch("venue_lat")!}
+                    lng={watch("venue_lng")!}
+                    onLocationChange={(newLat, newLng) => {
+                      setValue("venue_lat", newLat);
+                      setValue("venue_lng", newLng);
+                    }}
                   />
-                  <Input
-                    label={translate(locale, "onboarding.regionLabel")}
-                    placeholder={translate(locale, "onboarding.regionPlaceholder")}
-                    error={errors.venue_region?.message}
-                    {...register("venue_region")}
-                  />
-                </div>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <Select
-                    label={translate(locale, "onboarding.countryLabel")}
-                    options={COUNTRY_OPTIONS}
-                    error={errors.venue_country_code?.message}
-                    {...register("venue_country_code")}
-                  />
-                  <Input
-                    label={translate(locale, "onboarding.postalLabel")}
-                    placeholder={translate(locale, "onboarding.postalPlaceholder")}
-                    error={errors.venue_postal_code?.message}
-                    {...register("venue_postal_code")}
-                  />
+                )}
+
+                {/* Editable fields (pre-filled from Places API) */}
+                <div className="border-t border-gray-100 pt-4">
+                  <p className="mb-3 text-xs font-medium text-gray-500">
+                    {translate(locale, "createVenue.editHint")}
+                  </p>
+                  <div className="space-y-4">
+                    <Input
+                      label={translate(locale, "onboarding.addressLabel")}
+                      placeholder={translate(locale, "onboarding.addressPlaceholder")}
+                      error={errors.venue_address?.message}
+                      {...register("venue_address")}
+                    />
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <Input
+                        label={translate(locale, "onboarding.cityLabel")}
+                        placeholder={translate(locale, "onboarding.cityPlaceholder")}
+                        error={errors.venue_city?.message}
+                        {...register("venue_city")}
+                      />
+                      <Input
+                        label={translate(locale, "onboarding.regionLabel")}
+                        placeholder={translate(locale, "onboarding.regionPlaceholder")}
+                        error={errors.venue_region?.message}
+                        {...register("venue_region")}
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <Input
+                        label={translate(locale, "onboarding.countryLabel")}
+                        placeholder={translate(locale, "onboarding.countryPlaceholder")}
+                        error={errors.venue_country_code?.message}
+                        {...register("venue_country_code")}
+                      />
+                      <Input
+                        label={translate(locale, "onboarding.postalLabel")}
+                        placeholder={translate(locale, "onboarding.postalPlaceholder")}
+                        error={errors.venue_postal_code?.message}
+                        {...register("venue_postal_code")}
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

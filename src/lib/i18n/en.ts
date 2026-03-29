@@ -898,6 +898,7 @@ const en = {
   "onboarding.cityLabel": "City",
   "onboarding.cityPlaceholder": "e.g., Paris",
   "onboarding.countryLabel": "Country",
+  "onboarding.countryPlaceholder": "e.g., FR",
   "onboarding.emailLabel": "Email",
   "onboarding.emailPlaceholder": "contact@yourorg.com",
   "onboarding.phoneLabel": "Phone (optional)",
@@ -955,6 +956,7 @@ const en = {
   "login.feature2Desc": "Track performance with real-time insights.",
   "login.feature3Title": "Ticketing",
   "login.feature3Desc": "Sell tickets and manage attendees effortlessly.",
+
 } as const;
 
 export type TranslationKey = keyof typeof en;

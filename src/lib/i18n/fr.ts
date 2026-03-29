@@ -898,6 +898,7 @@ const fr: Record<string, string> = {
   "onboarding.cityLabel": "Ville",
   "onboarding.cityPlaceholder": "ex. Paris",
   "onboarding.countryLabel": "Pays",
+  "onboarding.countryPlaceholder": "ex. FR",
   "onboarding.emailLabel": "Email",
   "onboarding.emailPlaceholder": "contact@votreorg.com",
   "onboarding.phoneLabel": "Téléphone (optionnel)",
@@ -955,6 +956,7 @@ const fr: Record<string, string> = {
   "login.feature2Desc": "Suivez les performances avec des insights en temps réel.",
   "login.feature3Title": "Billetterie",
   "login.feature3Desc": "Vendez des billets et gérez les participants facilement.",
+
 };
 
 export default fr;

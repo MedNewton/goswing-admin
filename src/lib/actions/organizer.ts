@@ -35,6 +35,8 @@ const onboardingSchema = z.object({
   venue_country_code: z.string().optional().or(z.literal("")),
   venue_postal_code: z.string().optional().or(z.literal("")),
   venue_capacity: z.coerce.number().int().positive().optional().or(z.literal("").transform(() => undefined)),
+  venue_lat: z.coerce.number().optional(),
+  venue_lng: z.coerce.number().optional(),
 });
 
 export type OnboardingInput = z.infer<typeof onboardingSchema>;
@@ -129,6 +131,8 @@ export async function completeOnboardingAction(
       postal_code: emptyStringToNull(data.venue_postal_code),
       venue_type: emptyStringToNull(data.venue_type),
       capacity: typeof data.venue_capacity === "number" ? data.venue_capacity : null,
+      lat: data.venue_lat ?? null,
+      lng: data.venue_lng ?? null,
       created_by_user_id: userId,
     });
 
@@ -147,6 +151,8 @@ export async function completeOnboardingAction(
       postal_code: emptyStringToNull(data.venue_postal_code),
       venue_type: emptyStringToNull(data.venue_type),
       capacity: typeof data.venue_capacity === "number" ? data.venue_capacity : null,
+      lat: data.venue_lat ?? null,
+      lng: data.venue_lng ?? null,
     }).eq("id", (existingVenue as { id: string }).id);
 
     if (venueUpdateError) {
@@ -255,7 +261,7 @@ export async function fetchOrganizerForOnboarding() {
   // Also fetch the existing venue for this organizer (if any)
   const { data: venue } = await sb
     .from("venues")
-    .select("id, name, venue_type, address_line1, city, region, country_code, postal_code, capacity")
+    .select("id, name, venue_type, address_line1, city, region, country_code, postal_code, capacity, lat, lng")
     .eq("organizer_id", organizer.id)
     .limit(1)
     .maybeSingle();
@@ -272,6 +278,8 @@ export async function fetchOrganizerForOnboarding() {
       country_code: string | null;
       postal_code: string | null;
       capacity: number | null;
+      lat: number | null;
+      lng: number | null;
     } | null,
   };
 }
