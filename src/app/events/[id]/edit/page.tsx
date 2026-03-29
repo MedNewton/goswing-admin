@@ -57,6 +57,11 @@ const ticketTierSchema = z.object({
   free_for_ladies: z.boolean().optional(),
 });
 
+const eventPolicySchema = z.object({
+  title: z.string().min(1, "Policy title is required"),
+  description: z.string().min(1, "Policy description is required"),
+});
+
 const editEventFormSchema = z.object({
   title: z.string().min(1, "Event title is required"),
   description: z.string().optional(),
@@ -74,6 +79,7 @@ const editEventFormSchema = z.object({
   waitlistEnabled: z.boolean().optional(),
   approvalMode: z.enum(["auto", "manual"]).optional(),
   sharingEnabled: z.boolean().optional(),
+  policies: z.array(eventPolicySchema).optional(),
   contactEmail: z.union([z.string().email("Invalid email"), z.literal("")]).optional(),
   contactPhone: z.string().optional(),
 });
@@ -184,6 +190,7 @@ export default function EditEventPage({
       ticketTiers: [{ name: "Standard", price: 0, description: "", capacity: "" as unknown as undefined }],
       currency: "USD",
       publishEvent: false,
+      policies: [],
       contactEmail: "",
       contactPhone: "",
       heroImageUrl: "",
@@ -193,6 +200,11 @@ export default function EditEventPage({
   const { fields, append, remove } = useFieldArray({
     control,
     name: "ticketTiers",
+  });
+
+  const { fields: policyFields, append: appendPolicy, remove: removePolicy } = useFieldArray({
+    control,
+    name: "policies",
   });
 
   const publishEvent = watch("publishEvent");
@@ -243,6 +255,7 @@ export default function EditEventPage({
           waitlistEnabled: eventData.waitlistEnabled ?? false,
           approvalMode: (eventData.approvalMode as "auto" | "manual") ?? "auto",
           sharingEnabled: eventData.sharingEnabled ?? true,
+          policies: eventData.policies ?? [],
           contactEmail: "",
           contactPhone: "",
         };
@@ -311,6 +324,7 @@ export default function EditEventPage({
           waitlistEnabled: data.waitlistEnabled ?? false,
           approvalMode: data.approvalMode ?? "auto",
           sharingEnabled: data.sharingEnabled ?? true,
+          policies: data.policies ?? [],
           ticketTiers: data.ticketTiers.map((t) => ({
             ...t,
             capacity: typeof t.capacity === "number" ? t.capacity : undefined,
@@ -806,6 +820,51 @@ export default function EditEventPage({
             </div>
           </Card>
         </div>
+
+        {/* Policies */}
+        <Card className="rounded-[2rem] border border-gray-200/80 bg-gradient-to-br from-white via-white to-slate-50 shadow-lg shadow-gray-100">
+          <SectionHeader
+            icon={StarIcon}
+            eyebrow={translate(locale, "editEvent.policiesEyebrow")}
+            title={translate(locale, "editEvent.policiesTitle")}
+            description={translate(locale, "editEvent.policiesDesc")}
+          />
+          <div className="mt-6 space-y-4">
+            {policyFields.map((field, index) => (
+              <div key={field.id} className="rounded-[1.5rem] border border-gray-200 bg-white p-5 shadow-sm">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <h3 className="text-sm font-semibold text-gray-900">{translate(locale, "editEvent.policy")} {index + 1}</h3>
+                  <Button variant="ghost" size="sm" type="button" onClick={() => removePolicy(index)}>
+                    {translate(locale, "editEvent.removePolicy")}
+                  </Button>
+                </div>
+                <div className="space-y-4">
+                  <Input
+                    label={translate(locale, "editEvent.policyTitle")}
+                    placeholder={translate(locale, "editEvent.policyTitlePlaceholder")}
+                    error={fieldError(`policies.${index}.title`)}
+                    {...register(`policies.${index}.title`)}
+                  />
+                  <Textarea
+                    label={translate(locale, "editEvent.policyDescription")}
+                    placeholder={translate(locale, "editEvent.policyDescPlaceholder")}
+                    rows={3}
+                    error={fieldError(`policies.${index}.description`)}
+                    {...register(`policies.${index}.description`)}
+                  />
+                </div>
+              </div>
+            ))}
+            <Button
+              variant="outline"
+              size="sm"
+              type="button"
+              onClick={() => appendPolicy({ title: "", description: "" })}
+            >
+              {translate(locale, "editEvent.addPolicy")}
+            </Button>
+          </div>
+        </Card>
 
         {/* Action Buttons */}
         <div className="flex flex-col gap-4 rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100 lg:flex-row lg:items-center lg:justify-between">

@@ -8,6 +8,7 @@ import {
   MailIcon,
   MapPinIcon,
   PhoneIcon,
+  SettingsIcon,
   StarIcon,
   UsersIcon,
 } from "@/components/icons";
@@ -681,6 +682,53 @@ export default async function EventDetailsPage({
                       {t(locale, "adminEvent.noMapAvailable")}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Event Settings */}
+              <div className="rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100">
+                <SectionHeader
+                  icon={SettingsIcon}
+                  eyebrow={t(locale, "adminEvent.settingsEyebrow")}
+                  title={t(locale, "adminEvent.settingsTitle")}
+                  description={t(locale, "adminEvent.settingsDesc")}
+                />
+                <div className="mt-6 grid gap-3">
+                  <DetailRow icon={UsersIcon} label={t(locale, "adminEvent.waitlist")}>
+                    <p className="font-medium text-gray-900">
+                      {event.waitlistEnabled ? t(locale, "adminEvent.waitlistEnabled") : t(locale, "adminEvent.waitlistDisabled")}
+                    </p>
+                  </DetailRow>
+                  <DetailRow icon={SettingsIcon} label={t(locale, "adminEvent.approvalMode")}>
+                    <p className="font-medium text-gray-900">
+                      {event.approvalMode === "manual" ? t(locale, "adminEvent.manualApproval") : t(locale, "adminEvent.autoApproval")}
+                    </p>
+                  </DetailRow>
+                  <DetailRow icon={GlobeIcon} label={t(locale, "adminEvent.sharing")}>
+                    <p className="font-medium text-gray-900">
+                      {event.sharingEnabled ? t(locale, "adminEvent.sharingEnabled") : t(locale, "adminEvent.sharingDisabled")}
+                    </p>
+                  </DetailRow>
+                </div>
+              </div>
+
+              {/* Event Policies */}
+              {event.policies && event.policies.length > 0 && (
+                <div className="rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100">
+                  <SectionHeader
+                    icon={StarIcon}
+                    eyebrow={t(locale, "adminEvent.policiesEyebrow")}
+                    title={t(locale, "adminEvent.policiesTitle")}
+                    description={t(locale, "adminEvent.policiesDesc")}
+                  />
+                  <div className="mt-6 space-y-4">
+                    {event.policies.map((policy, i) => (
+                      <div key={i} className="rounded-3xl border border-gray-100 bg-gray-50 p-5">
+                        <h3 className="text-sm font-semibold text-gray-900">{policy.title}</h3>
+                        <p className="mt-2 text-sm leading-6 text-gray-700">{policy.description}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
