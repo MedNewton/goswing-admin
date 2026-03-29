@@ -66,6 +66,7 @@ export interface Venue {
   lat: number | null;
   lng: number | null;
   venueType: string | null;
+  timezone: string | null;
   createdAt: string;
   postalCode: string | null;
   capacity: number | null;

@@ -614,6 +614,8 @@ const en = {
   "createVenue.countryPlaceholder": "e.g., FR, US, MA",
   "createVenue.postalLabel": "Postal Code",
   "createVenue.postalPlaceholder": "e.g., 75001",
+  "createVenue.timezoneLabel": "Timezone",
+  "createVenue.timezonePlaceholder": "Select a timezone",
 
   // ── Venue Detail (admin) ──
   "adminVenue.loading": "Loading venue...",
@@ -666,6 +668,8 @@ const en = {
   "adminVenue.locationSectionDesc": "Search for a place, adjust coordinates, and refine the saved address fields.",
   "adminVenue.searchNewLocation": "Search New Location",
   "adminVenue.locationDetails": "Location Details",
+  "adminVenue.timezone": "Timezone",
+  "adminVenue.timezoneNotSet": "Not set",
 
   // ── Orders ──
   "ordersPage.title": "Orders",
@@ -893,8 +897,8 @@ const en = {
   "onboarding.aboutLabel": "About (optional)",
   "onboarding.aboutPlaceholder": "Tell people about your organization...",
   "onboarding.contactEyebrow": "Contact",
-  "onboarding.contactTitle": "Location & Contact",
-  "onboarding.contactDesc": "Where are you based and how can people reach you?",
+  "onboarding.contactTitle": "Contact Details",
+  "onboarding.contactDesc": "How people can reach you.",
   "onboarding.cityLabel": "City",
   "onboarding.cityPlaceholder": "e.g., Paris",
   "onboarding.countryLabel": "Country",

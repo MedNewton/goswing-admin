@@ -22,6 +22,7 @@ const createVenueSchema = z.object({
   lat: z.coerce.number().optional(),
   lng: z.coerce.number().optional(),
   postal_code: z.string().optional().or(z.literal("")),
+  timezone: z.string().optional().or(z.literal("")),
   capacity: z.coerce.number().int().positive().optional().or(z.literal("").transform(() => undefined)),
   organizer_id: z.string().uuid().optional().or(z.literal("")),
 });
@@ -36,6 +37,7 @@ const updateVenueSchema = z.object({
   lat: z.coerce.number().optional().nullable(),
   lng: z.coerce.number().optional().nullable(),
   postal_code: z.string().optional().or(z.literal("")).nullable(),
+  timezone: z.string().optional().or(z.literal("")).nullable(),
   capacity: z.coerce.number().int().positive().optional().nullable(),
   organizer_id: z.string().uuid().optional().or(z.literal("")).nullable(),
 });
@@ -88,6 +90,7 @@ export async function createVenueAction(
       lat: data.lat ?? null,
       lng: data.lng ?? null,
       postal_code: normalizeOptionalText(data.postal_code),
+      timezone: normalizeOptionalText(data.timezone),
       capacity: typeof data.capacity === "number" ? data.capacity : null,
       organizer_id: normalizeOptionalText(data.organizer_id),
     });
@@ -129,6 +132,7 @@ export async function updateVenueAction(
       lat: data.lat ?? null,
       lng: data.lng ?? null,
       postal_code: normalizeOptionalText(data.postal_code),
+      timezone: normalizeOptionalText(data.timezone),
       capacity: data.capacity ?? null,
       organizer_id: normalizeOptionalText(data.organizer_id),
     });

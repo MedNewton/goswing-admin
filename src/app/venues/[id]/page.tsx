@@ -37,6 +37,43 @@ import { getClientLocale, translate } from "@/lib/i18n/client";
 import type { Locale } from "@/lib/i18n";
 
 // ---------------------------------------------------------------------------
+// Timezone options
+// ---------------------------------------------------------------------------
+
+const TIMEZONE_OPTIONS = [
+  { value: "", label: "—" },
+  { value: "Europe/Paris", label: "Europe/Paris (CET)" },
+  { value: "Europe/London", label: "Europe/London (GMT)" },
+  { value: "Europe/Berlin", label: "Europe/Berlin (CET)" },
+  { value: "Europe/Madrid", label: "Europe/Madrid (CET)" },
+  { value: "Europe/Rome", label: "Europe/Rome (CET)" },
+  { value: "Europe/Amsterdam", label: "Europe/Amsterdam (CET)" },
+  { value: "Europe/Brussels", label: "Europe/Brussels (CET)" },
+  { value: "Europe/Zurich", label: "Europe/Zurich (CET)" },
+  { value: "Europe/Lisbon", label: "Europe/Lisbon (WET)" },
+  { value: "Europe/Stockholm", label: "Europe/Stockholm (CET)" },
+  { value: "Europe/Istanbul", label: "Europe/Istanbul (TRT)" },
+  { value: "America/New_York", label: "America/New York (EST)" },
+  { value: "America/Chicago", label: "America/Chicago (CST)" },
+  { value: "America/Denver", label: "America/Denver (MST)" },
+  { value: "America/Los_Angeles", label: "America/Los Angeles (PST)" },
+  { value: "America/Toronto", label: "America/Toronto (EST)" },
+  { value: "America/Sao_Paulo", label: "America/São Paulo (BRT)" },
+  { value: "America/Mexico_City", label: "America/Mexico City (CST)" },
+  { value: "Africa/Casablanca", label: "Africa/Casablanca (WET)" },
+  { value: "Africa/Tunis", label: "Africa/Tunis (CET)" },
+  { value: "Africa/Algiers", label: "Africa/Algiers (CET)" },
+  { value: "Africa/Cairo", label: "Africa/Cairo (EET)" },
+  { value: "Asia/Dubai", label: "Asia/Dubai (GST)" },
+  { value: "Asia/Riyadh", label: "Asia/Riyadh (AST)" },
+  { value: "Asia/Tokyo", label: "Asia/Tokyo (JST)" },
+  { value: "Asia/Seoul", label: "Asia/Seoul (KST)" },
+  { value: "Asia/Kolkata", label: "Asia/Kolkata (IST)" },
+  { value: "Australia/Sydney", label: "Australia/Sydney (AEST)" },
+  { value: "Pacific/Auckland", label: "Pacific/Auckland (NZST)" },
+];
+
+// ---------------------------------------------------------------------------
 // Zod Schema
 // ---------------------------------------------------------------------------
 
@@ -48,6 +85,7 @@ const editVenueFormSchema = z.object({
   country_code: z.string().optional().or(z.literal("")),
   venue_type: z.string().optional().or(z.literal("")),
   postal_code: z.string().optional().or(z.literal("")),
+  timezone: z.string().optional().or(z.literal("")),
   capacity: z.union([z.coerce.number().int().positive(), z.literal(""), z.undefined()]).optional(),
   lat: z.coerce.number().optional(),
   lng: z.coerce.number().optional(),
@@ -157,6 +195,7 @@ export default function VenueDetailPage({
       country_code: "",
       venue_type: "",
       postal_code: "",
+      timezone: "",
       capacity: "" as unknown as undefined,
     },
   });
@@ -175,6 +214,7 @@ export default function VenueDetailPage({
           country_code: data.countryCode ?? "",
           venue_type: data.venueType ?? "",
           postal_code: data.postalCode ?? "",
+          timezone: data.timezone ?? "",
           capacity: data.capacity ?? ("" as unknown as undefined),
           lat: data.lat ?? undefined,
           lng: data.lng ?? undefined,
@@ -207,6 +247,7 @@ export default function VenueDetailPage({
           country_code: data.country_code,
           venue_type: data.venue_type,
           postal_code: data.postal_code,
+          timezone: data.timezone,
           capacity: typeof data.capacity === "number" ? data.capacity : null,
           lat: data.lat,
           lng: data.lng,
@@ -274,6 +315,7 @@ export default function VenueDetailPage({
         country_code: venue.countryCode ?? "",
         venue_type: venue.venueType ?? "",
         postal_code: venue.postalCode ?? "",
+        timezone: venue.timezone ?? "",
         capacity: venue.capacity ?? ("" as unknown as undefined),
         lat: venue.lat ?? undefined,
         lng: venue.lng ?? undefined,
@@ -529,6 +571,11 @@ export default function VenueDetailPage({
                         value={venue.capacity.toLocaleString()}
                       />
                     )}
+                    <DetailBlock
+                      icon={CalendarIcon}
+                      label={t("adminVenue.timezone")}
+                      value={venue.timezone ?? t("adminVenue.timezoneNotSet")}
+                    />
                   </div>
                 </Card>
 
@@ -695,6 +742,12 @@ export default function VenueDetailPage({
                       {...register("capacity")}
                     />
                   </div>
+                  <Select
+                    label={t("createVenue.timezoneLabel")}
+                    options={TIMEZONE_OPTIONS}
+                    error={errors.timezone?.message}
+                    {...register("timezone")}
+                  />
                 </div>
               </Card>
 

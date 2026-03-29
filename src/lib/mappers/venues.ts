@@ -12,6 +12,7 @@ export function mapVenue(row: VenueRow): Venue {
     lat: row.lat,
     lng: row.lng,
     venueType: row.venue_type,
+    timezone: row.timezone,
     createdAt: row.created_at,
     postalCode: row.postal_code,
     capacity: row.capacity,

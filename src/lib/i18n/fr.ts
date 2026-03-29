@@ -614,6 +614,8 @@ const fr: Record<string, string> = {
   "createVenue.countryPlaceholder": "ex. FR, US, MA",
   "createVenue.postalLabel": "Code postal",
   "createVenue.postalPlaceholder": "ex. 75001",
+  "createVenue.timezoneLabel": "Fuseau horaire",
+  "createVenue.timezonePlaceholder": "Sélectionner un fuseau horaire",
 
   // ── Venue Detail (admin) ──
   "adminVenue.loading": "Chargement du lieu...",
@@ -666,6 +668,8 @@ const fr: Record<string, string> = {
   "adminVenue.locationSectionDesc": "Recherchez un lieu, ajustez les coordonnées et affinez les champs d'adresse.",
   "adminVenue.searchNewLocation": "Rechercher un nouveau lieu",
   "adminVenue.locationDetails": "Détails de la localisation",
+  "adminVenue.timezone": "Fuseau horaire",
+  "adminVenue.timezoneNotSet": "Non défini",
 
   // ── Orders ──
   "ordersPage.title": "Commandes",
@@ -893,8 +897,8 @@ const fr: Record<string, string> = {
   "onboarding.aboutLabel": "À propos (optionnel)",
   "onboarding.aboutPlaceholder": "Parlez de votre organisation...",
   "onboarding.contactEyebrow": "Contact",
-  "onboarding.contactTitle": "Localisation et contact",
-  "onboarding.contactDesc": "Où êtes-vous basé et comment peut-on vous joindre ?",
+  "onboarding.contactTitle": "Coordonnées",
+  "onboarding.contactDesc": "Comment les gens peuvent vous contacter.",
   "onboarding.cityLabel": "Ville",
   "onboarding.cityPlaceholder": "ex. Paris",
   "onboarding.countryLabel": "Pays",

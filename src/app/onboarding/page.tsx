@@ -38,8 +38,8 @@ const onboardingFormSchema = z.object({
   name: z.string().min(1, "Organization name is required").max(100),
   tagline: z.string().max(200).optional().or(z.literal("")),
   about: z.string().max(2000).optional().or(z.literal("")),
-  city: z.string().min(1, "City is required"),
-  country_code: z.string().min(1, "Country is required"),
+  city: z.string().optional().or(z.literal("")),
+  country_code: z.string().optional().or(z.literal("")),
   email: z.string().email("Invalid email address"),
   phone: z.string().optional().or(z.literal("")),
   website_url: z.union([z.string().url("Invalid URL"), z.literal("")]).optional(),
@@ -66,40 +66,6 @@ type OnboardingFormValues = z.infer<typeof onboardingFormSchema>;
 // ---------------------------------------------------------------------------
 // Country options
 // ---------------------------------------------------------------------------
-
-const COUNTRY_OPTIONS = [
-  { value: "", label: "Select a country" },
-  { value: "US", label: "United States" },
-  { value: "GB", label: "United Kingdom" },
-  { value: "FR", label: "France" },
-  { value: "DE", label: "Germany" },
-  { value: "ES", label: "Spain" },
-  { value: "IT", label: "Italy" },
-  { value: "NL", label: "Netherlands" },
-  { value: "BE", label: "Belgium" },
-  { value: "CH", label: "Switzerland" },
-  { value: "AT", label: "Austria" },
-  { value: "PT", label: "Portugal" },
-  { value: "SE", label: "Sweden" },
-  { value: "NO", label: "Norway" },
-  { value: "DK", label: "Denmark" },
-  { value: "FI", label: "Finland" },
-  { value: "IE", label: "Ireland" },
-  { value: "CA", label: "Canada" },
-  { value: "AU", label: "Australia" },
-  { value: "NZ", label: "New Zealand" },
-  { value: "MA", label: "Morocco" },
-  { value: "TN", label: "Tunisia" },
-  { value: "DZ", label: "Algeria" },
-  { value: "EG", label: "Egypt" },
-  { value: "AE", label: "United Arab Emirates" },
-  { value: "SA", label: "Saudi Arabia" },
-  { value: "JP", label: "Japan" },
-  { value: "KR", label: "South Korea" },
-  { value: "BR", label: "Brazil" },
-  { value: "MX", label: "Mexico" },
-  { value: "IN", label: "India" },
-];
 
 const VENUE_TYPE_OPTIONS = [
   { value: "", label: "Select a type" },
@@ -313,8 +279,11 @@ export default function OnboardingPage() {
     setServerError(null);
     startTransition(async () => {
       try {
+        // Use venue location for the organization as well
         const result: OnboardingResult = await completeOnboardingAction({
           ...data,
+          city: data.venue_city || data.city || "",
+          country_code: data.venue_country_code || data.country_code || "",
           venue_capacity: typeof data.venue_capacity === "number" ? data.venue_capacity : undefined,
           venue_lat: data.venue_lat,
           venue_lng: data.venue_lng,
@@ -545,20 +514,6 @@ export default function OnboardingPage() {
                 description={translate(locale, "onboarding.contactDesc")}
               />
               <div className="mt-6 space-y-4">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <Input
-                    label={translate(locale, "onboarding.cityLabel")}
-                    placeholder={translate(locale, "onboarding.cityPlaceholder")}
-                    error={errors.city?.message}
-                    {...register("city")}
-                  />
-                  <Select
-                    label={translate(locale, "onboarding.countryLabel")}
-                    options={COUNTRY_OPTIONS}
-                    error={errors.country_code?.message}
-                    {...register("country_code")}
-                  />
-                </div>
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <Input
                     label={translate(locale, "onboarding.emailLabel")}
