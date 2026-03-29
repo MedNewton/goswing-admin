@@ -18,6 +18,7 @@ import { getEvent } from "@/lib/data/events";
 import { getEventGallery } from "@/lib/data/gallery";
 import { getReviews } from "@/lib/data/reviews";
 import { formatPrice, formatDate, formatTime, formatDateTime } from "@/lib/utils/format";
+import { getLocale, t } from "@/lib/i18n";
 import { notFound } from "next/navigation";
 import type { ComponentType, ReactNode, SVGProps } from "react";
 import type { GalleryItem, Review } from "@/types";
@@ -115,6 +116,7 @@ export default async function EventDetailsPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const locale = await getLocale();
 
   let eventData: Awaited<ReturnType<typeof getEvent>> | null = null;
   let gallery: GalleryItem[] = [];
@@ -159,7 +161,7 @@ export default async function EventDetailsPage({
     <>
       <MainLayout>
         <div className="mb-6 flex items-center justify-between">
-          <h1 className="text-2xl font-semibold text-gray-900">Event Details</h1>
+          <h1 className="text-2xl font-semibold text-gray-900">{t(locale, "adminEvent.pageTitle")}</h1>
           <EventActions eventId={id} />
         </div>
         <div className="mx-auto max-w-7xl">
@@ -193,7 +195,7 @@ export default async function EventDetailsPage({
                           variant="info"
                           className="bg-emerald-100 text-emerald-800"
                         >
-                          Free
+                          {t(locale, "adminEvent.free")}
                         </Badge>
                       )}
                     </div>
@@ -201,7 +203,7 @@ export default async function EventDetailsPage({
                       {event.title}
                     </h1>
                     <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-200">
-                      Event schedule, pricing, organizer profile, and venue details in one place.
+                      {t(locale, "adminEvent.subtitle")}
                     </p>
                   </div>
                 </div>
@@ -210,20 +212,20 @@ export default async function EventDetailsPage({
                   <div className="grid gap-4 md:grid-cols-3">
                     <MetricCard
                       icon={DollarIcon}
-                      label="Price"
-                      value={event.minPrice ?? "Free"}
+                      label={t(locale, "adminEvent.price")}
+                      value={event.minPrice ?? t(locale, "adminEvent.free")}
                       tone="amber"
                     />
                     <MetricCard
                       icon={UsersIcon}
-                      label="Attendees"
+                      label={t(locale, "adminEvent.attendees")}
                       value={event.attendeeCount.toLocaleString()}
                       tone="emerald"
                     />
                     <MetricCard
                       icon={CalendarIcon}
-                      label="Currency"
-                      value={event.currency ?? "Not set"}
+                      label={t(locale, "adminEvent.currency")}
+                      value={event.currency ?? t(locale, "adminEvent.notSet")}
                       tone="sky"
                     />
                   </div>
@@ -233,13 +235,13 @@ export default async function EventDetailsPage({
               <div className="mt-6 rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100">
                 <SectionHeader
                   icon={CalendarIcon}
-                  eyebrow="Overview"
-                  title="Event Details"
-                  description="Timing, location, attendance, and descriptive details for this event."
+                  eyebrow={t(locale, "adminEvent.overviewEyebrow")}
+                  title={t(locale, "adminEvent.overviewTitle")}
+                  description={t(locale, "adminEvent.overviewDesc")}
                 />
 
                 <div className="mt-6 grid gap-3">
-                  <DetailRow icon={CalendarIcon} label="Schedule">
+                  <DetailRow icon={CalendarIcon} label={t(locale, "adminEvent.schedule")}>
                     <p className="font-medium text-gray-900">
                       {formatDate(event.startsAt)}
                       {event.startsAt && ` • ${formatTime(event.startsAt)}`}
@@ -247,22 +249,22 @@ export default async function EventDetailsPage({
                     </p>
                   </DetailRow>
                   {event.endsAt && (
-                    <DetailRow icon={CalendarIcon} label="Ends">
+                    <DetailRow icon={CalendarIcon} label={t(locale, "adminEvent.ends")}>
                       <p className="font-medium text-gray-900">
                         {formatDateTime(event.endsAt)}
                       </p>
                     </DetailRow>
                   )}
-                  <DetailRow icon={MapPinIcon} label="Location">
+                  <DetailRow icon={MapPinIcon} label={t(locale, "adminEvent.location")}>
                     <p className="font-medium text-gray-900">{event.location}</p>
                   </DetailRow>
-                  <DetailRow icon={UsersIcon} label="Attendance">
+                  <DetailRow icon={UsersIcon} label={t(locale, "adminEvent.attendance")}>
                     <p className="font-medium text-gray-900">
-                      {event.attendeeCount.toLocaleString()} attendees
+                      {event.attendeeCount.toLocaleString()} {t(locale, "adminEvent.attendees")}
                     </p>
                   </DetailRow>
                   {event.currency && (
-                    <DetailRow icon={DollarIcon} label="Currency">
+                    <DetailRow icon={DollarIcon} label={t(locale, "adminEvent.currency")}>
                       <p className="font-medium text-gray-900">{event.currency}</p>
                     </DetailRow>
                   )}
@@ -270,7 +272,7 @@ export default async function EventDetailsPage({
 
                 {event.description && (
                   <div className="mt-8 rounded-3xl border border-gray-100 bg-gray-50 p-5">
-                    <h2 className="text-lg font-semibold text-gray-900">Description</h2>
+                    <h2 className="text-lg font-semibold text-gray-900">{t(locale, "adminEvent.description")}</h2>
                     <p className="mt-3 whitespace-pre-line text-sm leading-7 text-gray-700">
                       {event.description}
                     </p>
@@ -279,7 +281,7 @@ export default async function EventDetailsPage({
 
                 {event.tags && event.tags.length > 0 && (
                   <div className="mt-8">
-                    <h2 className="text-lg font-semibold text-gray-900">Tags</h2>
+                    <h2 className="text-lg font-semibold text-gray-900">{t(locale, "adminEvent.tags")}</h2>
                     <div className="mt-3 flex flex-wrap gap-2">
                       {event.tags.map((tag) => (
                         <span
@@ -299,9 +301,9 @@ export default async function EventDetailsPage({
                 <div className="mt-6 rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100">
                   <SectionHeader
                     icon={StarIcon}
-                    eyebrow="Media"
-                    title="Event Gallery"
-                    description={`${gallery.length} photo${gallery.length !== 1 ? "s" : ""}`}
+                    eyebrow={t(locale, "adminEvent.mediaEyebrow")}
+                    title={t(locale, "adminEvent.gallery")}
+                    description={`${gallery.length} ${gallery.length !== 1 ? t(locale, "adminEvent.photos") : t(locale, "adminEvent.photo")}`}
                   />
                   <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
                     {gallery.map((item) => (
@@ -311,7 +313,7 @@ export default async function EventDetailsPage({
                       >
                         <img
                           src={item.mediaUrl}
-                          alt={item.caption ?? "Event photo"}
+                          alt={item.caption ?? t(locale, "adminEvent.eventPhoto")}
                           className="h-full w-full object-cover transition-transform group-hover:scale-105"
                         />
                         {item.caption && (
@@ -330,9 +332,9 @@ export default async function EventDetailsPage({
                 <div className="mt-6 rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100">
                   <SectionHeader
                     icon={StarIcon}
-                    eyebrow="Feedback"
-                    title="Reviews"
-                    description={`${reviews.length} review${reviews.length !== 1 ? "s" : ""}`}
+                    eyebrow={t(locale, "adminEvent.feedbackEyebrow")}
+                    title={t(locale, "adminEvent.reviews")}
+                    description={`${reviews.length} ${reviews.length !== 1 ? t(locale, "adminEvent.reviews") : t(locale, "adminEvent.review")}`}
                   />
                   <div className="mt-6 space-y-4">
                     {reviews.slice(0, 5).map((review) => (
@@ -380,7 +382,7 @@ export default async function EventDetailsPage({
                     ))}
                     {reviews.length > 5 && (
                       <p className="text-center text-sm text-gray-500">
-                        +{reviews.length - 5} more reviews
+                        +{reviews.length - 5} {t(locale, "adminEvent.moreReviews")}
                       </p>
                     )}
                   </div>
@@ -392,9 +394,9 @@ export default async function EventDetailsPage({
                 <div className="mt-6 rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100">
                   <SectionHeader
                     icon={BuildingIcon}
-                    eyebrow="Organizer"
-                    title="Organizer Profile"
-                    description="Primary contact, background, specialties, and support policies."
+                    eyebrow={t(locale, "adminEvent.organizerEyebrow")}
+                    title={t(locale, "adminEvent.organizerTitle")}
+                    description={t(locale, "adminEvent.organizerDesc")}
                   />
 
                   <div className="mt-6 flex items-center gap-4 rounded-3xl border border-gray-100 bg-gradient-to-r from-white to-slate-50 p-5">
@@ -421,10 +423,10 @@ export default async function EventDetailsPage({
                         {organizer.is_verified && (
                           <span
                             className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700"
-                            title="Verified"
+                            title={t(locale, "adminEvent.verified")}
                           >
                             <StarIcon className="h-3.5 w-3.5" />
-                            Verified
+                            {t(locale, "adminEvent.verified")}
                           </span>
                         )}
                       </div>
@@ -442,7 +444,7 @@ export default async function EventDetailsPage({
                   {organizer.about && (
                     <div className="mt-6 rounded-3xl border border-gray-100 bg-gray-50 p-5">
                       <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-gray-500">
-                        About
+                        {t(locale, "adminEvent.about")}
                       </h3>
                       <p className="mt-3 whitespace-pre-line text-sm leading-7 text-gray-700">
                         {organizer.about}
@@ -453,7 +455,7 @@ export default async function EventDetailsPage({
                   {organizer.specialties && organizer.specialties.length > 0 && (
                     <div className="mt-6">
                       <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-gray-500">
-                        Specialties
+                        {t(locale, "adminEvent.specialties")}
                       </h3>
                       <div className="mt-3 flex flex-wrap gap-2">
                         {organizer.specialties.map((s) => (
@@ -472,11 +474,11 @@ export default async function EventDetailsPage({
                   {hasOrganizerContact && (
                     <div className="mt-6">
                       <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-gray-500">
-                        Contact
+                        {t(locale, "adminEvent.contact")}
                       </h3>
                       <div className="mt-3 grid gap-3">
                       {organizer.email && (
-                          <DetailRow icon={MailIcon} label="Email">
+                          <DetailRow icon={MailIcon} label={t(locale, "adminEvent.email")}>
                             <a
                               href={`mailto:${organizer.email}`}
                               className="font-medium text-blue-600 hover:underline"
@@ -486,12 +488,12 @@ export default async function EventDetailsPage({
                           </DetailRow>
                       )}
                       {organizer.phone && (
-                          <DetailRow icon={PhoneIcon} label="Phone">
+                          <DetailRow icon={PhoneIcon} label={t(locale, "adminEvent.phone")}>
                             <p className="font-medium text-gray-900">{organizer.phone}</p>
                           </DetailRow>
                       )}
                       {organizer.website_url && (
-                          <DetailRow icon={GlobeIcon} label="Website">
+                          <DetailRow icon={GlobeIcon} label={t(locale, "adminEvent.website")}>
                             <a
                               href={organizer.website_url}
                               target="_blank"
@@ -510,7 +512,7 @@ export default async function EventDetailsPage({
                   {hasOrganizerSocials && (
                     <div className="mt-6">
                       <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-gray-500">
-                        Socials
+                        {t(locale, "adminEvent.socials")}
                       </h3>
                       <div className="mt-3 flex flex-wrap gap-3">
                       {organizer.instagram_handle && (
@@ -543,7 +545,7 @@ export default async function EventDetailsPage({
                       {organizer.cancellation_policy && (
                         <div className="rounded-3xl border border-gray-100 bg-gray-50 p-5">
                           <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-gray-500">
-                            Cancellation Policy
+                            {t(locale, "adminEvent.cancellationPolicy")}
                           </h3>
                           <p className="mt-3 text-sm leading-7 text-gray-700">{organizer.cancellation_policy}</p>
                         </div>
@@ -551,7 +553,7 @@ export default async function EventDetailsPage({
                       {organizer.refund_policy && (
                         <div className="rounded-3xl border border-gray-100 bg-gray-50 p-5">
                           <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-gray-500">
-                            Refund Policy
+                            {t(locale, "adminEvent.refundPolicy")}
                           </h3>
                           <p className="mt-3 text-sm leading-7 text-gray-700">{organizer.refund_policy}</p>
                         </div>
@@ -569,9 +571,9 @@ export default async function EventDetailsPage({
                 <div className="rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100">
                   <SectionHeader
                     icon={DollarIcon}
-                    eyebrow="Tickets"
-                    title="Ticket Types"
-                    description="Pricing, capacity, perks, and sales windows."
+                    eyebrow={t(locale, "adminEvent.ticketsEyebrow")}
+                    title={t(locale, "adminEvent.ticketsTitle")}
+                    description={t(locale, "adminEvent.ticketsDesc")}
                   />
                   <div className="mt-4 space-y-4">
                     {ticketTypes.map((ticket) => (
@@ -593,12 +595,12 @@ export default async function EventDetailsPage({
                         <div className="mt-3 grid gap-2">
                           {ticket.capacity != null && (
                             <p className="text-xs font-medium uppercase tracking-[0.16em] text-gray-500">
-                              Capacity: <span className="normal-case tracking-normal text-gray-700">{ticket.capacity}</span>
+                              {t(locale, "adminEvent.capacityLabel")} <span className="normal-case tracking-normal text-gray-700">{ticket.capacity}</span>
                             </p>
                           )}
                         {ticket.benefits && Array.isArray(ticket.benefits) && ticket.benefits.length > 0 && (
                             <div>
-                              <p className="text-xs font-medium uppercase tracking-[0.16em] text-gray-500">Benefits</p>
+                              <p className="text-xs font-medium uppercase tracking-[0.16em] text-gray-500">{t(locale, "adminEvent.benefits")}</p>
                               <ul className="mt-2 list-inside list-disc space-y-1 text-xs text-gray-600">
                               {ticket.benefits.map((b, i) => (
                                 <li key={i}>{typeof b === "string" ? b : JSON.stringify(b)}</li>
@@ -609,10 +611,10 @@ export default async function EventDetailsPage({
                         {[ticket.sales_start_at, ticket.sales_end_at].some(Boolean) && (
                             <div className="text-xs text-gray-500">
                             {ticket.sales_start_at && (
-                              <p>Sales start: {formatDateTime(ticket.sales_start_at)}</p>
+                              <p>{t(locale, "adminEvent.salesStart")} {formatDateTime(ticket.sales_start_at)}</p>
                             )}
                             {ticket.sales_end_at && (
-                              <p>Sales end: {formatDateTime(ticket.sales_end_at)}</p>
+                              <p>{t(locale, "adminEvent.salesEnd")} {formatDateTime(ticket.sales_end_at)}</p>
                             )}
                           </div>
                         )}
@@ -628,9 +630,9 @@ export default async function EventDetailsPage({
                 <div className="rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100">
                   <SectionHeader
                     icon={MapPinIcon}
-                    eyebrow="Venue"
-                    title="Location Details"
-                    description="Assigned venue profile and map preview for this event."
+                    eyebrow={t(locale, "adminEvent.venueEyebrow")}
+                    title={t(locale, "adminEvent.venueTitle")}
+                    description={t(locale, "adminEvent.venueDesc")}
                   />
                   <div className="mt-6 rounded-3xl border border-gray-100 bg-gradient-to-br from-white to-slate-50 p-5">
                     <p className="font-semibold text-gray-900">{venue.name}</p>
@@ -647,7 +649,7 @@ export default async function EventDetailsPage({
                   )}
                   {venue.timezone && (
                       <p className="mt-2 text-xs font-medium uppercase tracking-[0.16em] text-gray-500">
-                        Timezone: <span className="normal-case tracking-normal text-gray-700">{venue.timezone}</span>
+                        {t(locale, "adminEvent.timezone")} <span className="normal-case tracking-normal text-gray-700">{venue.timezone}</span>
                       </p>
                   )}
                   </div>
@@ -655,7 +657,7 @@ export default async function EventDetailsPage({
                     <>
                       <div className="mt-4 overflow-hidden rounded-[1.5rem] border border-gray-200">
                         <iframe
-                          title="Venue location"
+                          title={t(locale, "adminEvent.venueLocation")}
                           width="100%"
                           height="260"
                           style={{ border: 0 }}
@@ -671,12 +673,12 @@ export default async function EventDetailsPage({
                         className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
                       >
                         <MapPinIcon className="h-4 w-4" />
-                        Get Directions
+                        {t(locale, "adminEvent.getDirections")}
                       </a>
                     </>
                   ) : (
                     <div className="mt-4 flex h-48 items-center justify-center rounded-[1.5rem] border border-dashed border-gray-300 bg-gray-50 text-sm text-gray-500">
-                      No map available
+                      {t(locale, "adminEvent.noMapAvailable")}
                     </div>
                   )}
                 </div>

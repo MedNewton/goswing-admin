@@ -1,6 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { getClientLocale, translate } from "@/lib/i18n/client";
+import type { Locale } from "@/lib/i18n";
 import { Card } from "@/components/ui/Card";
 import {
   CalendarIcon,
@@ -16,6 +18,9 @@ interface MusicPageClientProps {
 }
 
 export function MusicPageClient({ songs }: MusicPageClientProps) {
+  const [locale, setLocale] = useState<Locale>("fr");
+  useEffect(() => { setLocale(getClientLocale()); }, []);
+
   const [eventFilter, setEventFilter] = useState("all");
 
   const eventOptions = useMemo(() => {
@@ -58,20 +63,20 @@ export function MusicPageClient({ songs }: MusicPageClientProps) {
               <MusicIcon className="h-6 w-6" />
             </div>
             <p className="mt-5 text-xs font-semibold uppercase tracking-[0.3em] text-emerald-100/80">
-              Music Suggestions
+              {translate(locale, "musicPage.eyebrow")}
             </p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
-              Songs, artists, and event soundtrack ideas in one place.
+              {translate(locale, "musicPage.subtitle")}
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-200">
-              Review the latest song suggestions connected to your events and keep the music direction consistent.
+              {translate(locale, "musicPage.description")}
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <div className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-white/90 backdrop-blur">
-                {filteredSongs.length} songs shown
+                {filteredSongs.length} {translate(locale, "musicPage.songsShown")}
               </div>
               <div className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-white/90 backdrop-blur">
-                {selectedEventLabel ?? "All organizer events"}
+                {selectedEventLabel ?? translate(locale, "musicPage.allEvents")}
               </div>
             </div>
           </div>
@@ -80,28 +85,28 @@ export function MusicPageClient({ songs }: MusicPageClientProps) {
             <div className="rounded-3xl border border-white/12 bg-white/10 p-5 backdrop-blur">
               <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-emerald-700">
                 <MusicIcon className="h-4 w-4" />
-                <span className="text-xs font-semibold uppercase tracking-[0.18em]">Songs</span>
+                <span className="text-xs font-semibold uppercase tracking-[0.18em]">{translate(locale, "musicPage.songs")}</span>
               </div>
               <p className="mt-4 text-2xl font-semibold text-white">{filteredSongs.length}</p>
             </div>
             <div className="rounded-3xl border border-white/12 bg-white/10 p-5 backdrop-blur">
               <div className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-1 text-sky-700">
                 <UsersIcon className="h-4 w-4" />
-                <span className="text-xs font-semibold uppercase tracking-[0.18em]">Artists</span>
+                <span className="text-xs font-semibold uppercase tracking-[0.18em]">{translate(locale, "musicPage.artists")}</span>
               </div>
               <p className="mt-4 text-2xl font-semibold text-white">{uniqueArtists}</p>
             </div>
             <div className="rounded-3xl border border-white/12 bg-white/10 p-5 backdrop-blur">
               <div className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1 text-amber-700">
                 <CalendarIcon className="h-4 w-4" />
-                <span className="text-xs font-semibold uppercase tracking-[0.18em]">Events</span>
+                <span className="text-xs font-semibold uppercase tracking-[0.18em]">{translate(locale, "musicPage.events")}</span>
               </div>
               <p className="mt-4 text-2xl font-semibold text-white">{uniqueEvents}</p>
             </div>
             <div className="rounded-3xl border border-white/12 bg-white/10 p-5 backdrop-blur">
               <div className="inline-flex items-center gap-2 rounded-full bg-rose-50 px-3 py-1 text-rose-700">
                 <ChartIcon className="h-4 w-4" />
-                <span className="text-xs font-semibold uppercase tracking-[0.18em]">Recent</span>
+                <span className="text-xs font-semibold uppercase tracking-[0.18em]">{translate(locale, "musicPage.recent")}</span>
               </div>
               <p className="mt-4 text-2xl font-semibold text-white">{Math.min(filteredSongs.length, 10)}</p>
             </div>
@@ -113,25 +118,25 @@ export function MusicPageClient({ songs }: MusicPageClientProps) {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">
-              Filters
+              {translate(locale, "ordersPage.filtersEyebrow")}
             </p>
             <h2 className="mt-1 text-2xl font-semibold text-gray-950">
-              Filter by event
+              {translate(locale, "musicPage.filterEyebrow")}
             </h2>
             <p className="mt-1 text-sm text-gray-500">
-              Show songs from all organizer events or narrow the list to a single related event.
+              {translate(locale, "musicPage.filterDesc")}
             </p>
           </div>
           <div className="w-full max-w-sm">
             <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
-              Event
+              {translate(locale, "musicPage.eventLabel")}
             </label>
             <select
               value={eventFilter}
               onChange={(e) => setEventFilter(e.target.value)}
               className="h-12 w-full rounded-2xl border border-gray-200 bg-white px-4 text-sm text-gray-700 shadow-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
             >
-              <option value="all">All organizer events</option>
+              <option value="all">{translate(locale, "musicPage.allEvents")}</option>
               {eventOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
@@ -148,12 +153,12 @@ export function MusicPageClient({ songs }: MusicPageClientProps) {
             Song Feed
           </p>
           <h2 className="mt-1 text-2xl font-semibold text-gray-950">
-            Song Suggestions
+            {translate(locale, "musicPage.songSuggestions")}
           </h2>
         </div>
         {filteredSongs.length === 0 ? (
           <p className="px-6 py-12 text-center text-gray-500">
-            No song suggestions found for this event.
+            {translate(locale, "musicPage.noSuggestions")}
           </p>
         ) : (
           <div className="space-y-3 p-6">

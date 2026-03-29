@@ -22,6 +22,8 @@ import {
 import { uploadOrganizerImageAction } from "@/lib/actions/organizer";
 import Link from "next/link";
 import type { ComponentType, SVGProps } from "react";
+import { getClientLocale, translate } from "@/lib/i18n/client";
+import type { Locale } from "@/lib/i18n";
 
 // ---------------------------------------------------------------------------
 // Zod Schema
@@ -42,37 +44,37 @@ type ProfileFormValues = z.infer<typeof profileFormSchema>;
 // ---------------------------------------------------------------------------
 
 const SETTINGS_LINKS: {
-  label: string;
-  description: string;
+  labelKey: "settingsPage.generalSettings" | "settingsPage.notifications" | "settingsPage.security" | "settingsPage.deleteAccount";
+  descKey: "settingsPage.generalDesc" | "settingsPage.notificationsDesc" | "settingsPage.securityDesc" | "settingsPage.deleteAccountDesc";
   href: string;
   icon: ComponentType<SVGProps<SVGSVGElement>>;
   tone: string;
   danger?: boolean;
 }[] = [
   {
-    label: "General Settings",
-    description: "App preferences and display options",
+    labelKey: "settingsPage.generalSettings",
+    descKey: "settingsPage.generalDesc",
     href: "/settings/general",
     icon: SettingsIcon,
     tone: "bg-sky-50 text-sky-600",
   },
   {
-    label: "Notifications",
-    description: "Manage email and push notification preferences",
+    labelKey: "settingsPage.notifications",
+    descKey: "settingsPage.notificationsDesc",
     href: "/settings/general",
     icon: BellIcon,
     tone: "bg-amber-50 text-amber-600",
   },
   {
-    label: "Security & Password",
-    description: "Change password, enable two-factor authentication",
+    labelKey: "settingsPage.security",
+    descKey: "settingsPage.securityDesc",
     href: "/settings/general",
     icon: SettingsIcon,
     tone: "bg-emerald-50 text-emerald-600",
   },
   {
-    label: "Delete Account",
-    description: "Permanently delete your account and data",
+    labelKey: "settingsPage.deleteAccount",
+    descKey: "settingsPage.deleteAccountDesc",
     href: "/settings/general",
     icon: UsersIcon,
     tone: "bg-red-50 text-red-600",
@@ -120,6 +122,9 @@ function SectionHeader({
 // ---------------------------------------------------------------------------
 
 export default function ProfileSettingsPage() {
+  const [locale, setLocale] = useState<Locale>("fr");
+  useEffect(() => { setLocale(getClientLocale()); }, []);
+
   const [isPending, startTransition] = useTransition();
   const [serverError, setServerError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -213,7 +218,7 @@ export default function ProfileSettingsPage() {
       try {
         const result: ProfileActionResult = await updateProfileAction(data);
         if (result.success) {
-          setSuccessMessage("Profile updated successfully.");
+          setSuccessMessage(translate(locale, "settingsPage.profileUpdated"));
         } else {
           setServerError(result.error);
         }
@@ -244,13 +249,13 @@ export default function ProfileSettingsPage() {
           </div>
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-teal-100/75">
-              Account
+              {translate(locale, "settingsPage.eyebrow")}
             </p>
             <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">
-              My Profile
+              {translate(locale, "settingsPage.title")}
             </h1>
             <p className="mt-1 max-w-lg text-sm text-slate-300">
-              Manage your personal information and account settings.
+              {translate(locale, "settingsPage.subtitle")}
             </p>
           </div>
         </div>
@@ -274,9 +279,9 @@ export default function ProfileSettingsPage() {
           <div className="rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100 sm:p-8">
             <SectionHeader
               icon={UsersIcon}
-              eyebrow="Avatar"
-              title="Profile Picture"
-              description="Upload a photo so people can recognize you."
+              eyebrow={translate(locale, "settingsPage.avatarEyebrow")}
+              title={translate(locale, "settingsPage.avatarTitle")}
+              description={translate(locale, "settingsPage.avatarDesc")}
             />
             <div className="mt-6 flex items-center gap-5">
               <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-full border-2 border-dashed border-gray-200 bg-gray-50">
@@ -318,10 +323,10 @@ export default function ProfileSettingsPage() {
                     disabled={isUploadingAvatar}
                   >
                     {isUploadingAvatar
-                      ? "Uploading..."
+                      ? translate(locale, "createEvent.uploading")
                       : avatarPreview
-                        ? "Change Photo"
-                        : "Upload Photo"}
+                        ? translate(locale, "settingsPage.changePhoto")
+                        : translate(locale, "settingsPage.uploadPhoto")}
                   </Button>
                   {avatarPreview && !isUploadingAvatar && (
                     <Button
@@ -331,7 +336,7 @@ export default function ProfileSettingsPage() {
                       onClick={handleRemoveAvatar}
                       className="text-red-600 hover:text-red-700"
                     >
-                      Remove
+                      {translate(locale, "common.remove")}
                     </Button>
                   )}
                 </div>
@@ -339,7 +344,7 @@ export default function ProfileSettingsPage() {
                   <p className="mt-1 text-sm text-red-600">{avatarError}</p>
                 )}
                 <p className="mt-1 text-xs text-gray-400">
-                  Square image, max 5MB
+                  {translate(locale, "settingsPage.squareHint")}
                 </p>
               </div>
             </div>
@@ -349,19 +354,19 @@ export default function ProfileSettingsPage() {
           <div className="rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100 sm:p-8">
             <SectionHeader
               icon={MailIcon}
-              eyebrow="Personal"
-              title="Personal Information"
-              description="Your name, email, and contact details."
+              eyebrow={translate(locale, "settingsPage.personalEyebrow")}
+              title={translate(locale, "settingsPage.personalTitle")}
+              description={translate(locale, "settingsPage.personalDesc")}
             />
             <div className="mt-6 space-y-4">
               <Input
-                label="Full Name"
+                label={translate(locale, "settingsPage.fullName")}
                 placeholder="Your name"
                 error={errors.display_name?.message}
                 {...register("display_name")}
               />
               <Input
-                label="Email"
+                label={translate(locale, "settingsPage.emailLabel")}
                 type="email"
                 placeholder="you@example.com"
                 error={errors.email?.message}
@@ -369,15 +374,15 @@ export default function ProfileSettingsPage() {
               />
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <Input
-                  label="Phone Number"
+                  label={translate(locale, "settingsPage.phoneLabel")}
                   type="tel"
                   placeholder="+1 234 567 890"
                   error={errors.phone_number?.message}
                   {...register("phone_number")}
                 />
                 <Input
-                  label="Occupation"
-                  placeholder="e.g., Event Manager"
+                  label={translate(locale, "settingsPage.occupationLabel")}
+                  placeholder={translate(locale, "settingsPage.occupationPlaceholder")}
                   error={errors.occupation?.message}
                   {...register("occupation")}
                 />
@@ -388,7 +393,7 @@ export default function ProfileSettingsPage() {
           {/* Save Button */}
           <div className="flex justify-end">
             <Button variant="primary" type="submit" disabled={isPending}>
-              {isPending ? "Saving..." : "Save Profile"}
+              {isPending ? translate(locale, "common.saving") : translate(locale, "settingsPage.saveProfile")}
             </Button>
           </div>
         </form>
@@ -397,14 +402,14 @@ export default function ProfileSettingsPage() {
         <div className="rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100 sm:p-8">
           <SectionHeader
             icon={SettingsIcon}
-            eyebrow="Configuration"
-            title="Account & Settings"
-            description="Manage your preferences, notifications, and security."
+            eyebrow={translate(locale, "settingsPage.configEyebrow")}
+            title={translate(locale, "settingsPage.accountTitle")}
+            description={translate(locale, "settingsPage.accountDesc")}
           />
           <div className="mt-6 space-y-3">
             {SETTINGS_LINKS.map((item) => (
               <Link
-                key={item.label}
+                key={item.labelKey}
                 href={item.href}
                 className="group flex items-center gap-4 rounded-2xl border border-gray-100 px-5 py-4 transition-all hover:-translate-y-0.5 hover:border-gray-200 hover:shadow-md"
               >
@@ -417,9 +422,9 @@ export default function ProfileSettingsPage() {
                       item.danger ? "text-red-600" : "text-gray-900"
                     }`}
                   >
-                    {item.label}
+                    {translate(locale, item.labelKey)}
                   </p>
-                  <p className="text-xs text-gray-500">{item.description}</p>
+                  <p className="text-xs text-gray-500">{translate(locale, item.descKey)}</p>
                 </div>
                 <div className="rounded-full bg-gray-100 p-1.5 text-gray-400 transition-transform group-hover:translate-x-0.5">
                   <ChevronRightIcon className="h-4 w-4" />

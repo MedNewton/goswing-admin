@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useMemo, useTransition } from "react";
+import { useState, useMemo, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { getClientLocale, translate } from "@/lib/i18n/client";
+import type { Locale } from "@/lib/i18n";
 import {
   CalendarIcon,
   ChevronRightIcon,
@@ -74,6 +76,9 @@ function SummaryCard({
 }
 
 export function OrdersPageClient({ orders }: OrdersPageClientProps) {
+  const [locale, setLocale] = useState<Locale>("fr");
+  useEffect(() => { setLocale(getClientLocale()); }, []);
+
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sortAsc, setSortAsc] = useState(false);
@@ -185,23 +190,23 @@ export function OrdersPageClient({ orders }: OrdersPageClientProps) {
               <ShoppingBagIcon className="h-6 w-6" />
             </div>
             <p className="mt-5 text-xs font-semibold uppercase tracking-[0.3em] text-teal-100/75">
-              Orders Overview
+              {translate(locale, "ordersPage.eyebrow")}
             </p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
-              Reservations, status actions, and export controls in one place.
+              {translate(locale, "ordersPage.subtitle")}
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-200">
-              Review bookings across your events, filter by status, and update reservation progress without leaving the page.
+              {translate(locale, "ordersPage.description")}
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <div className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-white/90 backdrop-blur">
-                {overview.totalOrders.toLocaleString()} total orders
+                {overview.totalOrders.toLocaleString()} {translate(locale, "ordersPage.totalOrders")}
               </div>
               <div className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-white/90 backdrop-blur">
-                {statusFilter === "all" ? "All statuses" : formatOrderStatus(statusFilter)}
+                {statusFilter === "all" ? translate(locale, "ordersPage.allStatuses") : formatOrderStatus(statusFilter)}
               </div>
               <div className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-white/90 backdrop-blur">
-                {sortAsc ? "Oldest first" : "Newest first"}
+                {sortAsc ? translate(locale, "ordersPage.oldestFirst") : translate(locale, "ordersPage.newestFirst")}
               </div>
             </div>
           </div>
@@ -209,25 +214,25 @@ export function OrdersPageClient({ orders }: OrdersPageClientProps) {
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-2">
             <SummaryCard
               icon={ShoppingBagIcon}
-              label="Orders"
+              label={translate(locale, "ordersPage.orders")}
               value={formatCompactNumber(overview.totalOrders)}
               accentClass="bg-amber-50 text-amber-700"
             />
             <SummaryCard
               icon={UsersIcon}
-              label="Customers"
+              label={translate(locale, "ordersPage.customers")}
               value={formatCompactNumber(overview.uniqueCustomers)}
               accentClass="bg-emerald-50 text-emerald-700"
             />
             <SummaryCard
               icon={CalendarIcon}
-              label="Checked In"
+              label={translate(locale, "ordersPage.checkedIn")}
               value={formatCompactNumber(overview.checkedInCount)}
               accentClass="bg-sky-50 text-sky-700"
             />
             <SummaryCard
               icon={DollarIcon}
-              label="Tickets"
+              label={translate(locale, "ordersPage.tickets")}
               value={formatCompactNumber(overview.filteredItems)}
               accentClass="bg-rose-50 text-rose-700"
             />
@@ -239,13 +244,13 @@ export function OrdersPageClient({ orders }: OrdersPageClientProps) {
         <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">
-              Filters
+              {translate(locale, "ordersPage.filtersEyebrow")}
             </p>
             <h2 className="mt-1 text-2xl font-semibold text-gray-950">
-              Search and refine orders
+              {translate(locale, "ordersPage.filtersTitle")}
             </h2>
             <p className="mt-1 text-sm text-gray-500">
-              Narrow the list by event, customer, or reservation status before exporting or updating.
+              {translate(locale, "ordersPage.filtersDesc")}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -255,7 +260,7 @@ export function OrdersPageClient({ orders }: OrdersPageClientProps) {
               className="rounded-full border-gray-200 px-4"
             >
               <CalendarIcon className="h-4 w-4" />
-              {sortAsc ? "Oldest first" : "Newest first"}
+              {sortAsc ? translate(locale, "ordersPage.oldestFirst") : translate(locale, "ordersPage.newestFirst")}
             </Button>
             <Button
               variant="outline"
@@ -264,21 +269,21 @@ export function OrdersPageClient({ orders }: OrdersPageClientProps) {
               className="rounded-full border-gray-200 px-4"
             >
               <ChevronRightIcon className="h-4 w-4" />
-              Export CSV
+              {translate(locale, "ordersPage.exportCsv")}
             </Button>
           </div>
         </div>
 
         <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px] lg:items-end">
           <SearchBar
-            placeholder="Search orders, customers, events..."
+            placeholder={translate(locale, "ordersPage.searchPlaceholder")}
             className="max-w-none [&_input]:h-12 [&_input]:rounded-2xl [&_input]:border-gray-200 [&_input]:pr-4 [&_input]:text-sm [&_input]:shadow-sm [&_input]:focus:border-gray-900 [&_input]:focus:ring-gray-900"
             value={search}
             onChange={setSearch}
           />
           <label className="block">
             <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
-              Status
+              {translate(locale, "ordersPage.statusLabel")}
             </span>
             <select
               value={statusFilter}
@@ -287,7 +292,7 @@ export function OrdersPageClient({ orders }: OrdersPageClientProps) {
             >
               {STATUS_FILTER_OPTIONS.map((s) => (
                 <option key={s} value={s}>
-                  {s === "all" ? "All Statuses" : formatOrderStatus(s)}
+                  {s === "all" ? translate(locale, "ordersPage.allStatusesFilter") : formatOrderStatus(s)}
                 </option>
               ))}
             </select>
@@ -303,11 +308,11 @@ export function OrdersPageClient({ orders }: OrdersPageClientProps) {
                 Orders List
               </p>
               <h2 className="mt-1 text-2xl font-semibold text-gray-950">
-                Reservation activity
+                {translate(locale, "ordersPage.activityEyebrow")}
               </h2>
             </div>
             <div className="rounded-full bg-gray-100 px-4 py-2 text-sm font-medium text-gray-600">
-              Showing {overview.filteredOrders.toLocaleString()} of {overview.totalOrders.toLocaleString()}
+              {translate(locale, "common.showing")} {overview.filteredOrders.toLocaleString()} {translate(locale, "common.of")} {overview.totalOrders.toLocaleString()}
             </div>
           </div>
         </div>
@@ -318,7 +323,7 @@ export function OrdersPageClient({ orders }: OrdersPageClientProps) {
               <ShoppingBagIcon className="h-6 w-6" />
             </div>
             <p className="mt-4 text-base font-medium text-gray-900">
-              {orders.length === 0 ? "No orders yet." : "No orders match your filters."}
+              {orders.length === 0 ? translate(locale, "ordersPage.noOrders") : "No orders match your filters."}
             </p>
             <p className="mt-1 text-sm text-gray-500">
               {orders.length === 0
@@ -329,15 +334,15 @@ export function OrdersPageClient({ orders }: OrdersPageClientProps) {
         ) : (
           <Table>
             <TableHeader>
-              <TableHead className="px-6 py-4">Order ID</TableHead>
-              <TableHead className="px-6 py-4">Event</TableHead>
-              <TableHead className="px-6 py-4">Customer</TableHead>
-              <TableHead className="px-6 py-4">Offer Type</TableHead>
-              <TableHead className="px-6 py-4">Qty</TableHead>
-              <TableHead className="px-6 py-4">Amount</TableHead>
-              <TableHead className="px-6 py-4">Status</TableHead>
-              <TableHead className="px-6 py-4">Date</TableHead>
-              <TableHead className="px-6 py-4">Actions</TableHead>
+              <TableHead className="px-6 py-4">{translate(locale, "ordersPage.orderId")}</TableHead>
+              <TableHead className="px-6 py-4">{translate(locale, "ordersPage.eventCol")}</TableHead>
+              <TableHead className="px-6 py-4">{translate(locale, "ordersPage.customerCol")}</TableHead>
+              <TableHead className="px-6 py-4">{translate(locale, "ordersPage.offerType")}</TableHead>
+              <TableHead className="px-6 py-4">{translate(locale, "ordersPage.qtyCol")}</TableHead>
+              <TableHead className="px-6 py-4">{translate(locale, "ordersPage.amountCol")}</TableHead>
+              <TableHead className="px-6 py-4">{translate(locale, "ordersPage.statusCol")}</TableHead>
+              <TableHead className="px-6 py-4">{translate(locale, "ordersPage.dateCol")}</TableHead>
+              <TableHead className="px-6 py-4">{translate(locale, "ordersPage.actionsCol")}</TableHead>
             </TableHeader>
             <TableBody>
               {filtered.map((order) => {
@@ -352,7 +357,7 @@ export function OrdersPageClient({ orders }: OrdersPageClientProps) {
                       <div>
                         <p className="font-medium text-gray-900">{order.eventName}</p>
                         <p className="mt-1 text-xs font-medium uppercase tracking-[0.16em] text-gray-500">
-                          Event order
+                          {translate(locale, "ordersPage.eventOrder")}
                         </p>
                       </div>
                     </TableCell>
@@ -377,7 +382,7 @@ export function OrdersPageClient({ orders }: OrdersPageClientProps) {
                     <TableCell className="text-gray-600">{order.date}</TableCell>
                     <TableCell>
                       {isUpdating ? (
-                        <span className="text-xs text-gray-400">Updating...</span>
+                        <span className="text-xs text-gray-400">{translate(locale, "ordersPage.updating")}</span>
                       ) : (
                         <div className="flex flex-wrap gap-2">
                           {order.status === "pending" && (
@@ -388,7 +393,7 @@ export function OrdersPageClient({ orders }: OrdersPageClientProps) {
                                 disabled={isPending}
                                 className={confirmOrderButtonClassName}
                               >
-                                Confirm
+                                {translate(locale, "ordersPage.confirmAction")}
                               </button>
                               <button
                                 type="button"
@@ -396,7 +401,7 @@ export function OrdersPageClient({ orders }: OrdersPageClientProps) {
                                 disabled={isPending}
                                 className={checkInOrderButtonClassName}
                               >
-                                Check In
+                                {translate(locale, "ordersPage.checkIn")}
                               </button>
                             </>
                           )}

@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { getClientLocale, translate } from "@/lib/i18n/client";
+import type { Locale } from "@/lib/i18n";
 import Link from "next/link";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -54,6 +56,9 @@ function SummaryCard({
 }
 
 export function AttendeesPageClient({ attendees, checkinSummary }: AttendeesPageClientProps) {
+  const [locale, setLocale] = useState<Locale>("fr");
+  useEffect(() => { setLocale(getClientLocale()); }, []);
+
   const [search, setSearch] = useState("");
 
   const filteredAttendees = useMemo(() => {
@@ -99,20 +104,20 @@ export function AttendeesPageClient({ attendees, checkinSummary }: AttendeesPage
               <UsersIcon className="h-6 w-6" />
             </div>
             <p className="mt-5 text-xs font-semibold uppercase tracking-[0.3em] text-teal-100/75">
-              Attendee Overview
+              {translate(locale, "attendeesPage.eyebrow")}
             </p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
-              Check-ins, attendee records, and event-level progress in one place.
+              {translate(locale, "attendeesPage.subtitle")}
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-200">
-              Monitor who has arrived, export attendee lists, and review check-in coverage across your events.
+              {translate(locale, "attendeesPage.description")}
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <div className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-white/90 backdrop-blur">
-                {filteredAttendees.length.toLocaleString()} attendees shown
+                {filteredAttendees.length.toLocaleString()} {translate(locale, "attendeesPage.attendeesShown")}
               </div>
               <div className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-white/90 backdrop-blur">
-                {filteredSummary.length.toLocaleString()} events shown
+                {filteredSummary.length.toLocaleString()} {translate(locale, "attendeesPage.eventsShown")}
               </div>
             </div>
           </div>
@@ -120,25 +125,25 @@ export function AttendeesPageClient({ attendees, checkinSummary }: AttendeesPage
           <div className="grid gap-3 sm:grid-cols-2">
             <SummaryCard
               icon={UsersIcon}
-              label="Checked In"
+              label={translate(locale, "attendeesPage.checkedIn")}
               value={String(totalCheckedIn)}
               accentClass="bg-emerald-50 text-emerald-700"
             />
             <SummaryCard
               icon={UsersIcon}
-              label="Reservations"
+              label={translate(locale, "attendeesPage.reservations")}
               value={String(totalReservations)}
               accentClass="bg-sky-50 text-sky-700"
             />
             <SummaryCard
               icon={CalendarIcon}
-              label="Active Events"
+              label={translate(locale, "attendeesPage.activeEvents")}
               value={String(eventsWithCheckins)}
               accentClass="bg-amber-50 text-amber-700"
             />
             <SummaryCard
               icon={CalendarIcon}
-              label="Tracked Events"
+              label={translate(locale, "attendeesPage.trackedEvents")}
               value={String(checkinSummary.length)}
               accentClass="bg-rose-50 text-rose-700"
             />
@@ -150,24 +155,24 @@ export function AttendeesPageClient({ attendees, checkinSummary }: AttendeesPage
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">
-              Filters
+              {translate(locale, "ordersPage.filtersEyebrow")}
             </p>
             <h2 className="mt-1 text-2xl font-semibold text-gray-950">
-              Search attendee activity
+              {translate(locale, "attendeesPage.searchTitle")}
             </h2>
             <p className="mt-1 text-sm text-gray-500">
-              Search by attendee, event, email, or ticket type before exporting the current view.
+              {translate(locale, "attendeesPage.searchDesc")}
             </p>
           </div>
           <Button variant="outline" size="sm" onClick={handleExport} className="rounded-full border-gray-200 px-4">
             <ChevronRightIcon className="h-4 w-4" />
-            Export CSV
+            {translate(locale, "attendeesPage.exportCsv")}
           </Button>
         </div>
 
         <div className="mt-6 max-w-2xl">
           <SearchBar
-            placeholder="Search attendees, emails, events..."
+            placeholder={translate(locale, "attendeesPage.searchPlaceholder")}
             className="max-w-none [&_input]:h-12 [&_input]:rounded-2xl [&_input]:border-gray-200 [&_input]:pr-4 [&_input]:shadow-sm"
             value={search}
             onChange={setSearch}
@@ -183,14 +188,14 @@ export function AttendeesPageClient({ attendees, checkinSummary }: AttendeesPage
             </div>
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">
-                Event Summary
+                {translate(locale, "attendeesPage.eventSummary")}
               </p>
-              <h2 className="mt-1 text-2xl font-semibold text-gray-950">Check-ins by Event</h2>
+              <h2 className="mt-1 text-2xl font-semibold text-gray-950">{translate(locale, "attendeesPage.checkInsByEvent")}</h2>
             </div>
           </div>
         </div>
         {filteredSummary.length === 0 ? (
-          <p className="px-6 py-12 text-center text-gray-500">No events found.</p>
+          <p className="px-6 py-12 text-center text-gray-500">{translate(locale, "attendeesPage.noEvents")}</p>
         ) : (
           <div className="space-y-4 p-6">
             {filteredSummary.map((item) => (
@@ -201,16 +206,16 @@ export function AttendeesPageClient({ attendees, checkinSummary }: AttendeesPage
                 <div>
                   <h3 className="font-medium text-gray-900">{item.eventName}</h3>
                   <p className="mt-1 text-sm text-gray-500">
-                    {item.checkedIn} / {item.totalReservations} checked in
+                    {item.checkedIn} / {item.totalReservations} {translate(locale, "attendeesPage.checkedInCount")}
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
                   {item.checkedIn > 0 && (
-                    <Badge variant="checkedIn">{item.checkedIn} checked in</Badge>
+                    <Badge variant="checkedIn">{item.checkedIn} {translate(locale, "attendeesPage.checkedInCount")}</Badge>
                   )}
                   <Link href={`/events/${item.eventId}`}>
                     <Button variant="outline" size="sm" className="rounded-full border-gray-200 px-4">
-                      View Event
+                      {translate(locale, "attendeesPage.viewEvent")}
                     </Button>
                   </Link>
                 </div>
@@ -228,23 +233,23 @@ export function AttendeesPageClient({ attendees, checkinSummary }: AttendeesPage
             </div>
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">
-                Attendee List
+                {translate(locale, "attendeesPage.checkedInAttendees")}
               </p>
-              <h2 className="mt-1 text-2xl font-semibold text-gray-950">Checked-in Attendees</h2>
+              <h2 className="mt-1 text-2xl font-semibold text-gray-950">{translate(locale, "attendeesPage.checkedInAttendees")}</h2>
             </div>
           </div>
         </div>
         {filteredAttendees.length === 0 ? (
-          <p className="px-6 py-12 text-center text-gray-500">No checked-in attendees yet.</p>
+          <p className="px-6 py-12 text-center text-gray-500">{translate(locale, "attendeesPage.noAttendees")}</p>
         ) : (
           <Table>
             <TableHeader>
-              <TableHead className="px-6 py-4">Name</TableHead>
-              <TableHead className="px-6 py-4">Email</TableHead>
-              <TableHead className="px-6 py-4">Event</TableHead>
-              <TableHead className="px-6 py-4">Ticket Type</TableHead>
-              <TableHead className="px-6 py-4">Check-in Time</TableHead>
-              <TableHead className="px-6 py-4">Status</TableHead>
+              <TableHead className="px-6 py-4">{translate(locale, "attendeesPage.nameCol")}</TableHead>
+              <TableHead className="px-6 py-4">{translate(locale, "attendeesPage.emailCol")}</TableHead>
+              <TableHead className="px-6 py-4">{translate(locale, "attendeesPage.eventCol")}</TableHead>
+              <TableHead className="px-6 py-4">{translate(locale, "attendeesPage.ticketCol")}</TableHead>
+              <TableHead className="px-6 py-4">{translate(locale, "attendeesPage.checkInTime")}</TableHead>
+              <TableHead className="px-6 py-4">{translate(locale, "attendeesPage.statusCol")}</TableHead>
             </TableHeader>
             <TableBody>
               {filteredAttendees.map((item) => (
@@ -269,7 +274,7 @@ export function AttendeesPageClient({ attendees, checkinSummary }: AttendeesPage
                     {item.checkInTime ? formatDateTime(item.checkInTime) : "—"}
                   </TableCell>
                   <TableCell>
-                    <Badge variant="checkedIn">Checked In</Badge>
+                    <Badge variant="checkedIn">{translate(locale, "attendeesPage.checkedIn")}</Badge>
                   </TableCell>
                 </TableRow>
               ))}

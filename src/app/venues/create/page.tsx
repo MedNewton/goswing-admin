@@ -7,12 +7,14 @@ import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
 import { PlacesAutocomplete } from "@/components/ui/PlacesAutocomplete";
 import { LocationMapPicker } from "@/components/ui/LocationMapPicker";
-import { useState, useTransition } from "react";
+import { useState, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { createVenueAction, type VenueActionResult } from "@/lib/actions/venues";
+import { getClientLocale, translate } from "@/lib/i18n/client";
+import type { Locale } from "@/lib/i18n";
 
 // ---------------------------------------------------------------------------
 // Zod Schema
@@ -41,6 +43,10 @@ export default function CreateVenuePage() {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [serverError, setServerError] = useState<string | null>(null);
+  const [locale, setLocale] = useState<Locale>("fr");
+  useEffect(() => { setLocale(getClientLocale()); }, []);
+
+  const t = (key: Parameters<typeof translate>[1]) => translate(locale, key);
 
   const {
     register,
@@ -130,7 +136,7 @@ export default function CreateVenuePage() {
   return (
     <MainLayout>
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-gray-900">Create New Venue</h1>
+        <h1 className="text-2xl font-semibold text-gray-900">{t("createVenue.title")}</h1>
         <div className="flex gap-2">
           <Button
             variant="outline"
@@ -138,7 +144,7 @@ export default function CreateVenuePage() {
             type="button"
             onClick={() => router.push("/venues")}
           >
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button
             variant="primary"
@@ -147,7 +153,7 @@ export default function CreateVenuePage() {
             disabled={isPending}
             onClick={handleSubmit(onSubmit)}
           >
-            {isPending ? "Saving..." : "Save Venue"}
+            {isPending ? t("common.saving") : t("createVenue.saveVenue")}
           </Button>
         </div>
       </div>
@@ -165,37 +171,37 @@ export default function CreateVenuePage() {
         {/* Venue Details */}
         <Card>
           <h2 className="mb-4 text-lg font-semibold text-gray-900">
-            📍 Venue Details
+            {t("createVenue.detailsTitle")}
           </h2>
           <div className="space-y-4">
             <Input
-              label="Venue Name"
-              placeholder="e.g., Jazz Club Downtown"
+              label={t("createVenue.venueName")}
+              placeholder={t("createVenue.venueNamePlaceholder")}
               error={errors.name?.message}
               {...register("name")}
             />
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <Select
-                label="Venue Type"
+                label={t("createVenue.venueType")}
                 options={[
-                  { value: "", label: "Select a type" },
-                  { value: "club", label: "Club" },
-                  { value: "bar", label: "Bar" },
-                  { value: "restaurant", label: "Restaurant" },
-                  { value: "concert_hall", label: "Concert Hall" },
-                  { value: "outdoor", label: "Outdoor Venue" },
-                  { value: "hotel", label: "Hotel" },
-                  { value: "conference_center", label: "Conference Center" },
-                  { value: "stadium", label: "Stadium" },
-                  { value: "theater", label: "Theater" },
-                  { value: "other", label: "Other" },
+                  { value: "", label: t("createVenue.selectType") },
+                  { value: "club", label: t("createVenue.typeClub") },
+                  { value: "bar", label: t("createVenue.typeBar") },
+                  { value: "restaurant", label: t("createVenue.typeRestaurant") },
+                  { value: "concert_hall", label: t("createVenue.typeConcertHall") },
+                  { value: "outdoor", label: t("createVenue.typeOutdoor") },
+                  { value: "hotel", label: t("createVenue.typeHotel") },
+                  { value: "conference_center", label: t("createVenue.typeConference") },
+                  { value: "stadium", label: t("createVenue.typeStadium") },
+                  { value: "theater", label: t("createVenue.typeTheater") },
+                  { value: "other", label: t("createVenue.typeOther") },
                 ]}
                 error={errors.venue_type?.message}
                 {...register("venue_type")}
               />
               <Input
-                label="Capacity"
-                placeholder="e.g., 500"
+                label={t("createVenue.capacityLabel")}
+                placeholder={t("createVenue.capacityPlaceholder")}
                 type="number"
                 min="1"
                 {...register("capacity")}
@@ -207,12 +213,12 @@ export default function CreateVenuePage() {
         {/* Location - Google Places */}
         <Card>
           <h2 className="mb-4 text-lg font-semibold text-gray-900">
-            🏙️ Location
+            {t("createVenue.locationTitle")}
           </h2>
           <div className="space-y-4">
             <PlacesAutocomplete
-              label="Search Location"
-              placeholder="Search for a place or address..."
+              label={t("createVenue.searchLocation")}
+              placeholder={t("createVenue.searchPlaceholder")}
               onPlaceSelect={handlePlaceSelect}
             />
 
@@ -220,7 +226,7 @@ export default function CreateVenuePage() {
             {locationSummary && (
               <div className="rounded-lg border border-green-200 bg-green-50 p-3">
                 <p className="text-xs font-medium text-green-700">
-                  📍 Selected Location
+                  {t("createVenue.selectedLocation")}
                 </p>
                 <p className="mt-1 text-sm text-green-800">
                   {locationSummary}
@@ -243,39 +249,39 @@ export default function CreateVenuePage() {
             {/* Editable fields (pre-filled from Places API) */}
             <div className="border-t border-gray-100 pt-4">
               <p className="mb-3 text-xs font-medium text-gray-500">
-                You can edit the auto-filled details below:
+                {t("createVenue.editHint")}
               </p>
               <div className="space-y-4">
                 <Input
-                  label="Address"
-                  placeholder="Street address"
+                  label={t("createVenue.addressLabel")}
+                  placeholder={t("createVenue.addressPlaceholder")}
                   error={errors.address_line1?.message}
                   {...register("address_line1")}
                 />
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <Input
-                    label="City"
-                    placeholder="e.g., Paris"
+                    label={t("createVenue.cityLabel")}
+                    placeholder={t("createVenue.cityPlaceholder")}
                     error={errors.city?.message}
                     {...register("city")}
                   />
                   <Input
-                    label="Region / State"
-                    placeholder="e.g., Île-de-France"
+                    label={t("createVenue.regionLabel")}
+                    placeholder={t("createVenue.regionPlaceholder")}
                     error={errors.region?.message}
                     {...register("region")}
                   />
                 </div>
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <Input
-                    label="Country Code"
-                    placeholder="e.g., FR, US, MA"
+                    label={t("createVenue.countryLabel")}
+                    placeholder={t("createVenue.countryPlaceholder")}
                     error={errors.country_code?.message}
                     {...register("country_code")}
                   />
                   <Input
-                    label="Postal Code"
-                    placeholder="e.g., 75001"
+                    label={t("createVenue.postalLabel")}
+                    placeholder={t("createVenue.postalPlaceholder")}
                     error={errors.postal_code?.message}
                     {...register("postal_code")}
                   />
@@ -292,10 +298,10 @@ export default function CreateVenuePage() {
             type="button"
             onClick={() => router.push("/venues")}
           >
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button variant="primary" type="submit" disabled={isPending}>
-            {isPending ? "Saving..." : "Save Venue"}
+            {isPending ? t("common.saving") : t("createVenue.saveVenue")}
           </Button>
         </div>
       </form>

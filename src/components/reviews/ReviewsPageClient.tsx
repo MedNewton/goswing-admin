@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { getClientLocale, translate } from "@/lib/i18n/client";
+import type { Locale } from "@/lib/i18n";
 import { Card } from "@/components/ui/Card";
 import { ReviewCard } from "@/components/reviews/ReviewCard";
 import { ChevronRightIcon, StarIcon, UsersIcon } from "@/components/icons";
@@ -46,6 +48,9 @@ function SummaryCard({
 }
 
 export function ReviewsPageClient({ reviews, stats }: ReviewsPageClientProps) {
+  const [locale, setLocale] = useState<Locale>("fr");
+  useEffect(() => { setLocale(getClientLocale()); }, []);
+
   const [sortBy, setSortBy] = useState<SortOption>("recent");
 
   const sorted = useMemo(() => {
@@ -89,20 +94,20 @@ export function ReviewsPageClient({ reviews, stats }: ReviewsPageClientProps) {
               <StarIcon className="h-6 w-6" />
             </div>
             <p className="mt-5 text-xs font-semibold uppercase tracking-[0.3em] text-amber-100/80">
-              Reviews Overview
+              {translate(locale, "reviewsPage.eyebrow")}
             </p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
-              Ratings, sentiment, and written feedback in one place.
+              {translate(locale, "reviewsPage.subtitle")}
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-200">
-              Track satisfaction trends, review distribution, and recent comments across your events.
+              {translate(locale, "reviewsPage.description")}
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <div className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-white/90 backdrop-blur">
-                {stats.count.toLocaleString()} reviews
+                {stats.count.toLocaleString()} {translate(locale, "reviewsPage.reviewsCount")}
               </div>
               <div className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-white/90 backdrop-blur">
-                Sorted by {sortBy === "recent" ? "most recent" : sortBy}
+                {translate(locale, "reviewsPage.sortedBy")} {sortBy === "recent" ? "most recent" : sortBy}
               </div>
             </div>
           </div>
@@ -122,13 +127,13 @@ export function ReviewsPageClient({ reviews, stats }: ReviewsPageClientProps) {
             />
             <SummaryCard
               icon={StarIcon}
-              label="5 Stars"
+              label={translate(locale, "reviewsPage.fiveStars")}
               value={String(stats.distribution[5] ?? 0)}
               accentClass="bg-emerald-50 text-emerald-700"
             />
             <SummaryCard
               icon={StarIcon}
-              label="1-2 Stars"
+              label={translate(locale, "reviewsPage.lowStars")}
               value={String((stats.distribution[1] ?? 0) + (stats.distribution[2] ?? 0))}
               accentClass="bg-rose-50 text-rose-700"
             />
@@ -140,13 +145,13 @@ export function ReviewsPageClient({ reviews, stats }: ReviewsPageClientProps) {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">
-              Controls
+              {translate(locale, "reviewsPage.controlsEyebrow")}
             </p>
             <h2 className="mt-1 text-2xl font-semibold text-gray-950">
-              Sort and export reviews
+              {translate(locale, "reviewsPage.controlsTitle")}
             </h2>
             <p className="mt-1 text-sm text-gray-500">
-              Switch between recent and rating-based order, or export the full review list.
+              {translate(locale, "reviewsPage.controlsDesc")}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -155,13 +160,13 @@ export function ReviewsPageClient({ reviews, stats }: ReviewsPageClientProps) {
               onChange={(e) => setSortBy(e.target.value as SortOption)}
               className="h-11 rounded-2xl border border-gray-200 bg-white px-4 text-sm text-gray-700 shadow-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
             >
-              <option value="recent">Most Recent</option>
-              <option value="highest">Highest Rated</option>
-              <option value="lowest">Lowest Rated</option>
+              <option value="recent">{translate(locale, "reviewsPage.mostRecent")}</option>
+              <option value="highest">{translate(locale, "reviewsPage.highestRated")}</option>
+              <option value="lowest">{translate(locale, "reviewsPage.lowestRated")}</option>
             </select>
             <Button variant="outline" size="sm" onClick={handleExport} className="rounded-full border-gray-200 px-4">
               <ChevronRightIcon className="h-4 w-4" />
-              Export Reviews
+              {translate(locale, "reviewsPage.exportReviews")}
             </Button>
           </div>
         </div>
@@ -186,13 +191,13 @@ export function ReviewsPageClient({ reviews, stats }: ReviewsPageClientProps) {
               ))}
             </div>
             <p className="mt-2 text-sm text-gray-600">
-              Based on {stats.count} reviews
+              {translate(locale, "reviewsPage.basedOn")} {stats.count} {translate(locale, "reviewsPage.reviewsCount")}
             </p>
           </div>
         </Card>
 
         <Card className="rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100">
-          <h3 className="mb-4 text-lg font-semibold text-gray-900">Rating Distribution</h3>
+          <h3 className="mb-4 text-lg font-semibold text-gray-900">{translate(locale, "reviewsPage.ratingDistribution")}</h3>
           <div className="space-y-3">
             {distribution.map((item) => (
               <div key={item.stars} className="flex items-center gap-3">
@@ -215,10 +220,10 @@ export function ReviewsPageClient({ reviews, stats }: ReviewsPageClientProps) {
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">
             Review Feed
           </p>
-          <h2 className="mt-1 text-2xl font-semibold text-gray-950">Recent Reviews</h2>
+          <h2 className="mt-1 text-2xl font-semibold text-gray-950">{translate(locale, "reviewsPage.recentReviews")}</h2>
         </div>
         {sorted.length === 0 ? (
-          <p className="px-6 py-12 text-center text-gray-500">No reviews yet.</p>
+          <p className="px-6 py-12 text-center text-gray-500">{translate(locale, "reviewsPage.noReviews")}</p>
         ) : (
           <div className="space-y-4 p-6">
             {sorted.map((review) => (

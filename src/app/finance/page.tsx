@@ -1,10 +1,12 @@
 import { MainLayout } from "@/components/layout/MainLayout";
 import { getFinanceOverview } from "@/lib/data/finance";
 import { FinancePageClient } from "@/components/finance/FinancePageClient";
+import { getLocale, t } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
 export default async function FinancePage() {
+  const locale = await getLocale();
   let transactions: Awaited<ReturnType<typeof getFinanceOverview>>["transactions"] = [];
   let financeStats = { transactionCount: 0, totalGross: 0, totalFees: 0, totalNet: 0 };
 
@@ -18,7 +20,7 @@ export default async function FinancePage() {
 
   return (
     <MainLayout>
-      <h1 className="mb-6 text-2xl font-semibold text-gray-900">Finance Dashboard</h1>
+      <h1 className="mb-6 text-2xl font-semibold text-gray-900">{t(locale, "financePage.title")}</h1>
       <FinancePageClient transactions={transactions} stats={financeStats} />
     </MainLayout>
   );

@@ -40,6 +40,8 @@ import {
 } from "@/lib/actions/events";
 import { fetchVenuesForSelect } from "@/lib/actions/venues";
 import Link from "next/link";
+import { getClientLocale, translate } from "@/lib/i18n/client";
+import type { Locale } from "@/lib/i18n";
 
 // ---------------------------------------------------------------------------
 // Zod Schema
@@ -144,6 +146,8 @@ export default function EditEventPage({
 }) {
   const { id: eventId } = use(params);
   const router = useRouter();
+  const [locale, setLocale] = useState<Locale>("fr");
+  useEffect(() => { setLocale(getClientLocale()); }, []);
   const [isPending, startTransition] = useTransition();
   const [serverError, setServerError] = useState<string | null>(null);
   const [venues, setVenues] = useState<Array<{ id: string; name: string; city: string | null }>>([]);
@@ -252,7 +256,7 @@ export default function EditEventPage({
       })
       .catch((err) => {
         console.error("Failed to load event:", err);
-        setServerError("Failed to load event data.");
+        setServerError(translate(locale, "editEvent.failedToLoad"));
       })
       .finally(() => {
         setLoading(false);
@@ -282,7 +286,7 @@ export default function EditEventPage({
         setValue("heroImageUrl", "");
       }
     } catch {
-      setImageError("Failed to upload image. Please try again.");
+      setImageError(translate(locale, "editEvent.failedToUpload"));
       setImagePreview(null);
       setValue("heroImageUrl", "");
     } finally {
@@ -321,7 +325,7 @@ export default function EditEventPage({
           setServerError(result.error);
         }
       } catch {
-        setServerError("An unexpected error occurred. Please try again.");
+        setServerError(translate(locale, "editEvent.unexpectedError"));
       }
     });
   };
@@ -337,7 +341,7 @@ export default function EditEventPage({
           setShowDeleteConfirm(false);
         }
       } catch {
-        setServerError("Failed to delete event.");
+        setServerError(translate(locale, "editEvent.failedToDelete"));
         setShowDeleteConfirm(false);
       }
     });
@@ -357,7 +361,7 @@ export default function EditEventPage({
   };
 
   const venueOptions = [
-    { value: "", label: venuesLoading ? "Loading venues..." : "Select a venue (optional)" },
+    { value: "", label: venuesLoading ? translate(locale, "editEvent.loadingVenues") : translate(locale, "editEvent.selectVenue") },
     ...venues.map((v) => ({
       value: v.id,
       label: v.city ? `${v.name} — ${v.city}` : v.name,
@@ -371,14 +375,14 @@ export default function EditEventPage({
     ? selectedVenue.city
       ? `${selectedVenue.name} - ${selectedVenue.city}`
       : selectedVenue.name
-    : "Venue not selected";
-  const scheduleLabel = eventDate || "Date not set";
+    : translate(locale, "editEvent.venueNotSelected");
+  const scheduleLabel = eventDate || translate(locale, "editEvent.dateNotSet");
   const categoryDisplay = categoryValue?.trim() ? categoryValue : undefined;
 
   if (loading) {
     return (
       <MainLayout>
-        <h1 className="mb-6 text-2xl font-semibold text-gray-900">Edit Event</h1>
+        <h1 className="mb-6 text-2xl font-semibold text-gray-900">{translate(locale, "editEvent.loading")}</h1>
         <div className="flex items-center justify-center py-20">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-green-500" />
         </div>
@@ -389,7 +393,7 @@ export default function EditEventPage({
   return (
     <MainLayout>
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-gray-900">Edit Event</h1>
+        <h1 className="text-2xl font-semibold text-gray-900">{translate(locale, "editEvent.saveChanges")}</h1>
         <div className="flex gap-2">
           <Button
             variant="outline"
@@ -397,7 +401,7 @@ export default function EditEventPage({
             type="button"
             onClick={() => router.push(`/events/${eventId}`)}
           >
-            Cancel
+            {translate(locale, "editEvent.cancel")}
           </Button>
           <Button
             variant="primary"
@@ -406,7 +410,7 @@ export default function EditEventPage({
             disabled={isPending}
             onClick={handleSubmit(onSubmit)}
           >
-            {isPending ? "Saving..." : "Save Changes"}
+            {isPending ? translate(locale, "common.saving") : translate(locale, "editEvent.saveChanges")}
           </Button>
         </div>
       </div>
@@ -426,23 +430,23 @@ export default function EditEventPage({
           <div className="relative grid gap-8 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.3em] text-teal-100/75">
-                Event Editor
+                {translate(locale, "editEvent.editorTitle")}
               </p>
               <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
-                {titleValue || "Untitled event"}
+                {titleValue || translate(locale, "editEvent.untitledEvent")}
               </h1>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-200">
-                Update the content, schedule, venue, pricing, and publishing settings before pushing changes live.
+                {translate(locale, "editEvent.editorSubtitle")}
               </p>
               <div className="mt-6 flex flex-wrap gap-3">
                 <div className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-white/90 backdrop-blur">
-                  {categoryDisplay ?? "Category not selected"}
+                  {categoryDisplay ?? translate(locale, "editEvent.categoryNotSelected")}
                 </div>
                 <div className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-white/90 backdrop-blur">
-                  {publishEvent ? "Published" : "Draft"}
+                  {publishEvent ? translate(locale, "editEvent.published") : translate(locale, "editEvent.draft")}
                 </div>
                 <div className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-white/90 backdrop-blur">
-                  {selectedTagIds.length} tags selected
+                  {selectedTagIds.length} {translate(locale, "editEvent.tagsSelected")}
                 </div>
               </div>
             </div>
@@ -450,25 +454,25 @@ export default function EditEventPage({
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-2">
               <SummaryCard
                 icon={CalendarIcon}
-                label="Schedule"
+                label={translate(locale, "editEvent.scheduleEyebrow")}
                 value={scheduleLabel}
                 accentClass="bg-sky-50 text-sky-700"
               />
               <SummaryCard
                 icon={MapPinIcon}
-                label="Venue"
+                label={translate(locale, "editEvent.venue")}
                 value={selectedVenueLabel}
                 accentClass="bg-emerald-50 text-emerald-700"
               />
               <SummaryCard
                 icon={DollarIcon}
-                label="Currency"
+                label={translate(locale, "editEvent.currency")}
                 value={watch("currency")}
                 accentClass="bg-amber-50 text-amber-700"
               />
               <SummaryCard
                 icon={StarIcon}
-                label="Ticket Tiers"
+                label={translate(locale, "editEvent.ticketTier")}
                 value={`${ticketTiers.length}`}
                 accentClass="bg-rose-50 text-rose-700"
               />
@@ -480,17 +484,17 @@ export default function EditEventPage({
           <Card className="rounded-[2rem] border border-gray-200/80 bg-gradient-to-br from-white via-white to-slate-50 shadow-lg shadow-gray-100">
             <SectionHeader
               icon={BuildingIcon}
-              eyebrow="Content"
-              title="Event Details"
-              description="Update the public-facing title, description, category, and tags."
+              eyebrow={translate(locale, "editEvent.contentEyebrow")}
+              title={translate(locale, "editEvent.contentTitle")}
+              description={translate(locale, "editEvent.contentDesc")}
             />
             <div className="mt-6 space-y-4">
-              <Input label="Event Title" placeholder="e.g., Summer Jazz Night" error={errors.title?.message} {...register("title")} />
-              <Textarea label="Description" placeholder="Describe your event..." rows={5} error={errors.description?.message} {...register("description")} />
+              <Input label={translate(locale, "editEvent.eventTitle")} placeholder="e.g., Summer Jazz Night" error={errors.title?.message} {...register("title")} />
+              <Textarea label={translate(locale, "editEvent.description")} placeholder={translate(locale, "editEvent.descriptionPlaceholder")} rows={5} error={errors.description?.message} {...register("description")} />
               <Select
-                label="Category"
+                label={translate(locale, "editEvent.category")}
                 options={[
-                  { value: "", label: "Select a category" },
+                  { value: "", label: translate(locale, "editEvent.selectCategory") },
                   { value: "music", label: "Music" },
                   { value: "food", label: "Food & Drink" },
                   { value: "business", label: "Business" },
@@ -503,12 +507,12 @@ export default function EditEventPage({
 
               <div className="rounded-3xl border border-gray-200 bg-white/80 p-5">
                 <label className="mb-2 block text-sm font-medium text-gray-700">
-                  Tags
+                  {translate(locale, "editEvent.tags")}
                 </label>
                 {tagsLoading ? (
-                  <p className="text-sm text-gray-400">Loading tags...</p>
+                  <p className="text-sm text-gray-400">{translate(locale, "editEvent.loadingTags")}</p>
                 ) : tags.length === 0 ? (
-                  <p className="text-sm text-gray-400">No tags available</p>
+                  <p className="text-sm text-gray-400">{translate(locale, "editEvent.noTagsAvailable")}</p>
                 ) : (
                   <>
                     {selectedTagIds.length > 0 && (
@@ -548,7 +552,7 @@ export default function EditEventPage({
                         }
                       }}
                     >
-                      <option value="">Add a tag...</option>
+                      <option value="">{translate(locale, "editEvent.addTag")}</option>
                       {tags
                         .filter((t) => !selectedTagIds.includes(t.id))
                         .map((t) => (
@@ -566,9 +570,9 @@ export default function EditEventPage({
           <Card className="rounded-[2rem] border border-gray-200/80 bg-white shadow-lg shadow-gray-100">
             <SectionHeader
               icon={StarIcon}
-              eyebrow="Media"
-              title="Event Image"
-              description="Keep the cover image aligned with the event branding and listing card."
+              eyebrow={translate(locale, "editEvent.mediaEyebrow")}
+              title={translate(locale, "editEvent.mediaTitle")}
+              description={translate(locale, "editEvent.mediaDesc")}
             />
             <div className="mt-6 space-y-4">
               <div className="relative aspect-[4/3] overflow-hidden rounded-[1.5rem] border-2 border-dashed border-gray-300 bg-gray-50">
@@ -587,7 +591,7 @@ export default function EditEventPage({
                       +
                     </div>
                     <p className="mt-3 text-sm font-medium text-gray-500">
-                      No image selected
+                      {translate(locale, "editEvent.noImageSelected")}
                     </p>
                   </div>
                 )}
@@ -602,16 +606,16 @@ export default function EditEventPage({
               />
               <div className="flex flex-wrap gap-2">
                 <Button variant="outline" size="sm" type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploadingImage}>
-                  {isUploadingImage ? "Uploading..." : imagePreview ? "Change Image" : "Choose Image"}
+                  {isUploadingImage ? translate(locale, "editEvent.uploading") : imagePreview ? translate(locale, "editEvent.changeImage") : translate(locale, "editEvent.chooseImage")}
                 </Button>
                 {imagePreview && !isUploadingImage && (
                   <Button variant="ghost" size="sm" type="button" onClick={handleRemoveImage} className="text-red-600 hover:text-red-700">
-                    Remove
+                    {translate(locale, "editEvent.remove")}
                   </Button>
                 )}
               </div>
               {imageError && <p className="text-sm text-red-600">{imageError}</p>}
-              <p className="text-sm text-gray-500">Upload event image (JPEG, PNG, WebP, GIF)</p>
+              <p className="text-sm text-gray-500">{translate(locale, "editEvent.uploadHint")}</p>
             </div>
           </Card>
         </div>
@@ -620,31 +624,31 @@ export default function EditEventPage({
           <Card className="rounded-[2rem] border border-gray-200/80 bg-gradient-to-br from-white via-white to-slate-50 shadow-lg shadow-gray-100">
             <SectionHeader
               icon={CalendarIcon}
-              eyebrow="Schedule"
-              title="Date & Time"
-              description="Control the public start and end timing for the event."
+              eyebrow={translate(locale, "editEvent.scheduleEyebrow")}
+              title={translate(locale, "editEvent.scheduleTitle")}
+              description={translate(locale, "editEvent.scheduleDesc")}
             />
             <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
-              <Input label="Event Date" type="date" error={errors.eventDate?.message} {...register("eventDate")} />
-              <Input label="Start Time" type="time" error={errors.startTime?.message} {...register("startTime")} />
-              <Input label="End Date (optional)" type="date" min={minEndDate} error={errors.endDate?.message} {...register("endDate")} />
-              <Input label="End Time (optional)" type="time" error={errors.endTime?.message} {...register("endTime")} />
+              <Input label={translate(locale, "editEvent.eventDate")} type="date" error={errors.eventDate?.message} {...register("eventDate")} />
+              <Input label={translate(locale, "editEvent.startTime")} type="time" error={errors.startTime?.message} {...register("startTime")} />
+              <Input label={translate(locale, "editEvent.endDateOptional")} type="date" min={minEndDate} error={errors.endDate?.message} {...register("endDate")} />
+              <Input label={translate(locale, "editEvent.endTimeOptional")} type="time" error={errors.endTime?.message} {...register("endTime")} />
             </div>
           </Card>
 
           <Card className="rounded-[2rem] border border-gray-200/80 bg-gradient-to-br from-white via-white to-teal-50/50 shadow-lg shadow-gray-100">
             <SectionHeader
               icon={MapPinIcon}
-              eyebrow="Location"
-              title="Venue Selection"
-              description="Attach the event to one of your venues or create a new one."
+              eyebrow={translate(locale, "editEvent.locationEyebrow")}
+              title={translate(locale, "editEvent.locationTitle")}
+              description={translate(locale, "editEvent.locationDesc")}
             />
             <div className="mt-6 space-y-4">
-              <Select label="Venue" options={venueOptions} error={errors.venueId?.message} {...register("venueId")} />
+              <Select label={translate(locale, "editEvent.venue")} options={venueOptions} error={errors.venueId?.message} {...register("venueId")} />
               <div className="rounded-2xl border border-gray-200 bg-white/80 px-4 py-3 text-sm text-gray-600">
-                Don&apos;t see your venue?{" "}
+                {translate(locale, "editEvent.dontSeeVenue")}{" "}
                 <Link href="/venues/create" className="font-medium text-gray-900 underline hover:text-gray-700">
-                  Create a new venue
+                  {translate(locale, "editEvent.createNewVenue")}
                 </Link>
               </div>
             </div>
@@ -654,14 +658,14 @@ export default function EditEventPage({
         <Card className="rounded-[2rem] border border-gray-200/80 bg-gradient-to-br from-white via-white to-amber-50/50 shadow-lg shadow-gray-100">
           <SectionHeader
             icon={DollarIcon}
-            eyebrow="Pricing"
-            title="Currency & Ticket Tiers"
-            description="Manage ticket pricing, descriptions, capacities, and the event currency."
+            eyebrow={translate(locale, "editEvent.pricingEyebrow")}
+            title={translate(locale, "editEvent.pricingTitle")}
+            description={translate(locale, "editEvent.pricingDesc")}
           />
           <div className="mt-6">
             <div className="max-w-xs">
               <Select
-                label="Currency"
+                label={translate(locale, "editEvent.currency")}
                 options={[
                   { value: "USD", label: "USD ($)" },
                   { value: "EUR", label: "EUR (€)" },
@@ -683,24 +687,24 @@ export default function EditEventPage({
                   <div className="mb-4 flex items-center justify-between gap-3">
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">
-                        Ticket Tier
+                        {translate(locale, "editEvent.ticketTier")}
                       </p>
-                      <h3 className="mt-1 font-semibold text-gray-900">Tier {index + 1}</h3>
+                      <h3 className="mt-1 font-semibold text-gray-900">{translate(locale, "editEvent.tier")} {index + 1}</h3>
                     </div>
                     {fields.length > 1 && (
                       <Button variant="ghost" size="sm" type="button" onClick={() => remove(index)}>
-                        Remove
+                        {translate(locale, "editEvent.remove")}
                       </Button>
                     )}
                   </div>
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <input type="hidden" {...register(`ticketTiers.${index}.id`)} />
-                    <Input label="Ticket Name" placeholder="e.g., General Admission" error={fieldError(`ticketTiers.${index}.name`)} {...register(`ticketTiers.${index}.name`)} />
-                    <Input label="Price" placeholder="0.00" type="number" step="0.01" min="0" error={fieldError(`ticketTiers.${index}.price`)} {...register(`ticketTiers.${index}.price`)} />
+                    <Input label={translate(locale, "editEvent.ticketName")} placeholder="e.g., General Admission" error={fieldError(`ticketTiers.${index}.name`)} {...register(`ticketTiers.${index}.name`)} />
+                    <Input label={translate(locale, "editEvent.price")} placeholder="0.00" type="number" step="0.01" min="0" error={fieldError(`ticketTiers.${index}.price`)} {...register(`ticketTiers.${index}.price`)} />
                   </div>
                   <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <Input label="Description (optional)" placeholder="What's included" {...register(`ticketTiers.${index}.description`)} />
-                    <Input label="Capacity (optional)" placeholder="e.g., 100" type="number" min="1" {...register(`ticketTiers.${index}.capacity`)} />
+                    <Input label={translate(locale, "editEvent.descriptionOptional")} placeholder={translate(locale, "editEvent.whatsIncluded")} {...register(`ticketTiers.${index}.description`)} />
+                    <Input label={translate(locale, "editEvent.capacityOptional")} placeholder="e.g., 100" type="number" min="1" {...register(`ticketTiers.${index}.capacity`)} />
                   </div>
                   <div className="mt-4 flex flex-wrap gap-6">
                     <label className="flex items-center gap-2 text-sm text-gray-700">
@@ -709,7 +713,7 @@ export default function EditEventPage({
                         className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
                         {...register(`ticketTiers.${index}.is_free`)}
                       />
-                      Free ticket
+                      {translate(locale, "editEvent.freeTicket")}
                     </label>
                     <label className="flex items-center gap-2 text-sm text-gray-700">
                       <input
@@ -717,7 +721,7 @@ export default function EditEventPage({
                         className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
                         {...register(`ticketTiers.${index}.free_for_ladies`)}
                       />
-                      Free for ladies
+                      {translate(locale, "editEvent.freeForLadies")}
                     </label>
                   </div>
                 </div>
@@ -728,7 +732,7 @@ export default function EditEventPage({
                 type="button"
                 onClick={() => append({ name: "", price: 0, description: "", capacity: "" as unknown as undefined, is_free: false, free_for_ladies: false })}
               >
-                + Add Ticket Tier
+                {translate(locale, "editEvent.addTicketTier")}
               </Button>
             </div>
           </div>
@@ -738,43 +742,43 @@ export default function EditEventPage({
           <Card className="rounded-[2rem] border border-gray-200/80 bg-gradient-to-br from-white via-white to-slate-50 shadow-lg shadow-gray-100">
             <SectionHeader
               icon={SettingsIcon}
-              eyebrow="Publishing & Settings"
-              title="Event Settings"
-              description="Control publishing status, waitlist, approval mode, and sharing."
+              eyebrow={translate(locale, "editEvent.settingsEyebrow")}
+              title={translate(locale, "editEvent.settingsTitle")}
+              description={translate(locale, "editEvent.settingsDesc")}
             />
             <div className="mt-6 space-y-4">
               <div className="rounded-3xl border border-gray-200 bg-white/80 p-5">
-                <Toggle label="Publish Event" checked={publishEvent} onChange={(checked) => setValue("publishEvent", checked)} />
+                <Toggle label={translate(locale, "editEvent.publishEvent")} checked={publishEvent} onChange={(checked) => setValue("publishEvent", checked)} />
               </div>
               <div className="rounded-3xl border border-gray-200 bg-white/80 p-5">
                 <Toggle
-                  label="Enable Waitlist"
+                  label={translate(locale, "editEvent.enableWaitlist")}
                   checked={watch("waitlistEnabled") ?? false}
                   onChange={(checked) => setValue("waitlistEnabled", checked)}
                 />
-                <p className="mt-1 text-xs text-gray-500">Allow attendees to join a waitlist when tickets sell out.</p>
+                <p className="mt-1 text-xs text-gray-500">{translate(locale, "editEvent.waitlistHint")}</p>
               </div>
               <div className="rounded-3xl border border-gray-200 bg-white/80 p-5">
                 <Toggle
-                  label="Enable Social Sharing"
+                  label={translate(locale, "editEvent.enableSharing")}
                   checked={watch("sharingEnabled") ?? true}
                   onChange={(checked) => setValue("sharingEnabled", checked)}
                 />
-                <p className="mt-1 text-xs text-gray-500">Show share buttons on the public event page.</p>
+                <p className="mt-1 text-xs text-gray-500">{translate(locale, "editEvent.sharingHint")}</p>
               </div>
               <div className="rounded-3xl border border-gray-200 bg-white/80 p-5">
                 <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                  Approval Mode
+                  {translate(locale, "editEvent.approvalMode")}
                 </label>
                 <select
                   value={watch("approvalMode") ?? "auto"}
                   onChange={(e) => setValue("approvalMode", e.target.value as "auto" | "manual")}
                   className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 shadow-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
                 >
-                  <option value="auto">Auto-approve reservations</option>
-                  <option value="manual">Manually approve reservations</option>
+                  <option value="auto">{translate(locale, "editEvent.autoApprove")}</option>
+                  <option value="manual">{translate(locale, "editEvent.manualApprove")}</option>
                 </select>
-                <p className="mt-1 text-xs text-gray-500">Choose whether bookings are automatically confirmed or require your approval.</p>
+                <p className="mt-1 text-xs text-gray-500">{translate(locale, "editEvent.approvalHint")}</p>
               </div>
             </div>
           </Card>
@@ -782,22 +786,22 @@ export default function EditEventPage({
           <Card className="rounded-[2rem] border border-gray-200/80 bg-gradient-to-br from-white via-white to-slate-50 shadow-lg shadow-gray-100">
             <SectionHeader
               icon={MailIcon}
-              eyebrow="Support"
-              title="Contact Information"
-              description="Optional contact details for attendees who need help."
+              eyebrow={translate(locale, "editEvent.contactEyebrow")}
+              title={translate(locale, "editEvent.contactTitle")}
+              description={translate(locale, "editEvent.contactDesc")}
             />
             <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
-              <Input label="Contact Email" type="email" placeholder="event@example.com" error={errors.contactEmail?.message} {...register("contactEmail")} />
-              <Input label="Contact Phone" type="tel" placeholder="+33 1 23 45 67 89" error={errors.contactPhone?.message} {...register("contactPhone")} />
+              <Input label={translate(locale, "editEvent.contactEmail")} type="email" placeholder="event@example.com" error={errors.contactEmail?.message} {...register("contactEmail")} />
+              <Input label={translate(locale, "editEvent.contactPhone")} type="tel" placeholder="+33 1 23 45 67 89" error={errors.contactPhone?.message} {...register("contactPhone")} />
             </div>
             <div className="mt-4 flex flex-wrap gap-3 text-sm text-gray-500">
               <div className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-2">
                 <MailIcon className="h-4 w-4" />
-                Email
+                {translate(locale, "editEvent.email")}
               </div>
               <div className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-2">
                 <PhoneIcon className="h-4 w-4" />
-                Phone
+                {translate(locale, "editEvent.phone")}
               </div>
             </div>
           </Card>
@@ -813,13 +817,13 @@ export default function EditEventPage({
                 onClick={() => setShowDeleteConfirm(true)}
                 className="text-red-600 hover:bg-red-50 hover:text-red-700"
               >
-                Delete Event
+                {translate(locale, "editEvent.deleteEvent")}
               </Button>
             ) : (
               <div className="flex flex-col gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 lg:flex-row lg:items-center">
-                <span className="text-sm text-red-700">Are you sure? This cannot be undone.</span>
+                <span className="text-sm text-red-700">{translate(locale, "editEvent.deleteConfirm")}</span>
                 <Button variant="ghost" size="sm" type="button" onClick={() => setShowDeleteConfirm(false)}>
-                  Cancel
+                  {translate(locale, "editEvent.cancel")}
                 </Button>
                 <Button
                   variant="primary"
@@ -829,17 +833,17 @@ export default function EditEventPage({
                   onClick={handleDelete}
                   className="bg-red-600 hover:bg-red-700"
                 >
-                  {isPending ? "Deleting..." : "Confirm Delete"}
+                  {isPending ? translate(locale, "editEvent.deleting") : translate(locale, "editEvent.confirmDelete")}
                 </Button>
               </div>
             )}
           </div>
           <div className="flex gap-3">
             <Button variant="outline" type="button" onClick={() => router.push(`/events/${eventId}`)}>
-              Cancel
+              {translate(locale, "editEvent.cancel")}
             </Button>
             <Button variant="primary" type="submit" disabled={isPending}>
-              {isPending ? "Saving..." : "Save Changes"}
+              {isPending ? translate(locale, "common.saving") : translate(locale, "editEvent.saveChanges")}
             </Button>
           </div>
         </div>

@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { getClientLocale, translate } from "@/lib/i18n/client";
+import type { Locale } from "@/lib/i18n";
 import { Card } from "@/components/ui/Card";
 import {
   CalendarIcon,
@@ -149,14 +151,14 @@ function calculateVisibleStats(transactions: Transaction[]) {
   };
 }
 
-function periodLabel(periodDays: PeriodOption) {
+function periodLabelKey(periodDays: PeriodOption) {
   switch (periodDays) {
     case 7:
-      return "7 Days";
+      return "financePage.7days" as const;
     case 30:
-      return "30 Days";
+      return "financePage.30days" as const;
     case 90:
-      return "90 Days";
+      return "financePage.90days" as const;
   }
 }
 
@@ -225,6 +227,9 @@ export function FinancePageClient({
   transactions,
   stats,
 }: FinancePageClientProps) {
+  const [locale, setLocale] = useState<Locale>("fr");
+  useEffect(() => { setLocale(getClientLocale()); }, []);
+
   const currency = transactions[0]?.currency ?? "USD";
   const today = startOfDay(new Date());
   const todayKey = toDateKey(today);
@@ -399,20 +404,20 @@ export function FinancePageClient({
               <DollarIcon className="h-6 w-6" />
             </div>
             <p className="mt-5 text-xs font-semibold uppercase tracking-[0.3em] text-emerald-100/80">
-              Finance Overview
+              {translate(locale, "financePage.eyebrow")}
             </p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
-              Revenue, transaction health, and timeline performance in one place.
+              {translate(locale, "financePage.subtitle")}
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-200">
-              Review total revenue, inspect specific time windows, and track daily performance including days with zero reservations.
+              {translate(locale, "financePage.description")}
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <div className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-white/90 backdrop-blur">
-                {stats.transactionCount.toLocaleString()} total transactions
+                {stats.transactionCount.toLocaleString()} {translate(locale, "financePage.totalTransactions")}
               </div>
               <div className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-white/90 backdrop-blur">
-                {periodLabel(periodDays)} window
+                {translate(locale, periodLabelKey(periodDays))} window
               </div>
             </div>
           </div>
@@ -420,25 +425,25 @@ export function FinancePageClient({
           <div className="grid gap-3 sm:grid-cols-2">
             <SummaryCard
               icon={DollarIcon}
-              label="Revenue"
+              label={translate(locale, "financePage.revenue")}
               value={formatMoney(stats.totalGross, currency)}
               accentClass="bg-emerald-50 text-emerald-700"
             />
             <SummaryCard
               icon={DollarIcon}
-              label="Net Revenue"
+              label={translate(locale, "financePage.netRevenue")}
               value={formatMoney(stats.totalNet, currency)}
               accentClass="bg-sky-50 text-sky-700"
             />
             <SummaryCard
               icon={ChartIcon}
-              label="Transactions"
+              label={translate(locale, "financePage.transactions")}
               value={String(stats.transactionCount)}
               accentClass="bg-amber-50 text-amber-700"
             />
             <SummaryCard
               icon={DollarIcon}
-              label="Platform Fees"
+              label={translate(locale, "financePage.platformFees")}
               value={formatMoney(stats.totalFees, currency)}
               accentClass="bg-rose-50 text-rose-700"
             />
@@ -452,10 +457,10 @@ export function FinancePageClient({
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">
-                  Revenue Timeline
+                  {translate(locale, "financePage.revenueTimeline")}
                 </p>
                 <h2 className="mt-1 text-2xl font-semibold text-gray-950">
-                  Daily revenue and reservations
+                  {translate(locale, "financePage.dailyRevenue")}
                 </h2>
                 <p className="mt-1 text-sm text-gray-500">
                   {formatDate(windowStart.toISOString())} to{" "}
@@ -469,7 +474,7 @@ export function FinancePageClient({
                   onClick={handleExportStatement}
                   className="rounded-full border-gray-200 px-4"
                 >
-                  Export Statement
+                  {translate(locale, "financePage.exportStatement")}
                 </Button>
                 <Button
                   variant="outline"
@@ -477,16 +482,16 @@ export function FinancePageClient({
                   onClick={handleTaxReport}
                   className="rounded-full border-gray-200 px-4"
                 >
-                  Tax Report
+                  {translate(locale, "financePage.taxReport")}
                 </Button>
                 <div className="rounded-full bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700">
-                  {formatMoney(visibleStats.gross, currency)} gross
+                  {formatMoney(visibleStats.gross, currency)} {translate(locale, "financePage.gross")}
                 </div>
                 <div className="rounded-full bg-sky-50 px-4 py-2 text-sm font-medium text-sky-700">
-                  {visibleReservations} reservations
+                  {visibleReservations} {translate(locale, "financePage.reservations")}
                 </div>
                 <div className="rounded-full bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700">
-                  {visibleTransactions.length} transactions
+                  {visibleTransactions.length} {translate(locale, "financePage.transactions")}
                 </div>
               </div>
             </div>
@@ -542,7 +547,7 @@ export function FinancePageClient({
                                 : "text-gray-700 hover:bg-gray-50"
                             }`}
                           >
-                            {periodLabel(days as PeriodOption)}
+                            {translate(locale, periodLabelKey(days as PeriodOption))}
                           </button>
                         );
                       })}

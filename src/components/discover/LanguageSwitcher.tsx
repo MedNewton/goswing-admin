@@ -9,7 +9,7 @@ const LANGUAGES: { code: Locale; label: string; flag: string }[] = [
   { code: "en", label: "English", flag: "🇬🇧" },
 ];
 
-export function LanguageSwitcher() {
+export function LanguageSwitcher({ variant = "light" }: { variant?: "light" | "dark" } = {}) {
   const [open, setOpen] = useState(false);
   const [current, setCurrent] = useState<Locale>("fr");
   const ref = useRef<HTMLDivElement>(null);
@@ -35,12 +35,16 @@ export function LanguageSwitcher() {
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+        className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-sm font-medium transition-colors ${
+          variant === "dark"
+            ? "border-white/20 text-white hover:bg-white/10"
+            : "border-gray-200 text-gray-700 hover:bg-gray-50"
+        }`}
       >
         <span className="text-base leading-none">{currentLang.flag}</span>
         <span className="hidden sm:inline">{currentLang.code.toUpperCase()}</span>
         <svg
-          className={`h-3.5 w-3.5 text-gray-400 transition-transform ${open ? "rotate-180" : ""}`}
+          className={`h-3.5 w-3.5 transition-transform ${open ? "rotate-180" : ""} ${variant === "dark" ? "text-white/60" : "text-gray-400"}`}
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"

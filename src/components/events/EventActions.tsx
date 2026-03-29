@@ -1,12 +1,17 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { deleteEventAction } from "@/lib/actions/events";
+import { getClientLocale, translate } from "@/lib/i18n/client";
+import type { Locale } from "@/lib/i18n";
 
 export function EventActions({ eventId }: { eventId: string }) {
+  const [locale, setLocale] = useState<Locale>("fr");
+  useEffect(() => { setLocale(getClientLocale()); }, []);
+
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -24,7 +29,7 @@ export function EventActions({ eventId }: { eventId: string }) {
     <div className="flex items-center gap-2">
       {showDeleteConfirm ? (
         <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5">
-          <span className="text-xs text-red-700">Delete this event?</span>
+          <span className="text-xs text-red-700">{translate(locale, "eventActions.deleteConfirm")}</span>
           <Button
             variant="ghost"
             size="sm"
@@ -32,7 +37,7 @@ export function EventActions({ eventId }: { eventId: string }) {
             onClick={() => setShowDeleteConfirm(false)}
             disabled={isPending}
           >
-            Cancel
+            {translate(locale, "common.cancel")}
           </Button>
           <Button
             variant="primary"
@@ -42,7 +47,7 @@ export function EventActions({ eventId }: { eventId: string }) {
             disabled={isPending}
             className="bg-red-600 hover:bg-red-700"
           >
-            {isPending ? "Deleting..." : "Confirm"}
+            {isPending ? translate(locale, "common.deleting") : translate(locale, "common.confirm")}
           </Button>
         </div>
       ) : (
@@ -54,16 +59,16 @@ export function EventActions({ eventId }: { eventId: string }) {
             onClick={() => setShowDeleteConfirm(true)}
             className="text-red-600 hover:bg-red-50 hover:text-red-700"
           >
-            Delete
+            {translate(locale, "common.delete")}
           </Button>
           <Link href={`/events/${eventId}/overview`}>
             <Button variant="outline" size="sm">
-              Overview
+              {translate(locale, "eventActions.overview")}
             </Button>
           </Link>
           <Link href={`/events/${eventId}/edit`}>
             <Button variant="outline" size="sm">
-              Edit Event
+              {translate(locale, "eventActions.editEvent")}
             </Button>
           </Link>
         </>

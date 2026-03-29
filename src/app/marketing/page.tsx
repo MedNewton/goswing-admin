@@ -4,30 +4,7 @@ import { Card } from "@/components/ui/Card";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/Table";
 import { Badge } from "@/components/ui/Badge";
 import { ChartIcon, EyeIcon } from "@/components/icons";
-
-const stats = [
-  {
-    label: "Total Reach",
-    value: "13.4K",
-    icon: <EyeIcon className="h-6 w-6 text-blue-600" />,
-    iconBgColor: "bg-blue-50",
-    trend: { value: "15.2% this month", isPositive: true },
-  },
-  {
-    label: "Click-Through Rate",
-    value: "5.8%",
-    icon: <ChartIcon className="h-6 w-6 text-orange-600" />,
-    iconBgColor: "bg-orange-50",
-    trend: { value: "2.1% this month", isPositive: false },
-  },
-  {
-    label: "Conversions",
-    value: "108",
-    icon: <ChartIcon className="h-6 w-6 text-green-600" />,
-    iconBgColor: "bg-green-50",
-    trend: { value: "18.7% this month", isPositive: true },
-  },
-];
+import { getLocale, t } from "@/lib/i18n";
 
 const campaigns = [
   {
@@ -83,19 +60,45 @@ const quickActions = [
   { icon: "🎯", label: "Generate QR Codes" },
 ];
 
-export default function MarketingPage() {
+export default async function MarketingPage() {
+  const locale = await getLocale();
+
+  const stats = [
+    {
+      label: t(locale, "marketingPage.totalReach"),
+      value: "13.4K",
+      icon: <EyeIcon className="h-6 w-6 text-blue-600" />,
+      iconBgColor: "bg-blue-50",
+      trend: { value: "15.2% this month", isPositive: true },
+    },
+    {
+      label: t(locale, "marketingPage.ctr"),
+      value: "5.8%",
+      icon: <ChartIcon className="h-6 w-6 text-orange-600" />,
+      iconBgColor: "bg-orange-50",
+      trend: { value: "2.1% this month", isPositive: false },
+    },
+    {
+      label: t(locale, "marketingPage.conversions"),
+      value: "108",
+      icon: <ChartIcon className="h-6 w-6 text-green-600" />,
+      iconBgColor: "bg-green-50",
+      trend: { value: "18.7% this month", isPositive: true },
+    },
+  ];
+
   return (
     <MainLayout>
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-gray-900">Marketing Center</h1>
+        <h1 className="text-2xl font-semibold text-gray-900">{t(locale, "marketingPage.title")}</h1>
       </div>
       <div className="relative space-y-6">
         {/* Coming Soon Overlay */}
         <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
           <div className="rounded-2xl bg-white/90 px-8 py-6 text-center shadow-lg backdrop-blur">
-            <p className="text-2xl font-bold text-gray-900">Coming Soon</p>
+            <p className="text-2xl font-bold text-gray-900">{t(locale, "marketingPage.comingSoon")}</p>
             <p className="mt-2 text-sm text-gray-500">
-              Marketing tools are under development and will be available soon.
+              {t(locale, "marketingPage.comingSoonDesc")}
             </p>
           </div>
         </div>
@@ -111,18 +114,18 @@ export default function MarketingPage() {
         <Card padding="none">
           <div className="p-6 pb-4">
             <h2 className="text-lg font-semibold text-gray-900">
-              Active Campaigns
+              {t(locale, "marketingPage.activeCampaigns")}
             </h2>
           </div>
           <Table>
             <TableHeader>
-              <TableHead>Campaign</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Reach</TableHead>
-              <TableHead>Clicks</TableHead>
-              <TableHead>Conversions</TableHead>
-              <TableHead>Actions</TableHead>
+              <TableHead>{t(locale, "marketingPage.campaign")}</TableHead>
+              <TableHead>{t(locale, "marketingPage.typeCol")}</TableHead>
+              <TableHead>{t(locale, "marketingPage.statusCol")}</TableHead>
+              <TableHead>{t(locale, "marketingPage.reach")}</TableHead>
+              <TableHead>{t(locale, "marketingPage.clicks")}</TableHead>
+              <TableHead>{t(locale, "marketingPage.conversions")}</TableHead>
+              <TableHead>{t(locale, "common.actions")}</TableHead>
             </TableHeader>
             <TableBody>
               {campaigns.map((campaign) => (
@@ -172,7 +175,7 @@ export default function MarketingPage() {
           {/* Social Media Performance */}
           <Card>
             <h2 className="mb-6 text-lg font-semibold text-gray-900">
-              Social Media Performance
+              {t(locale, "marketingPage.socialPerformance")}
             </h2>
             <div className="space-y-4">
               {socialPerformance.map((item) => (
@@ -195,7 +198,7 @@ export default function MarketingPage() {
                         {item.platform}
                       </div>
                       <div className="text-sm text-gray-500">
-                        {item.followers} followers
+                        {item.followers} {t(locale, "marketingPage.followers")}
                       </div>
                     </div>
                   </div>
@@ -203,7 +206,7 @@ export default function MarketingPage() {
                     <div className="font-semibold text-gray-900">
                       {item.engagement}
                     </div>
-                    <div className="text-sm text-gray-500">Engagement</div>
+                    <div className="text-sm text-gray-500">{t(locale, "marketingPage.engagement")}</div>
                   </div>
                 </div>
               ))}
@@ -213,7 +216,7 @@ export default function MarketingPage() {
           {/* Quick Actions */}
           <Card>
             <h2 className="mb-6 text-lg font-semibold text-gray-900">
-              Quick Actions
+              {t(locale, "marketingPage.quickActions")}
             </h2>
             <div className="grid grid-cols-2 gap-3">
               {quickActions.map((action) => (

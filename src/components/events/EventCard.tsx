@@ -1,3 +1,6 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import type { Event } from "@/types";
 import { Badge } from "@/components/ui/Badge";
@@ -10,12 +13,17 @@ import {
   StarIcon,
   UsersIcon,
 } from "@/components/icons";
+import { getClientLocale, translate } from "@/lib/i18n/client";
+import type { Locale } from "@/lib/i18n";
 
 interface EventCardProps {
   event: Event;
 }
 
 export function EventCard({ event }: EventCardProps) {
+  const [locale, setLocale] = useState<Locale>("fr");
+  useEffect(() => { setLocale(getClientLocale()); }, []);
+
   return (
     <div className="group relative overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm transition-all hover:-translate-y-1 hover:shadow-xl">
       <Link href={`/events/${event.id}`} className="block">
@@ -43,7 +51,7 @@ export function EventCard({ event }: EventCardProps) {
             <div className="flex items-end justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-xs font-medium uppercase tracking-[0.24em] text-white/70">
-                  Event Snapshot
+                  {translate(locale, "eventCard.snapshot")}
                 </p>
                 <h3 className="mt-1 truncate text-2xl font-semibold text-white">
                   {event.title}
@@ -61,7 +69,7 @@ export function EventCard({ event }: EventCardProps) {
             <div className="flex items-center gap-2 text-green-700">
               <UsersIcon className="h-4 w-4" />
               <span className="text-xs font-semibold uppercase tracking-[0.18em]">
-                Checked In
+                {translate(locale, "eventCard.checkedIn")}
               </span>
             </div>
             <p className="mt-3 text-2xl font-semibold text-gray-950">
@@ -72,7 +80,7 @@ export function EventCard({ event }: EventCardProps) {
             <div className="flex items-center gap-2 text-blue-700">
               <CalendarIcon className="h-4 w-4" />
               <span className="text-xs font-semibold uppercase tracking-[0.18em]">
-                Reservations
+                {translate(locale, "eventCard.reservations")}
               </span>
             </div>
             <p className="mt-3 text-2xl font-semibold text-gray-950">
@@ -83,7 +91,7 @@ export function EventCard({ event }: EventCardProps) {
             <div className="flex items-center gap-2 text-purple-700">
               <MusicIcon className="h-4 w-4" />
               <span className="text-xs font-semibold uppercase tracking-[0.18em]">
-                Songs
+                {translate(locale, "eventCard.songs")}
               </span>
             </div>
             <p className="mt-3 text-2xl font-semibold text-gray-950">
@@ -94,7 +102,7 @@ export function EventCard({ event }: EventCardProps) {
             <div className="flex items-center gap-2 text-amber-700">
               <StarIcon className="h-4 w-4" />
               <span className="text-xs font-semibold uppercase tracking-[0.18em]">
-                Rating
+                {translate(locale, "eventCard.rating")}
               </span>
             </div>
             <p className="mt-3 text-2xl font-semibold text-gray-950">
@@ -110,7 +118,7 @@ export function EventCard({ event }: EventCardProps) {
               <p className="font-medium text-gray-900">{event.date}</p>
               {event.minPrice && (
                 <p className="text-xs text-gray-500">
-                  Starting at {event.minPrice}
+                  {translate(locale, "eventCard.startingAt")} {event.minPrice}
                 </p>
               )}
             </div>
@@ -121,7 +129,7 @@ export function EventCard({ event }: EventCardProps) {
             <div>
               <p className="line-clamp-2 font-medium text-gray-900">{event.location}</p>
               {event.organizerName && (
-                <p className="text-xs text-gray-500">Hosted by {event.organizerName}</p>
+                <p className="text-xs text-gray-500">{translate(locale, "eventCard.hostedBy")} {event.organizerName}</p>
               )}
             </div>
           </div>
@@ -132,14 +140,14 @@ export function EventCard({ event }: EventCardProps) {
           <Link
             href={`/events/${event.id}`}
             className="rounded-full p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
-            title="View event"
+            title={translate(locale, "eventCard.viewEvent")}
           >
             <ChevronRightIcon className="h-5 w-5" />
           </Link>
           <Link
             href={`/events/${event.id}/edit`}
             className="rounded-full p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
-            title="Edit event"
+            title={translate(locale, "eventCard.editEvent")}
           >
             <EditIcon className="h-5 w-5" />
           </Link>

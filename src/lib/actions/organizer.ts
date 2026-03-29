@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { updateTable } from "@/lib/supabase/mutations";
+import { updateTable, insertInto } from "@/lib/supabase/mutations";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 // ---------------------------------------------------------------------------
@@ -11,6 +11,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 // ---------------------------------------------------------------------------
 
 const onboardingSchema = z.object({
+  // Personal / organizer info
   name: z.string().min(1, "Organization name is required").max(100),
   tagline: z.string().max(200).optional().or(z.literal("")),
   about: z.string().max(2000).optional().or(z.literal("")),
@@ -22,18 +23,18 @@ const onboardingSchema = z.object({
   instagram_handle: z.string().max(100).optional().or(z.literal("")),
   facebook_handle: z.string().max(100).optional().or(z.literal("")),
   tiktok_handle: z.string().max(100).optional().or(z.literal("")),
-  youtube_handle: z.string().max(100).optional().or(z.literal("")),
-  twitter_handle: z.string().max(100).optional().or(z.literal("")),
-  pinterest_handle: z.string().max(100).optional().or(z.literal("")),
-  snapchat_handle: z.string().max(100).optional().or(z.literal("")),
-  google_business_url: z.string().url("Invalid URL").optional().or(z.literal("")),
   logo_url: z.string().optional().or(z.literal("")),
   cover_image_url: z.string().optional().or(z.literal("")),
-  established_year: z.coerce.number().int().min(1900).max(2100).optional().or(z.literal("").transform(() => undefined)),
-  specialties: z.string().optional().or(z.literal("")),
-  cancellation_policy: z.string().max(2000).optional().or(z.literal("")),
-  refund_policy: z.string().max(2000).optional().or(z.literal("")),
-  response_time_hours: z.coerce.number().min(0).optional().or(z.literal("").transform(() => undefined)),
+
+  // Venue info
+  venue_name: z.string().min(1, "Venue name is required").max(200),
+  venue_type: z.string().optional().or(z.literal("")),
+  venue_address: z.string().optional().or(z.literal("")),
+  venue_city: z.string().optional().or(z.literal("")),
+  venue_region: z.string().optional().or(z.literal("")),
+  venue_country_code: z.string().optional().or(z.literal("")),
+  venue_postal_code: z.string().optional().or(z.literal("")),
+  venue_capacity: z.coerce.number().int().positive().optional().or(z.literal("").transform(() => undefined)),
 });
 
 export type OnboardingInput = z.infer<typeof onboardingSchema>;
@@ -67,7 +68,6 @@ export async function completeOnboardingAction(
 
   const data = parsed.data;
 
-  // Use admin client to bypass RLS (organizers table may not allow user updates)
   const sb = createSupabaseAdminClient();
 
   // Get the current user's organizer by owner_user_id
@@ -83,36 +83,24 @@ export async function completeOnboardingAction(
     return { success: false, error: "Could not find your organizer profile" };
   }
 
-  // Parse specialties from comma-separated string to array
-  const specialtiesArray = data.specialties
-    ? data.specialties.split(",").map((s) => s.trim()).filter(Boolean)
-    : null;
+  const organizerId = (organizer as { id: string }).id;
 
+  // Update organizer profile
   const { error: updateError } = await updateTable(sb, "organizers", {
-      name: data.name,
-      tagline: emptyStringToNull(data.tagline),
-      about: emptyStringToNull(data.about),
-      city: data.city,
-      country_code: data.country_code,
-      email: data.email,
-      phone: emptyStringToNull(data.phone),
-      website_url: emptyStringToNull(data.website_url),
-      instagram_handle: emptyStringToNull(data.instagram_handle),
-      facebook_handle: emptyStringToNull(data.facebook_handle),
-      tiktok_handle: emptyStringToNull(data.tiktok_handle),
-      youtube_handle: emptyStringToNull(data.youtube_handle),
-      twitter_handle: emptyStringToNull(data.twitter_handle),
-      pinterest_handle: emptyStringToNull(data.pinterest_handle),
-      snapchat_handle: emptyStringToNull(data.snapchat_handle),
-      google_business_url: emptyStringToNull(data.google_business_url),
-      logo_url: emptyStringToNull(data.logo_url),
-      cover_image_url: emptyStringToNull(data.cover_image_url),
-      established_year: data.established_year ?? null,
-      specialties: specialtiesArray,
-      cancellation_policy: emptyStringToNull(data.cancellation_policy),
-      refund_policy: emptyStringToNull(data.refund_policy),
-      response_time_hours: data.response_time_hours ?? null,
-    }).eq("id", (organizer as { id: string }).id);
+    name: data.name,
+    tagline: emptyStringToNull(data.tagline),
+    about: emptyStringToNull(data.about),
+    city: data.city,
+    country_code: data.country_code,
+    email: data.email,
+    phone: emptyStringToNull(data.phone),
+    website_url: emptyStringToNull(data.website_url),
+    instagram_handle: emptyStringToNull(data.instagram_handle),
+    facebook_handle: emptyStringToNull(data.facebook_handle),
+    tiktok_handle: emptyStringToNull(data.tiktok_handle),
+    logo_url: emptyStringToNull(data.logo_url),
+    cover_image_url: emptyStringToNull(data.cover_image_url),
+  }).eq("id", organizerId);
 
   if (updateError) {
     console.error("[completeOnboarding] update error:", updateError.message);
@@ -120,6 +108,50 @@ export async function completeOnboardingAction(
       return { success: false, error: "An organization with this name already exists" };
     }
     return { success: false, error: updateError.message };
+  }
+
+  // Create venue (one per organizer) — check if one already exists first
+  const { data: existingVenue } = await sb
+    .from("venues")
+    .select("id")
+    .eq("organizer_id", organizerId)
+    .limit(1)
+    .maybeSingle();
+
+  if (!existingVenue) {
+    const { error: venueError } = await insertInto(sb, "venues", {
+      name: data.venue_name.trim(),
+      organizer_id: organizerId,
+      address_line1: emptyStringToNull(data.venue_address),
+      city: emptyStringToNull(data.venue_city) ?? data.city,
+      region: emptyStringToNull(data.venue_region),
+      country_code: emptyStringToNull(data.venue_country_code) ?? data.country_code,
+      postal_code: emptyStringToNull(data.venue_postal_code),
+      venue_type: emptyStringToNull(data.venue_type),
+      capacity: typeof data.venue_capacity === "number" ? data.venue_capacity : null,
+      created_by_user_id: userId,
+    });
+
+    if (venueError) {
+      console.error("[completeOnboarding] venue creation error:", venueError.message);
+      return { success: false, error: `Failed to create venue: ${venueError.message}` };
+    }
+  } else {
+    // Update existing venue
+    const { error: venueUpdateError } = await updateTable(sb, "venues", {
+      name: data.venue_name.trim(),
+      address_line1: emptyStringToNull(data.venue_address),
+      city: emptyStringToNull(data.venue_city) ?? data.city,
+      region: emptyStringToNull(data.venue_region),
+      country_code: emptyStringToNull(data.venue_country_code) ?? data.country_code,
+      postal_code: emptyStringToNull(data.venue_postal_code),
+      venue_type: emptyStringToNull(data.venue_type),
+      capacity: typeof data.venue_capacity === "number" ? data.venue_capacity : null,
+    }).eq("id", (existingVenue as { id: string }).id);
+
+    if (venueUpdateError) {
+      console.error("[completeOnboarding] venue update error:", venueUpdateError.message);
+    }
   }
 
   return { success: true };
@@ -194,7 +226,7 @@ export async function fetchOrganizerForOnboarding() {
 
   const { data, error } = await sb
     .from("organizers")
-    .select("id, name, tagline, about, city, country_code, email, phone, website_url, instagram_handle, facebook_handle, tiktok_handle, youtube_handle, twitter_handle, pinterest_handle, snapchat_handle, google_business_url, logo_url, cover_image_url, established_year, specialties, cancellation_policy, refund_policy, response_time_hours")
+    .select("id, name, tagline, about, city, country_code, email, phone, website_url, instagram_handle, facebook_handle, tiktok_handle, logo_url, cover_image_url")
     .eq("owner_user_id", userId)
     .limit(1)
     .single();
@@ -203,7 +235,7 @@ export async function fetchOrganizerForOnboarding() {
     return null;
   }
 
-  return data as {
+  const organizer = data as {
     id: string;
     name: string;
     tagline: string | null;
@@ -216,17 +248,30 @@ export async function fetchOrganizerForOnboarding() {
     instagram_handle: string | null;
     facebook_handle: string | null;
     tiktok_handle: string | null;
-    youtube_handle: string | null;
-    twitter_handle: string | null;
-    pinterest_handle: string | null;
-    snapchat_handle: string | null;
-    google_business_url: string | null;
     logo_url: string | null;
     cover_image_url: string | null;
-    established_year: number | null;
-    specialties: string[] | null;
-    cancellation_policy: string | null;
-    refund_policy: string | null;
-    response_time_hours: number | null;
+  };
+
+  // Also fetch the existing venue for this organizer (if any)
+  const { data: venue } = await sb
+    .from("venues")
+    .select("id, name, venue_type, address_line1, city, region, country_code, postal_code, capacity")
+    .eq("organizer_id", organizer.id)
+    .limit(1)
+    .maybeSingle();
+
+  return {
+    ...organizer,
+    venue: venue as {
+      id: string;
+      name: string;
+      venue_type: string | null;
+      address_line1: string | null;
+      city: string | null;
+      region: string | null;
+      country_code: string | null;
+      postal_code: string | null;
+      capacity: number | null;
+    } | null,
   };
 }

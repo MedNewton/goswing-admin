@@ -13,6 +13,7 @@ import {
 } from "@/components/icons";
 import { getOverview } from "@/lib/data/overview";
 import { formatCompactNumber } from "@/lib/utils/format";
+import { getLocale, t } from "@/lib/i18n";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -42,6 +43,7 @@ function SummaryCard({
 }
 
 export default async function Home() {
+  const locale = await getLocale();
   let overviewStats = { totalEvents: 0, totalAttendees: 0, totalTickets: 0, avgRating: 0, totalRevenueFormatted: "$0.00" };
   let recentEvents: Awaited<ReturnType<typeof getOverview>>["recentEvents"] = [];
 
@@ -64,20 +66,20 @@ export default async function Home() {
                 <EyeIcon className="h-6 w-6" />
               </div>
               <p className="mt-5 text-xs font-semibold uppercase tracking-[0.3em] text-teal-100/75">
-                Overview
+                {t(locale, "overview.eyebrow")}
               </p>
               <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
-                Here&apos;s what&apos;s happening with your events.
+                {t(locale, "overview.title")}
               </h1>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-200">
-                Track attendance, recent activity, ratings, and ticket momentum from a single dashboard surface.
+                {t(locale, "overview.subtitle")}
               </p>
               <div className="mt-6 flex flex-wrap gap-3">
                 <div className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-white/90 backdrop-blur">
-                  {overviewStats.totalRevenueFormatted ?? "$0.00"} revenue
+                  {overviewStats.totalRevenueFormatted ?? "$0.00"} {t(locale, "overview.revenue")}
                 </div>
                 <div className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-white/90 backdrop-blur">
-                  {recentEvents.length.toLocaleString()} recent events
+                  {recentEvents.length.toLocaleString()} {t(locale, "overview.recentEvents")}
                 </div>
               </div>
             </div>
@@ -85,25 +87,25 @@ export default async function Home() {
             <div className="grid gap-3 sm:grid-cols-2">
               <SummaryCard
                 icon={CalendarIcon}
-                label="Events"
+                label={t(locale, "overview.events")}
                 value={String(overviewStats.totalEvents)}
                 accentClass="bg-sky-50 text-sky-700"
               />
               <SummaryCard
                 icon={UsersIcon}
-                label="Attendees"
+                label={t(locale, "overview.attendees")}
                 value={formatCompactNumber(overviewStats.totalAttendees)}
                 accentClass="bg-emerald-50 text-emerald-700"
               />
               <SummaryCard
                 icon={ShoppingBagIcon}
-                label="Tickets"
+                label={t(locale, "overview.tickets")}
                 value={formatCompactNumber(overviewStats.totalTickets)}
                 accentClass="bg-amber-50 text-amber-700"
               />
               <SummaryCard
                 icon={StarIcon}
-                label="Avg Rating"
+                label={t(locale, "overview.avgRating")}
                 value={overviewStats.avgRating > 0 ? overviewStats.avgRating.toFixed(1) : "—"}
                 accentClass="bg-rose-50 text-rose-700"
               />
@@ -115,15 +117,15 @@ export default async function Home() {
           <Card className="rounded-[2rem] border border-gray-200 bg-white shadow-lg shadow-gray-100">
             <div className="border-b border-gray-100 px-6 py-5">
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">
-                Activity Feed
+                {t(locale, "overview.activityFeed")}
               </p>
               <h2 className="mt-1 text-2xl font-semibold text-gray-950">
-                Recent Events
+                {t(locale, "overview.recentEventsTitle")}
               </h2>
             </div>
           {recentEvents.length === 0 ? (
             <p className="px-6 py-12 text-center text-gray-500">
-              No events yet. Create your first event to get started.
+              {t(locale, "overview.noEvents")}
             </p>
           ) : (
             <div className="space-y-4 p-6">
@@ -155,7 +157,7 @@ export default async function Home() {
                       {event.status.charAt(0).toUpperCase() + event.status.slice(1)}
                     </Badge>
                     <div className="rounded-full bg-gray-100 px-3 py-2 text-sm font-medium text-gray-700">
-                      {event.attendeeCount.toLocaleString()} checked in
+                      {event.attendeeCount.toLocaleString()} {t(locale, "overview.checkedIn")}
                     </div>
                     <div className="rounded-full bg-white p-2 text-gray-400 shadow-sm transition-transform group-hover:translate-x-1">
                       <ChevronRightIcon className="h-4 w-4" />
@@ -171,16 +173,16 @@ export default async function Home() {
             <Card className="rounded-[2rem] border border-gray-200 bg-white shadow-lg shadow-gray-100">
               <div className="p-6">
                 <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">
-                  Revenue Snapshot
+                  {t(locale, "overview.revenueSnapshot")}
                 </p>
                 <h2 className="mt-1 text-2xl font-semibold text-gray-950">
-                  Business momentum
+                  {t(locale, "overview.businessMomentum")}
                 </h2>
                 <div className="mt-6 rounded-[1.5rem] bg-gradient-to-br from-slate-950 via-slate-900 to-teal-700 p-6 text-white">
                   <div className="flex items-center gap-3 text-teal-100">
                     <DollarIcon className="h-5 w-5" />
                     <span className="text-xs font-semibold uppercase tracking-[0.2em]">
-                      Total Revenue
+                      {t(locale, "overview.totalRevenue")}
                     </span>
                   </div>
                   <p className="mt-4 text-3xl font-semibold">
@@ -193,17 +195,17 @@ export default async function Home() {
             <Card className="rounded-[2rem] border border-gray-200 bg-white shadow-lg shadow-gray-100">
               <div className="p-6">
                 <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">
-                  Quick Focus
+                  {t(locale, "overview.quickFocus")}
                 </p>
                 <h2 className="mt-1 text-2xl font-semibold text-gray-950">
-                  What to watch next
+                  {t(locale, "overview.whatToWatch")}
                 </h2>
                 <div className="mt-6 space-y-3">
                   <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4">
                     <div className="flex items-center gap-3">
                       <UsersIcon className="h-4 w-4 text-emerald-600" />
                       <span className="text-sm font-medium text-gray-900">
-                        Total attendees: {formatCompactNumber(overviewStats.totalAttendees)}
+                        {t(locale, "overview.totalAttendees")} {formatCompactNumber(overviewStats.totalAttendees)}
                       </span>
                     </div>
                   </div>
@@ -211,7 +213,7 @@ export default async function Home() {
                     <div className="flex items-center gap-3">
                       <MusicIcon className="h-4 w-4 text-sky-600" />
                       <span className="text-sm font-medium text-gray-900">
-                        Keep music, reviews, and attendance pages aligned with active events.
+                        {t(locale, "overview.keepAligned")}
                       </span>
                     </div>
                   </div>

@@ -30,6 +30,8 @@ import {
 import { fetchVenuesForSelect } from "@/lib/actions/venues";
 import Link from "next/link";
 import type { ComponentType, SVGProps } from "react";
+import { getClientLocale, translate } from "@/lib/i18n/client";
+import type { Locale } from "@/lib/i18n";
 
 // ---------------------------------------------------------------------------
 // Zod Schema (mirrors server-side for client validation)
@@ -161,6 +163,11 @@ export default function CreateEventPage() {
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [locale, setLocale] = useState<Locale>("fr");
+
+  useEffect(() => {
+    setLocale(getClientLocale());
+  }, []);
 
   useEffect(() => {
     fetchVenuesForSelect()
@@ -291,7 +298,7 @@ export default function CreateEventPage() {
   };
 
   const venueOptions = [
-    { value: "", label: venuesLoading ? "Loading venues..." : "Select a venue (optional)" },
+    { value: "", label: venuesLoading ? translate(locale, "createEvent.loadingVenues") : translate(locale, "createEvent.selectVenue") },
     ...venues.map((v) => ({
       value: v.id,
       label: v.city ? `${v.name} — ${v.city}` : v.name,
@@ -314,13 +321,13 @@ export default function CreateEventPage() {
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.3em] text-teal-100/75">
-                  New Event
+                  {translate(locale, "createEvent.eyebrow")}
                 </p>
                 <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">
-                  Create Event
+                  {translate(locale, "createEvent.title")}
                 </h1>
                 <p className="mt-1 max-w-lg text-sm text-slate-300">
-                  Fill out the details below to publish a new event for your audience.
+                  {translate(locale, "createEvent.subtitle")}
                 </p>
               </div>
             </div>
@@ -330,7 +337,7 @@ export default function CreateEventPage() {
                 onClick={() => router.push("/events")}
                 className="rounded-xl border border-white/20 bg-white/10 px-5 py-2.5 text-sm font-medium text-white backdrop-blur transition-colors hover:bg-white/20"
               >
-                Cancel
+                {translate(locale, "common.cancel")}
               </button>
               <button
                 type="button"
@@ -338,7 +345,7 @@ export default function CreateEventPage() {
                 onClick={handleSubmit(onSubmit)}
                 className="cursor-pointer rounded-xl bg-white px-5 py-2.5 text-sm font-semibold text-gray-950 shadow-sm transition-colors hover:bg-gray-100 disabled:opacity-50"
               >
-                {isPending ? "Saving..." : "Save Event"}
+                {isPending ? translate(locale, "common.saving") : translate(locale, "createEvent.saveEvent")}
               </button>
             </div>
           </div>
@@ -354,9 +361,9 @@ export default function CreateEventPage() {
         <div className="rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100 sm:p-8">
           <SectionHeader
             icon={EyeIcon}
-            eyebrow="Media"
-            title="Event Image"
-            description="Upload a hero image for your event page."
+            eyebrow={translate(locale, "createEvent.mediaEyebrow")}
+            title={translate(locale, "createEvent.eventImage")}
+            description={translate(locale, "createEvent.eventImageDesc")}
           />
           <div className="mt-6 flex items-center gap-5">
             <div className="relative h-32 w-32 shrink-0 overflow-hidden rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50">
@@ -396,7 +403,7 @@ export default function CreateEventPage() {
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isUploadingImage}
                 >
-                  {isUploadingImage ? "Uploading..." : imagePreview ? "Change Image" : "Choose Image"}
+                  {isUploadingImage ? translate(locale, "createEvent.uploading") : imagePreview ? translate(locale, "createEvent.changeImage") : translate(locale, "createEvent.chooseImage")}
                 </Button>
                 {imagePreview && !isUploadingImage && (
                   <Button
@@ -406,7 +413,7 @@ export default function CreateEventPage() {
                     onClick={handleRemoveImage}
                     className="text-red-600 hover:text-red-700"
                   >
-                    Remove
+                    {translate(locale, "common.remove")}
                   </Button>
                 )}
               </div>
@@ -414,10 +421,10 @@ export default function CreateEventPage() {
                 <p className="mt-2 text-sm text-red-600">{imageError}</p>
               )}
               <p className="mt-2 text-sm text-gray-500">
-                Upload event image (JPEG, PNG, WebP, GIF)
+                {translate(locale, "createEvent.uploadHint")}
               </p>
               <p className="text-xs text-gray-400">
-                Recommended: 1200 x 800px, max 5MB
+                {translate(locale, "createEvent.uploadSize")}
               </p>
             </div>
           </div>
@@ -427,33 +434,33 @@ export default function CreateEventPage() {
         <div className="rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100 sm:p-8">
           <SectionHeader
             icon={EditIcon}
-            eyebrow="Details"
-            title="Event Details"
-            description="Give your event a name, description, and category."
+            eyebrow={translate(locale, "createEvent.detailsEyebrow")}
+            title={translate(locale, "createEvent.eventDetails")}
+            description={translate(locale, "createEvent.eventDetailsDesc")}
           />
           <div className="mt-6 space-y-4">
             <Input
-              label="Event Title"
-              placeholder="e.g., Summer Jazz Night"
+              label={translate(locale, "createEvent.eventTitle")}
+              placeholder={translate(locale, "createEvent.eventTitlePlaceholder")}
               error={errors.title?.message}
               {...register("title")}
             />
             <Textarea
-              label="Description"
-              placeholder="Describe your event..."
+              label={translate(locale, "createEvent.descriptionLabel")}
+              placeholder={translate(locale, "createEvent.descriptionPlaceholder")}
               rows={4}
               error={errors.description?.message}
               {...register("description")}
             />
             <Select
-              label="Category"
+              label={translate(locale, "createEvent.categoryLabel")}
               options={[
-                { value: "", label: "Select a category" },
-                { value: "music", label: "Music" },
-                { value: "food", label: "Food & Drink" },
-                { value: "business", label: "Business" },
-                { value: "sports", label: "Sports" },
-                { value: "other", label: "Other" },
+                { value: "", label: translate(locale, "createEvent.selectCategory") },
+                { value: "music", label: translate(locale, "createEvent.catMusic") },
+                { value: "food", label: translate(locale, "createEvent.catFood") },
+                { value: "business", label: translate(locale, "createEvent.catBusiness") },
+                { value: "sports", label: translate(locale, "createEvent.catSports") },
+                { value: "other", label: translate(locale, "createEvent.catOther") },
               ]}
               error={errors.category?.message}
               {...register("category")}
@@ -462,12 +469,12 @@ export default function CreateEventPage() {
             {/* Tags Multi-Select */}
             <div>
               <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                Tags
+                {translate(locale, "createEvent.tagsLabel")}
               </label>
               {tagsLoading ? (
-                <p className="text-sm text-gray-400">Loading tags...</p>
+                <p className="text-sm text-gray-400">{translate(locale, "createEvent.loadingTags")}</p>
               ) : tags.length === 0 ? (
-                <p className="text-sm text-gray-400">No tags available</p>
+                <p className="text-sm text-gray-400">{translate(locale, "createEvent.noTags")}</p>
               ) : (
                 <>
                   {selectedTagIds.length > 0 && (
@@ -507,7 +514,7 @@ export default function CreateEventPage() {
                       }
                     }}
                   >
-                    <option value="">Add a tag...</option>
+                    <option value="">{translate(locale, "createEvent.addTag")}</option>
                     {tags
                       .filter((t) => !selectedTagIds.includes(t.id))
                       .map((t) => (
@@ -526,40 +533,40 @@ export default function CreateEventPage() {
         <div className="rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100 sm:p-8">
           <SectionHeader
             icon={CalendarIcon}
-            eyebrow="Schedule"
-            title="Date & Time"
-            description="When does your event start and end?"
+            eyebrow={translate(locale, "createEvent.scheduleEyebrow")}
+            title={translate(locale, "createEvent.dateTime")}
+            description={translate(locale, "createEvent.dateTimeDesc")}
           />
           <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
             <Input
-              label="Event Date"
+              label={translate(locale, "createEvent.eventDate")}
               type="date"
               min={todayStr}
               error={errors.eventDate?.message}
               {...register("eventDate")}
             />
             <Input
-              label="Start Time"
+              label={translate(locale, "createEvent.startTime")}
               type="time"
               error={errors.startTime?.message}
               {...register("startTime")}
             />
             <Input
-              label="End Date (optional)"
+              label={translate(locale, "createEvent.endDateOptional")}
               type="date"
               min={minEndDate}
               error={errors.endDate?.message}
               {...register("endDate")}
             />
             <Input
-              label="End Time (optional)"
+              label={translate(locale, "createEvent.endTimeOptional")}
               type="time"
               error={errors.endTime?.message}
               {...register("endTime")}
             />
           </div>
           <p className="mt-3 text-xs text-gray-400">
-            End time must be at least 30 minutes after start time.
+            {translate(locale, "createEvent.endTimeHint")}
           </p>
         </div>
 
@@ -567,24 +574,24 @@ export default function CreateEventPage() {
         <div className="rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100 sm:p-8">
           <SectionHeader
             icon={MapPinIcon}
-            eyebrow="Location"
-            title="Venue"
-            description="Choose where your event takes place."
+            eyebrow={translate(locale, "createEvent.locationEyebrow")}
+            title={translate(locale, "createEvent.venueTitle")}
+            description={translate(locale, "createEvent.venueDesc")}
           />
           <div className="mt-6 space-y-4">
             <Select
-              label="Venue"
+              label={translate(locale, "createEvent.venueTitle")}
               options={venueOptions}
               error={errors.venueId?.message}
               {...register("venueId")}
             />
             <div className="flex items-center gap-2 text-sm text-gray-500">
-              <span>Don&apos;t see your venue?</span>
+              <span>{translate(locale, "createEvent.noVenueHint")}</span>
               <Link
                 href="/venues/create"
                 className="font-medium text-gray-900 underline hover:text-gray-700"
               >
-                Create a new venue
+                {translate(locale, "createEvent.createVenue")}
               </Link>
             </div>
           </div>
@@ -594,14 +601,14 @@ export default function CreateEventPage() {
         <div className="rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100 sm:p-8">
           <SectionHeader
             icon={DollarIcon}
-            eyebrow="Pricing"
-            title="Tickets & Pricing"
-            description="Set up your ticket tiers and pricing."
+            eyebrow={translate(locale, "createEvent.pricingEyebrow")}
+            title={translate(locale, "createEvent.ticketsPricing")}
+            description={translate(locale, "createEvent.ticketsPricingDesc")}
           />
 
           <div className="mt-6 mb-4">
             <Select
-              label="Currency"
+              label={translate(locale, "createEvent.currency")}
               options={[
                 { value: "USD", label: "USD ($)" },
                 { value: "EUR", label: "EUR (€)" },
@@ -629,7 +636,7 @@ export default function CreateEventPage() {
                       {index + 1}
                     </div>
                     <h3 className="font-medium text-gray-900">
-                      Ticket Tier {index + 1}
+                      {translate(locale, "createEvent.ticketTier")} {index + 1}
                     </h3>
                   </div>
                   {fields.length > 1 && (
@@ -640,19 +647,19 @@ export default function CreateEventPage() {
                       onClick={() => remove(index)}
                       className="text-red-500 hover:text-red-600"
                     >
-                      Remove
+                      {translate(locale, "common.remove")}
                     </Button>
                   )}
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <Input
-                    label="Ticket Name"
-                    placeholder="e.g., General Admission"
+                    label={translate(locale, "createEvent.ticketName")}
+                    placeholder={translate(locale, "createEvent.ticketNamePlaceholder")}
                     error={fieldError(`ticketTiers.${index}.name`)}
                     {...register(`ticketTiers.${index}.name`)}
                   />
                   <Input
-                    label="Price"
+                    label={translate(locale, "createEvent.priceLabel")}
                     placeholder="0.00"
                     type="number"
                     step="0.01"
@@ -663,12 +670,12 @@ export default function CreateEventPage() {
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-4">
                   <Input
-                    label="Description (optional)"
-                    placeholder="What's included"
+                    label={translate(locale, "createEvent.descOptional")}
+                    placeholder={translate(locale, "createEvent.descOptionalPlaceholder")}
                     {...register(`ticketTiers.${index}.description`)}
                   />
                   <Input
-                    label="Capacity (optional)"
+                    label={translate(locale, "createEvent.capacityOptional")}
                     placeholder="e.g., 100"
                     type="number"
                     min="1"
@@ -682,7 +689,7 @@ export default function CreateEventPage() {
                       className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
                       {...register(`ticketTiers.${index}.is_free`)}
                     />
-                    Free ticket
+                    {translate(locale, "createEvent.freeTicket")}
                   </label>
                   <label className="flex items-center gap-2 text-sm text-gray-700">
                     <input
@@ -690,7 +697,7 @@ export default function CreateEventPage() {
                       className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
                       {...register(`ticketTiers.${index}.free_for_ladies`)}
                     />
-                    Free for ladies
+                    {translate(locale, "createEvent.freeForLadies")}
                   </label>
                 </div>
               </div>
@@ -709,7 +716,7 @@ export default function CreateEventPage() {
               className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-200 py-4 text-sm font-medium text-gray-500 transition-colors hover:border-gray-300 hover:bg-gray-50 hover:text-gray-700"
             >
               <PlusIcon className="h-4 w-4" />
-              Add Ticket Tier
+              {translate(locale, "createEvent.addTicketTier")}
             </button>
           </div>
         </div>
@@ -718,45 +725,45 @@ export default function CreateEventPage() {
         <div className="rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100 sm:p-8">
           <SectionHeader
             icon={SettingsIcon}
-            eyebrow="Configuration"
-            title="Event Settings"
-            description="Control publishing, waitlist, and approval behavior."
+            eyebrow={translate(locale, "createEvent.configEyebrow")}
+            title={translate(locale, "createEvent.eventSettings")}
+            description={translate(locale, "createEvent.eventSettingsDesc")}
           />
           <div className="mt-6 space-y-5">
             <Toggle
-              label="Publish Event"
+              label={translate(locale, "createEvent.publishEvent")}
               checked={publishEvent}
               onChange={(checked) => setValue("publishEvent", checked)}
             />
             <div className="border-t border-gray-100 pt-5">
               <Toggle
-                label="Enable Waitlist"
+                label={translate(locale, "createEvent.enableWaitlist")}
                 checked={watch("waitlistEnabled") ?? false}
                 onChange={(checked) => setValue("waitlistEnabled", checked)}
               />
-              <p className="mt-1 ml-11 text-xs text-gray-500">Allow attendees to join a waitlist when tickets sell out.</p>
+              <p className="mt-1 ml-11 text-xs text-gray-500">{translate(locale, "createEvent.waitlistHint")}</p>
             </div>
             <div className="border-t border-gray-100 pt-5">
               <Toggle
-                label="Enable Social Sharing"
+                label={translate(locale, "createEvent.enableSharing")}
                 checked={watch("sharingEnabled") ?? true}
                 onChange={(checked) => setValue("sharingEnabled", checked)}
               />
-              <p className="mt-1 ml-11 text-xs text-gray-500">Show share buttons on the public event page.</p>
+              <p className="mt-1 ml-11 text-xs text-gray-500">{translate(locale, "createEvent.sharingHint")}</p>
             </div>
             <div className="border-t border-gray-100 pt-5">
               <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                Approval Mode
+                {translate(locale, "createEvent.approvalMode")}
               </label>
               <select
                 value={watch("approvalMode") ?? "auto"}
                 onChange={(e) => setValue("approvalMode", e.target.value as "auto" | "manual")}
                 className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-500"
               >
-                <option value="auto">Auto-approve reservations</option>
-                <option value="manual">Manually approve reservations</option>
+                <option value="auto">{translate(locale, "createEvent.autoApprove")}</option>
+                <option value="manual">{translate(locale, "createEvent.manualApprove")}</option>
               </select>
-              <p className="mt-1.5 text-xs text-gray-500">Choose whether bookings are automatically confirmed or require your approval.</p>
+              <p className="mt-1.5 text-xs text-gray-500">{translate(locale, "createEvent.approvalHint")}</p>
             </div>
           </div>
         </div>
@@ -765,20 +772,20 @@ export default function CreateEventPage() {
         <div className="rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100 sm:p-8">
           <SectionHeader
             icon={MailIcon}
-            eyebrow="Support"
-            title="Contact Information"
-            description="How can attendees reach you about this event?"
+            eyebrow={translate(locale, "createEvent.supportEyebrow")}
+            title={translate(locale, "createEvent.contactInfo")}
+            description={translate(locale, "createEvent.contactInfoDesc")}
           />
           <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
             <Input
-              label="Contact Email"
+              label={translate(locale, "createEvent.contactEmail")}
               type="email"
               placeholder="event@example.com"
               error={errors.contactEmail?.message}
               {...register("contactEmail")}
             />
             <Input
-              label="Contact Phone"
+              label={translate(locale, "createEvent.contactPhone")}
               type="tel"
               placeholder="+33 1 23 45 67 89"
               error={errors.contactPhone?.message}
@@ -794,10 +801,10 @@ export default function CreateEventPage() {
             type="button"
             onClick={() => router.push("/events")}
           >
-            Cancel
+            {translate(locale, "common.cancel")}
           </Button>
           <Button variant="primary" type="submit" disabled={isPending}>
-            {isPending ? "Saving..." : "Save Event"}
+            {isPending ? translate(locale, "common.saving") : translate(locale, "createEvent.saveEvent")}
           </Button>
         </div>
       </form>

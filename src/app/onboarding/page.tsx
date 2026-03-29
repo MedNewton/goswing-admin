@@ -1,12 +1,18 @@
 "use client";
 
-import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
+import {
+  UsersIcon,
+  BuildingIcon,
+  MailIcon,
+  GlobeIcon,
+  MapPinIcon,
+  EyeIcon,
+} from "@/components/icons";
 import { useState, useEffect, useTransition, useRef } from "react";
-import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -16,12 +22,17 @@ import {
   uploadOrganizerImageAction,
   type OnboardingResult,
 } from "@/lib/actions/organizer";
+import type { ComponentType, SVGProps } from "react";
+import { getClientLocale, translate } from "@/lib/i18n/client";
+import type { Locale } from "@/lib/i18n";
+import { LanguageSwitcher } from "@/components/discover/LanguageSwitcher";
 
 // ---------------------------------------------------------------------------
-// Zod Schema (mirrors server-side)
+// Zod Schema
 // ---------------------------------------------------------------------------
 
 const onboardingFormSchema = z.object({
+  // Personal / organizer
   name: z.string().min(1, "Organization name is required").max(100),
   tagline: z.string().max(200).optional().or(z.literal("")),
   about: z.string().max(2000).optional().or(z.literal("")),
@@ -33,18 +44,17 @@ const onboardingFormSchema = z.object({
   instagram_handle: z.string().max(100).optional().or(z.literal("")),
   facebook_handle: z.string().max(100).optional().or(z.literal("")),
   tiktok_handle: z.string().max(100).optional().or(z.literal("")),
-  youtube_handle: z.string().max(100).optional().or(z.literal("")),
-  twitter_handle: z.string().max(100).optional().or(z.literal("")),
-  pinterest_handle: z.string().max(100).optional().or(z.literal("")),
-  snapchat_handle: z.string().max(100).optional().or(z.literal("")),
-  google_business_url: z.union([z.string().url("Invalid URL"), z.literal("")]).optional(),
   logo_url: z.string().optional().or(z.literal("")),
   cover_image_url: z.string().optional().or(z.literal("")),
-  established_year: z.string().optional().or(z.literal("")),
-  specialties: z.string().optional().or(z.literal("")),
-  cancellation_policy: z.string().max(2000).optional().or(z.literal("")),
-  refund_policy: z.string().max(2000).optional().or(z.literal("")),
-  response_time_hours: z.string().optional().or(z.literal("")),
+  // Venue
+  venue_name: z.string().min(1, "Venue name is required").max(200),
+  venue_type: z.string().optional().or(z.literal("")),
+  venue_address: z.string().optional().or(z.literal("")),
+  venue_city: z.string().optional().or(z.literal("")),
+  venue_region: z.string().optional().or(z.literal("")),
+  venue_country_code: z.string().optional().or(z.literal("")),
+  venue_postal_code: z.string().optional().or(z.literal("")),
+  venue_capacity: z.union([z.coerce.number().int().positive(), z.literal(""), z.undefined()]).optional(),
 });
 
 type OnboardingFormValues = z.infer<typeof onboardingFormSchema>;
@@ -87,15 +97,64 @@ const COUNTRY_OPTIONS = [
   { value: "IN", label: "India" },
 ];
 
+const VENUE_TYPE_OPTIONS = [
+  { value: "", label: "Select a type" },
+  { value: "club", label: "Club" },
+  { value: "bar", label: "Bar" },
+  { value: "restaurant", label: "Restaurant" },
+  { value: "concert_hall", label: "Concert Hall" },
+  { value: "outdoor", label: "Outdoor Venue" },
+  { value: "hotel", label: "Hotel" },
+  { value: "conference_center", label: "Conference Center" },
+  { value: "stadium", label: "Stadium" },
+  { value: "theater", label: "Theater" },
+  { value: "other", label: "Other" },
+];
+
+// ---------------------------------------------------------------------------
+// Shared UI
+// ---------------------------------------------------------------------------
+
+type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
+
+function SectionHeader({
+  icon: Icon,
+  eyebrow,
+  title,
+  description,
+}: {
+  icon: IconComponent;
+  eyebrow: string;
+  title: string;
+  description?: string;
+}) {
+  return (
+    <div className="flex items-start gap-4">
+      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gray-950 text-white shadow-sm">
+        <Icon className="h-5 w-5" />
+      </div>
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">
+          {eyebrow}
+        </p>
+        <h2 className="mt-1 text-xl font-semibold text-gray-950">{title}</h2>
+        {description && (
+          <p className="mt-1 text-sm text-gray-500">{description}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Page Component
 // ---------------------------------------------------------------------------
 
 export default function OnboardingPage() {
-  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [serverError, setServerError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [locale, setLocale] = useState<Locale>("fr");
 
   // Image states
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -106,6 +165,10 @@ export default function OnboardingPage() {
   const [coverError, setCoverError] = useState<string | null>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setLocale(getClientLocale());
+  }, []);
 
   const {
     register,
@@ -127,22 +190,20 @@ export default function OnboardingPage() {
       instagram_handle: "",
       facebook_handle: "",
       tiktok_handle: "",
-      youtube_handle: "",
-      twitter_handle: "",
-      pinterest_handle: "",
-      snapchat_handle: "",
-      google_business_url: "",
       logo_url: "",
       cover_image_url: "",
-      established_year: "",
-      specialties: "",
-      cancellation_policy: "",
-      refund_policy: "",
-      response_time_hours: "",
+      venue_name: "",
+      venue_type: "",
+      venue_address: "",
+      venue_city: "",
+      venue_region: "",
+      venue_country_code: "",
+      venue_postal_code: "",
+      venue_capacity: "" as unknown as undefined,
     },
   });
 
-  // Load existing organizer data to pre-fill the form
+  // Load existing data
   useEffect(() => {
     void (async () => {
       try {
@@ -160,18 +221,16 @@ export default function OnboardingPage() {
             instagram_handle: org.instagram_handle ?? "",
             facebook_handle: org.facebook_handle ?? "",
             tiktok_handle: org.tiktok_handle ?? "",
-            youtube_handle: org.youtube_handle ?? "",
-            twitter_handle: org.twitter_handle ?? "",
-            pinterest_handle: org.pinterest_handle ?? "",
-            snapchat_handle: org.snapchat_handle ?? "",
-            google_business_url: org.google_business_url ?? "",
             logo_url: org.logo_url ?? "",
             cover_image_url: org.cover_image_url ?? "",
-            established_year: org.established_year?.toString() ?? "",
-            specialties: org.specialties?.join(", ") ?? "",
-            cancellation_policy: org.cancellation_policy ?? "",
-            refund_policy: org.refund_policy ?? "",
-            response_time_hours: org.response_time_hours?.toString() ?? "",
+            venue_name: org.venue?.name ?? "",
+            venue_type: org.venue?.venue_type ?? "",
+            venue_address: org.venue?.address_line1 ?? "",
+            venue_city: org.venue?.city ?? "",
+            venue_region: org.venue?.region ?? "",
+            venue_country_code: org.venue?.country_code ?? "",
+            venue_postal_code: org.venue?.postal_code ?? "",
+            venue_capacity: org.venue?.capacity ?? ("" as unknown as undefined),
           });
           if (org.logo_url) setLogoPreview(org.logo_url);
           if (org.cover_image_url) setCoverPreview(org.cover_image_url);
@@ -182,7 +241,7 @@ export default function OnboardingPage() {
         setLoading(false);
       }
     })();
-  }, [reset, router]);
+  }, [reset]);
 
   const handleImageUpload = async (
     file: File,
@@ -199,7 +258,6 @@ export default function OnboardingPage() {
     try {
       const formData = new FormData();
       formData.append("file", file);
-
       const result = await uploadOrganizerImageAction(formData);
       if (result.success) {
         setValue(fieldName, result.url);
@@ -250,8 +308,7 @@ export default function OnboardingPage() {
       try {
         const result: OnboardingResult = await completeOnboardingAction({
           ...data,
-          established_year: data.established_year ? Number(data.established_year) : undefined,
-          response_time_hours: data.response_time_hours ? Number(data.response_time_hours) : undefined,
+          venue_capacity: typeof data.venue_capacity === "number" ? data.venue_capacity : undefined,
         } as Parameters<typeof completeOnboardingAction>[0]);
         if (result.success) {
           window.location.href = "/overview";
@@ -267,46 +324,68 @@ export default function OnboardingPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+      <div className="flex min-h-screen items-center justify-center bg-gray-50/50">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-gray-900" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 px-4 py-12">
-      <div className="mx-auto max-w-2xl">
-        {/* Header */}
-        <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-gray-900">
-            Welcome to GoSwing
-          </h1>
-          <p className="mt-2 text-gray-600">
-            Set up your organizer profile to start creating events
-          </p>
-        </div>
+    <div className="min-h-screen bg-gray-50/50 px-4 py-10">
+      <div className="mx-auto max-w-3xl space-y-6">
+        {/* Hero Header */}
+        <section className="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-gradient-to-br from-slate-950 via-slate-900 to-teal-800 p-8 text-white shadow-xl shadow-slate-200">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(255,255,255,0.18),_transparent_30%),radial-gradient(circle_at_bottom_left,_rgba(45,212,191,0.22),_transparent_34%)]" />
+          <div className="relative flex items-start justify-between gap-4">
+            <div className="flex items-start gap-4">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/12 text-white backdrop-blur">
+                <EyeIcon className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-teal-100/75">
+                  {translate(locale, "onboarding.eyebrow")}
+                </p>
+                <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">
+                  {translate(locale, "onboarding.title")}
+                </h1>
+                <p className="mt-1 max-w-lg text-sm text-slate-300">
+                  {translate(locale, "onboarding.subtitle")}
+                </p>
+              </div>
+            </div>
+            <LanguageSwitcher variant="dark" />
+          </div>
+        </section>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           {/* Server Error */}
           {serverError && (
-            <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
               {serverError}
             </div>
           )}
 
-          {/* Logo & Cover Images */}
-          <Card>
-            <h2 className="mb-4 text-lg font-semibold text-gray-900">
-              Branding
-            </h2>
-            <div className="space-y-6">
+          {/* ============================================================= */}
+          {/* SECTION 1: Personal / Organizer Info                          */}
+          {/* ============================================================= */}
+          <div className="rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100 sm:p-8">
+            {/* Branding */}
+            <SectionHeader
+              icon={UsersIcon}
+              eyebrow={translate(locale, "onboarding.step1Eyebrow")}
+              title={translate(locale, "onboarding.step1Title")}
+              description={translate(locale, "onboarding.step1Desc")}
+            />
+
+            {/* Logo & Cover */}
+            <div className="mt-6 space-y-6">
               {/* Logo */}
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                  Logo
+                  {translate(locale, "onboarding.logoLabel")}
                 </label>
                 <div className="flex items-center gap-4">
-                  <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full border-2 border-dashed border-gray-300 bg-gray-50">
+                  <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full border-2 border-dashed border-gray-200 bg-gray-50">
                     {logoPreview ? (
                       <>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -318,8 +397,8 @@ export default function OnboardingPage() {
                         )}
                       </>
                     ) : (
-                      <div className="flex h-full items-center justify-center text-gray-400">
-                        <span className="text-2xl">+</span>
+                      <div className="flex h-full items-center justify-center text-gray-300">
+                        <UsersIcon className="h-6 w-6" />
                       </div>
                     )}
                   </div>
@@ -340,7 +419,7 @@ export default function OnboardingPage() {
                         onClick={() => logoInputRef.current?.click()}
                         disabled={isUploadingLogo}
                       >
-                        {isUploadingLogo ? "Uploading..." : logoPreview ? "Change" : "Upload Logo"}
+                        {isUploadingLogo ? translate(locale, "createEvent.uploading") : logoPreview ? translate(locale, "common.edit") : translate(locale, "onboarding.uploadLogo")}
                       </Button>
                       {logoPreview && !isUploadingLogo && (
                         <Button
@@ -350,12 +429,12 @@ export default function OnboardingPage() {
                           onClick={handleRemoveLogo}
                           className="text-red-600 hover:text-red-700"
                         >
-                          Remove
+                          {translate(locale, "common.remove")}
                         </Button>
                       )}
                     </div>
                     {logoError && <p className="mt-1 text-sm text-red-600">{logoError}</p>}
-                    <p className="mt-1 text-xs text-gray-400">Square image, max 5MB</p>
+                    <p className="mt-1 text-xs text-gray-400">{translate(locale, "settingsPage.squareHint")}</p>
                   </div>
                 </div>
               </div>
@@ -363,9 +442,9 @@ export default function OnboardingPage() {
               {/* Cover Image */}
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                  Cover Image
+                  {translate(locale, "onboarding.coverLabel")}
                 </label>
-                <div className="relative h-40 w-full overflow-hidden rounded-lg border-2 border-dashed border-gray-300 bg-gray-50">
+                <div className="relative h-40 w-full overflow-hidden rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50">
                   {coverPreview ? (
                     <>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -377,8 +456,8 @@ export default function OnboardingPage() {
                       )}
                     </>
                   ) : (
-                    <div className="flex h-full items-center justify-center text-gray-400">
-                      <span className="text-4xl">+</span>
+                    <div className="flex h-full items-center justify-center text-gray-300">
+                      <EyeIcon className="h-8 w-8" />
                     </div>
                   )}
                 </div>
@@ -398,7 +477,7 @@ export default function OnboardingPage() {
                     onClick={() => coverInputRef.current?.click()}
                     disabled={isUploadingCover}
                   >
-                    {isUploadingCover ? "Uploading..." : coverPreview ? "Change Cover" : "Upload Cover"}
+                    {isUploadingCover ? translate(locale, "createEvent.uploading") : coverPreview ? translate(locale, "onboarding.changeCover") : translate(locale, "onboarding.uploadCover")}
                   </Button>
                   {coverPreview && !isUploadingCover && (
                     <Button
@@ -408,221 +487,219 @@ export default function OnboardingPage() {
                       onClick={handleRemoveCover}
                       className="text-red-600 hover:text-red-700"
                     >
-                      Remove
+                      {translate(locale, "common.remove")}
                     </Button>
                   )}
                 </div>
                 {coverError && <p className="mt-1 text-sm text-red-600">{coverError}</p>}
-                <p className="mt-1 text-xs text-gray-400">Recommended: 1200 x 400px, max 5MB</p>
+                <p className="mt-1 text-xs text-gray-400">{translate(locale, "onboarding.coverHint")}</p>
               </div>
             </div>
-          </Card>
 
-          {/* Organization Basics */}
-          <Card>
-            <h2 className="mb-4 text-lg font-semibold text-gray-900">
-              Organization Details
-            </h2>
-            <div className="space-y-4">
-              <Input
-                label="Organization Name"
-                placeholder="e.g., Swing City Events"
-                error={errors.name?.message}
-                {...register("name")}
+            {/* Organization Details */}
+            <div className="mt-8 border-t border-gray-100 pt-8">
+              <SectionHeader
+                icon={MailIcon}
+                eyebrow={translate(locale, "onboarding.identityEyebrow")}
+                title={translate(locale, "onboarding.orgDetails")}
+                description={translate(locale, "onboarding.orgDetailsDesc")}
               />
-              <Input
-                label="Tagline (optional)"
-                placeholder="A short description of what you do"
-                error={errors.tagline?.message}
-                {...register("tagline")}
-              />
-              <Textarea
-                label="About (optional)"
-                placeholder="Tell people about your organization..."
-                rows={4}
-                error={errors.about?.message}
-                {...register("about")}
-              />
-            </div>
-          </Card>
-
-          {/* Location & Contact */}
-          <Card>
-            <h2 className="mb-4 text-lg font-semibold text-gray-900">
-              Location & Contact
-            </h2>
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="mt-6 space-y-4">
                 <Input
-                  label="City"
-                  placeholder="e.g., Paris"
-                  error={errors.city?.message}
-                  {...register("city")}
+                  label={translate(locale, "onboarding.orgName")}
+                  placeholder={translate(locale, "onboarding.orgNamePlaceholder")}
+                  error={errors.name?.message}
+                  {...register("name")}
                 />
+                <Input
+                  label={translate(locale, "onboarding.tagline")}
+                  placeholder={translate(locale, "onboarding.taglinePlaceholder")}
+                  error={errors.tagline?.message}
+                  {...register("tagline")}
+                />
+                <Textarea
+                  label={translate(locale, "onboarding.aboutLabel")}
+                  placeholder={translate(locale, "onboarding.aboutPlaceholder")}
+                  rows={3}
+                  error={errors.about?.message}
+                  {...register("about")}
+                />
+              </div>
+            </div>
+
+            {/* Location & Contact */}
+            <div className="mt-8 border-t border-gray-100 pt-8">
+              <SectionHeader
+                icon={MapPinIcon}
+                eyebrow={translate(locale, "onboarding.contactEyebrow")}
+                title={translate(locale, "onboarding.contactTitle")}
+                description={translate(locale, "onboarding.contactDesc")}
+              />
+              <div className="mt-6 space-y-4">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <Input
+                    label={translate(locale, "onboarding.cityLabel")}
+                    placeholder={translate(locale, "onboarding.cityPlaceholder")}
+                    error={errors.city?.message}
+                    {...register("city")}
+                  />
+                  <Select
+                    label={translate(locale, "onboarding.countryLabel")}
+                    options={COUNTRY_OPTIONS}
+                    error={errors.country_code?.message}
+                    {...register("country_code")}
+                  />
+                </div>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <Input
+                    label={translate(locale, "onboarding.emailLabel")}
+                    type="email"
+                    placeholder={translate(locale, "onboarding.emailPlaceholder")}
+                    error={errors.email?.message}
+                    {...register("email")}
+                  />
+                  <Input
+                    label={translate(locale, "onboarding.phoneLabel")}
+                    type="tel"
+                    placeholder={translate(locale, "onboarding.phonePlaceholder")}
+                    error={errors.phone?.message}
+                    {...register("phone")}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Online Presence */}
+            <div className="mt-8 border-t border-gray-100 pt-8">
+              <SectionHeader
+                icon={GlobeIcon}
+                eyebrow={translate(locale, "onboarding.socialEyebrow")}
+                title={translate(locale, "onboarding.socialTitle")}
+                description={translate(locale, "onboarding.socialDesc")}
+              />
+              <div className="mt-6 space-y-4">
+                <Input
+                  label={translate(locale, "onboarding.websiteLabel")}
+                  type="url"
+                  placeholder={translate(locale, "onboarding.websitePlaceholder")}
+                  error={errors.website_url?.message}
+                  {...register("website_url")}
+                />
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                  <Input
+                    label={translate(locale, "onboarding.instagramLabel")}
+                    placeholder="@yourhandle"
+                    error={errors.instagram_handle?.message}
+                    {...register("instagram_handle")}
+                  />
+                  <Input
+                    label={translate(locale, "onboarding.facebookLabel")}
+                    placeholder="@yourpage"
+                    error={errors.facebook_handle?.message}
+                    {...register("facebook_handle")}
+                  />
+                  <Input
+                    label={translate(locale, "onboarding.tiktokLabel")}
+                    placeholder="@yourhandle"
+                    error={errors.tiktok_handle?.message}
+                    {...register("tiktok_handle")}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ============================================================= */}
+          {/* SECTION 2: Business / Venue Info                              */}
+          {/* ============================================================= */}
+          <div className="rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100 sm:p-8">
+            <SectionHeader
+              icon={BuildingIcon}
+              eyebrow={translate(locale, "onboarding.step2Eyebrow")}
+              title={translate(locale, "onboarding.step2Title")}
+              description={translate(locale, "onboarding.step2Desc")}
+            />
+
+            <div className="mt-6 space-y-4">
+              <Input
+                label={translate(locale, "onboarding.venueName")}
+                placeholder={translate(locale, "onboarding.venueNamePlaceholder")}
+                error={errors.venue_name?.message}
+                {...register("venue_name")}
+              />
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <Select
-                  label="Country"
-                  options={COUNTRY_OPTIONS}
-                  error={errors.country_code?.message}
-                  {...register("country_code")}
-                />
-              </div>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <Input
-                  label="Email"
-                  type="email"
-                  placeholder="contact@yourorg.com"
-                  error={errors.email?.message}
-                  {...register("email")}
+                  label={translate(locale, "onboarding.venueType")}
+                  options={VENUE_TYPE_OPTIONS}
+                  error={errors.venue_type?.message}
+                  {...register("venue_type")}
                 />
                 <Input
-                  label="Phone (optional)"
-                  type="tel"
-                  placeholder="+33 1 23 45 67 89"
-                  error={errors.phone?.message}
-                  {...register("phone")}
-                />
-              </div>
-            </div>
-          </Card>
-
-          {/* Online Presence */}
-          <Card>
-            <h2 className="mb-4 text-lg font-semibold text-gray-900">
-              Online Presence
-              <span className="ml-2 text-sm font-normal text-gray-400">(optional)</span>
-            </h2>
-            <div className="space-y-4">
-              <Input
-                label="Website"
-                type="url"
-                placeholder="https://yourorg.com"
-                error={errors.website_url?.message}
-                {...register("website_url")}
-              />
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <Input
-                  label="Instagram"
-                  placeholder="@yourhandle"
-                  error={errors.instagram_handle?.message}
-                  {...register("instagram_handle")}
-                />
-                <Input
-                  label="Facebook"
-                  placeholder="@yourpage"
-                  error={errors.facebook_handle?.message}
-                  {...register("facebook_handle")}
-                />
-              </div>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <Input
-                  label="TikTok"
-                  placeholder="@yourhandle"
-                  error={errors.tiktok_handle?.message}
-                  {...register("tiktok_handle")}
-                />
-                <Input
-                  label="YouTube"
-                  placeholder="@yourchannel"
-                  error={errors.youtube_handle?.message}
-                  {...register("youtube_handle")}
-                />
-              </div>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <Input
-                  label="Twitter / X"
-                  placeholder="@yourhandle"
-                  error={errors.twitter_handle?.message}
-                  {...register("twitter_handle")}
-                />
-                <Input
-                  label="Snapchat"
-                  placeholder="@yourhandle"
-                  error={errors.snapchat_handle?.message}
-                  {...register("snapchat_handle")}
-                />
-              </div>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <Input
-                  label="Pinterest"
-                  placeholder="@yourprofile"
-                  error={errors.pinterest_handle?.message}
-                  {...register("pinterest_handle")}
-                />
-                <Input
-                  label="Google Business"
-                  placeholder="https://business.google.com/..."
-                  error={errors.google_business_url?.message}
-                  {...register("google_business_url")}
-                />
-              </div>
-            </div>
-          </Card>
-
-          {/* Additional Details */}
-          <Card>
-            <h2 className="mb-4 text-lg font-semibold text-gray-900">
-              Additional Details
-              <span className="ml-2 text-sm font-normal text-gray-400">(optional)</span>
-            </h2>
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <Input
-                  label="Established Year"
+                  label={translate(locale, "onboarding.capacityLabel")}
+                  placeholder={translate(locale, "onboarding.capacityPlaceholder")}
                   type="number"
-                  placeholder="e.g., 2020"
-                  min="1900"
-                  max="2100"
-                  error={errors.established_year?.message}
-                  {...register("established_year")}
-                />
-                <Input
-                  label="Avg. Response Time (hours)"
-                  type="number"
-                  placeholder="e.g., 24"
-                  min="0"
-                  step="0.5"
-                  error={errors.response_time_hours?.message}
-                  {...register("response_time_hours")}
+                  min="1"
+                  {...register("venue_capacity")}
                 />
               </div>
-              <Input
-                label="Specialties"
-                placeholder="e.g., Swing, Jazz, Live Music (comma-separated)"
-                error={errors.specialties?.message}
-                {...register("specialties")}
-              />
             </div>
-          </Card>
 
-          {/* Policies */}
-          <Card>
-            <h2 className="mb-4 text-lg font-semibold text-gray-900">
-              Policies
-              <span className="ml-2 text-sm font-normal text-gray-400">(optional)</span>
-            </h2>
-            <div className="space-y-4">
-              <Textarea
-                label="Cancellation Policy"
-                placeholder="Describe your cancellation policy..."
-                rows={3}
-                error={errors.cancellation_policy?.message}
-                {...register("cancellation_policy")}
+            {/* Venue Location */}
+            <div className="mt-8 border-t border-gray-100 pt-8">
+              <SectionHeader
+                icon={MapPinIcon}
+                eyebrow={translate(locale, "onboarding.addressEyebrow")}
+                title={translate(locale, "onboarding.addressTitle")}
+                description={translate(locale, "onboarding.addressDesc")}
               />
-              <Textarea
-                label="Refund Policy"
-                placeholder="Describe your refund policy..."
-                rows={3}
-                error={errors.refund_policy?.message}
-                {...register("refund_policy")}
-              />
+              <div className="mt-6 space-y-4">
+                <Input
+                  label={translate(locale, "onboarding.addressLabel")}
+                  placeholder={translate(locale, "onboarding.addressPlaceholder")}
+                  error={errors.venue_address?.message}
+                  {...register("venue_address")}
+                />
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <Input
+                    label={translate(locale, "onboarding.cityLabel")}
+                    placeholder={translate(locale, "onboarding.cityPlaceholder")}
+                    error={errors.venue_city?.message}
+                    {...register("venue_city")}
+                  />
+                  <Input
+                    label={translate(locale, "onboarding.regionLabel")}
+                    placeholder={translate(locale, "onboarding.regionPlaceholder")}
+                    error={errors.venue_region?.message}
+                    {...register("venue_region")}
+                  />
+                </div>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <Select
+                    label={translate(locale, "onboarding.countryLabel")}
+                    options={COUNTRY_OPTIONS}
+                    error={errors.venue_country_code?.message}
+                    {...register("venue_country_code")}
+                  />
+                  <Input
+                    label={translate(locale, "onboarding.postalLabel")}
+                    placeholder={translate(locale, "onboarding.postalPlaceholder")}
+                    error={errors.venue_postal_code?.message}
+                    {...register("venue_postal_code")}
+                  />
+                </div>
+              </div>
             </div>
-          </Card>
+          </div>
 
           {/* Submit */}
-          <div className="flex justify-end">
-            <Button variant="primary" type="submit" disabled={isPending}>
-              {isPending ? "Saving..." : "Complete Setup"}
-            </Button>
+          <div className="flex justify-end pb-6">
+            <button
+              type="submit"
+              disabled={isPending}
+              className="cursor-pointer rounded-xl bg-gray-950 px-8 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-gray-800 disabled:opacity-50"
+            >
+              {isPending ? translate(locale, "onboarding.settingUp") : translate(locale, "onboarding.completeSetup")}
+            </button>
           </div>
         </form>
       </div>

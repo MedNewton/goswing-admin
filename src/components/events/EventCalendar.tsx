@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
@@ -7,6 +8,8 @@ import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import type { EventClickArg } from "@fullcalendar/core";
 import type { Event } from "@/types";
+import { getClientLocale, translate } from "@/lib/i18n/client";
+import type { Locale } from "@/lib/i18n";
 
 interface EventCalendarProps {
   events: Event[];
@@ -29,6 +32,9 @@ const statusColors: Record<string, StatusColor> = {
 };
 
 export function EventCalendar({ events }: EventCalendarProps) {
+  const [locale, setLocale] = useState<Locale>("fr");
+  useEffect(() => { setLocale(getClientLocale()); }, []);
+
   const router = useRouter();
 
   // Convert app events to FullCalendar event objects
@@ -98,16 +104,16 @@ export function EventCalendar({ events }: EventCalendarProps) {
           );
         }}
         buttonText={{
-          today: "Today",
-          month: "Month",
-          week: "Week",
-          day: "Day",
+          today: translate(locale, "eventCalendar.today"),
+          month: translate(locale, "eventCalendar.month"),
+          week: translate(locale, "eventCalendar.week"),
+          day: translate(locale, "eventCalendar.day"),
         }}
       />
 
       {/* Legend */}
       <div className="mt-4 flex flex-wrap items-center gap-4 border-t border-gray-100 pt-3">
-        <span className="text-xs font-medium text-gray-500">Status:</span>
+        <span className="text-xs font-medium text-gray-500">{translate(locale, "eventCalendar.status")}</span>
         {Object.entries(statusColors).map(([status, colors]) => (
           <div key={status} className="flex items-center gap-1.5">
             <span

@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import en, { type TranslationKey } from "./en";
 import fr from "./fr";
 
+export type { TranslationKey };
 export type Locale = "fr" | "en";
 
 const translations: Record<Locale, Record<string, string>> = { en, fr };

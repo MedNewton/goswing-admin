@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { EventCard } from "@/components/events/EventCard";
 import { EventCalendar } from "@/components/events/EventCalendar";
 import { SearchBar } from "@/components/ui/SearchBar";
 import { Button } from "@/components/ui/Button";
 import type { Event } from "@/types";
+import { getClientLocale, translate } from "@/lib/i18n/client";
+import type { Locale } from "@/lib/i18n";
 
 interface EventsPageClientProps {
   events: Event[];
@@ -16,22 +18,25 @@ type ViewMode = "list" | "calendar";
 type StatusFilter = "all" | "published" | "draft" | "completed" | "cancelled";
 type SortBy = "date" | "attendees" | "rating" | "title";
 
-const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
-  { value: "all", label: "All Status" },
-  { value: "published", label: "Published" },
-  { value: "draft", label: "Draft" },
-  { value: "completed", label: "Completed" },
-  { value: "cancelled", label: "Cancelled" },
+const STATUS_OPTIONS: { value: StatusFilter; labelKey: "eventsPage.allStatus" | "common.published" | "common.draft" | "common.completed" | "common.cancelled" }[] = [
+  { value: "all", labelKey: "eventsPage.allStatus" },
+  { value: "published", labelKey: "common.published" },
+  { value: "draft", labelKey: "common.draft" },
+  { value: "completed", labelKey: "common.completed" },
+  { value: "cancelled", labelKey: "common.cancelled" },
 ];
 
-const SORT_OPTIONS: { value: SortBy; label: string }[] = [
-  { value: "date", label: "Date" },
-  { value: "attendees", label: "Attendees" },
-  { value: "rating", label: "Rating" },
-  { value: "title", label: "Title" },
+const SORT_OPTIONS: { value: SortBy; labelKey: "eventsPage.sortDate" | "eventsPage.sortAttendees" | "eventsPage.sortRating" | "eventsPage.sortTitle" }[] = [
+  { value: "date", labelKey: "eventsPage.sortDate" },
+  { value: "attendees", labelKey: "eventsPage.sortAttendees" },
+  { value: "rating", labelKey: "eventsPage.sortRating" },
+  { value: "title", labelKey: "eventsPage.sortTitle" },
 ];
 
 export function EventsPageClient({ events }: EventsPageClientProps) {
+  const [locale, setLocale] = useState<Locale>("fr");
+  useEffect(() => { setLocale(getClientLocale()); }, []);
+
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -67,7 +72,7 @@ export function EventsPageClient({ events }: EventsPageClientProps) {
       {/* Search, Filters, and View Toggle */}
       <div className="flex flex-wrap items-center gap-4">
         <SearchBar
-          placeholder="Search events..."
+          placeholder={translate(locale, "eventsPage.searchPlaceholder")}
           className="flex-1 max-w-md"
           value={searchQuery}
           onChange={setSearchQuery}
@@ -81,7 +86,7 @@ export function EventsPageClient({ events }: EventsPageClientProps) {
         >
           {STATUS_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
-              {opt.label}
+              {translate(locale, opt.labelKey)}
             </option>
           ))}
         </select>
@@ -94,7 +99,7 @@ export function EventsPageClient({ events }: EventsPageClientProps) {
         >
           {SORT_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
-              Sort: {opt.label}
+              {translate(locale, "eventsPage.sortPrefix")} {translate(locale, opt.labelKey)}
             </option>
           ))}
         </select>
@@ -109,7 +114,7 @@ export function EventsPageClient({ events }: EventsPageClientProps) {
                 : "text-gray-600 hover:text-gray-900"
             }`}
           >
-            List
+            {translate(locale, "eventsPage.listView")}
           </button>
           <button
             onClick={() => setViewMode("calendar")}
@@ -119,7 +124,7 @@ export function EventsPageClient({ events }: EventsPageClientProps) {
                 : "text-gray-600 hover:text-gray-900"
             }`}
           >
-            Calendar
+            {translate(locale, "eventsPage.calendarView")}
           </button>
         </div>
       </div>
@@ -129,13 +134,13 @@ export function EventsPageClient({ events }: EventsPageClientProps) {
         <div className="py-12 text-center">
           <p className="text-gray-500">
             {searchQuery || statusFilter !== "all"
-              ? "No events match your filters."
-              : "No events found. Create your first event to get started."}
+              ? translate(locale, "eventsPage.noMatchingEvents")
+              : `${translate(locale, "eventsPage.noEvents")}. ${translate(locale, "eventsPage.noEventsDesc")}`}
           </p>
           {!searchQuery && statusFilter === "all" && (
             <Link href="/events/create">
               <Button variant="primary" className="mt-4">
-                Create Event
+                {translate(locale, "eventsPage.createFirst")}
               </Button>
             </Link>
           )}

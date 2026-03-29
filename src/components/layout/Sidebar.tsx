@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -17,28 +18,32 @@ import {
   SettingsIcon,
   HelpIcon,
 } from "@/components/icons";
+import { getClientLocale, translate } from "@/lib/i18n/client";
+import type { Locale, TranslationKey } from "@/lib/i18n";
 
-const navigation = [
-  { name: "Overview", href: "/overview", icon: HomeIcon },
-  { name: "Events", href: "/events", icon: CalendarIcon },
-  { name: "Venue", href: "/venues", icon: MapPinIcon },
-  { name: "Orders", href: "/orders", icon: ShoppingBagIcon },
-  { name: "Attendees", href: "/attendees", icon: UsersIcon },
-  { name: "Reviews", href: "/reviews", icon: StarIcon },
-  { name: "Music", href: "/music", icon: MusicIcon },
-  { name: "Finance", href: "/finance", icon: DollarIcon },
-  { name: "Analytics", href: "/analytics", icon: ChartIcon },
-  { name: "Marketing", href: "/marketing", icon: EyeIcon },
+const navigation: { name: TranslationKey; href: string; icon: typeof HomeIcon }[] = [
+  { name: "sidebar.overview", href: "/overview", icon: HomeIcon },
+  { name: "sidebar.events", href: "/events", icon: CalendarIcon },
+  { name: "sidebar.venue", href: "/venues", icon: MapPinIcon },
+  { name: "sidebar.orders", href: "/orders", icon: ShoppingBagIcon },
+  { name: "sidebar.attendees", href: "/attendees", icon: UsersIcon },
+  { name: "sidebar.reviews", href: "/reviews", icon: StarIcon },
+  { name: "sidebar.music", href: "/music", icon: MusicIcon },
+  { name: "sidebar.finance", href: "/finance", icon: DollarIcon },
+  { name: "sidebar.analytics", href: "/analytics", icon: ChartIcon },
+  { name: "sidebar.marketing", href: "/marketing", icon: EyeIcon },
 ];
 
-const bottomNavigation = [
-  { name: "Help Center", href: "/help", icon: HelpIcon },
-  { name: "Profile", href: "/settings", icon: BuildingIcon },
-  { name: "Settings", href: "/settings/general", icon: SettingsIcon },
+const bottomNavigation: { name: TranslationKey; href: string; icon: typeof HomeIcon }[] = [
+  { name: "sidebar.helpCenter", href: "/help", icon: HelpIcon },
+  { name: "sidebar.profile", href: "/settings", icon: BuildingIcon },
+  { name: "sidebar.settings", href: "/settings/general", icon: SettingsIcon },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
+  const [locale, setLocale] = useState<Locale>("fr");
+  useEffect(() => { setLocale(getClientLocale()); }, []);
 
   const isLinkActive = (href: string) => {
     if (href === "/overview") return pathname === "/overview";
@@ -72,11 +77,11 @@ export function Sidebar() {
                     ? "bg-gray-900 text-white"
                     : "text-gray-900 hover:bg-gray-50"
                 }`}
-                title={item.name}
+                title={translate(locale, item.name)}
               >
                 <Icon className={`h-5 w-5 flex-shrink-0 ${isActive ? "text-white" : "text-gray-600"}`} />
                 <span className="whitespace-nowrap opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-                  {item.name}
+                  {translate(locale, item.name)}
                 </span>
               </Link>
             );
@@ -98,11 +103,11 @@ export function Sidebar() {
                     ? "bg-gray-900 text-white"
                     : "text-gray-900 hover:bg-gray-50"
                 }`}
-                title={item.name}
+                title={translate(locale, item.name)}
               >
                 <Icon className={`h-5 w-5 flex-shrink-0 ${isActive ? "text-white" : "text-gray-600"}`} />
                 <span className="whitespace-nowrap opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-                  {item.name}
+                  {translate(locale, item.name)}
                 </span>
               </Link>
             );

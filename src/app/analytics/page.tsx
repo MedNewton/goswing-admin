@@ -12,10 +12,12 @@ import { Button } from "@/components/ui/Button";
 import { getOverview } from "@/lib/data/overview";
 import { getReviewsWithStats } from "@/lib/data/reviews";
 import { formatCompactNumber } from "@/lib/utils/format";
+import { getLocale, t } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
 export default async function AnalyticsPage() {
+  const locale = await getLocale();
   let overviewStats = {
     totalEvents: 0,
     totalAttendees: 0,
@@ -60,10 +62,10 @@ export default async function AnalyticsPage() {
   return (
     <MainLayout>
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-gray-900">Analytics Dashboard</h1>
+        <h1 className="text-2xl font-semibold text-gray-900">{t(locale, "analyticsPage.title")}</h1>
         <div className="flex items-center gap-3">
           <Button variant="outline" size="sm">
-            Export Report
+            {t(locale, "analyticsPage.exportReport")}
           </Button>
         </div>
       </div>
@@ -71,25 +73,25 @@ export default async function AnalyticsPage() {
         {/* Stats Grid */}
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard
-            label="Total Events"
+            label={t(locale, "analyticsPage.totalEvents")}
             value={String(overviewStats.totalEvents)}
             icon={<CalendarIcon className="h-6 w-6 text-blue-600" />}
             iconBgColor="bg-blue-50"
           />
           <StatCard
-            label="Total Attendees"
+            label={t(locale, "analyticsPage.totalAttendees")}
             value={formatCompactNumber(overviewStats.totalAttendees)}
             icon={<UsersIcon className="h-6 w-6 text-green-600" />}
             iconBgColor="bg-green-50"
           />
           <StatCard
-            label="Total Revenue"
+            label={t(locale, "analyticsPage.totalRevenue")}
             value={overviewStats.totalRevenueFormatted}
             icon={<DollarIcon className="h-6 w-6 text-orange-600" />}
             iconBgColor="bg-orange-50"
           />
           <StatCard
-            label="Avg Event Rating"
+            label={t(locale, "analyticsPage.avgRating")}
             value={overviewStats.avgRating > 0 ? overviewStats.avgRating.toFixed(1) : "--"}
             icon={<StarIcon className="h-6 w-6 text-yellow-600" />}
             iconBgColor="bg-yellow-50"
@@ -100,10 +102,10 @@ export default async function AnalyticsPage() {
           {/* Top Performing Events */}
           <Card>
             <h3 className="mb-4 text-lg font-semibold text-gray-900">
-              Top Events by Attendance
+              {t(locale, "analyticsPage.topEvents")}
             </h3>
             {topEvents.length === 0 ? (
-              <p className="text-sm text-gray-500">No events yet.</p>
+              <p className="text-sm text-gray-500">{t(locale, "analyticsPage.noEvents")}</p>
             ) : (
               <div className="space-y-4">
                 {topEvents.map((event) => (
@@ -111,11 +113,11 @@ export default async function AnalyticsPage() {
                     <div className="min-w-0">
                       <p className="truncate font-medium text-gray-900">{event.title}</p>
                       <p className="text-sm text-gray-500">
-                        {event.attendeeCount.toLocaleString()} attendees
+                        {event.attendeeCount.toLocaleString()} {t(locale, "analyticsPage.attendees")}
                       </p>
                     </div>
                     <span className="shrink-0 text-sm font-semibold text-gray-700">
-                      {event.status === "published" ? "Live" : event.status}
+                      {event.status === "published" ? t(locale, "analyticsPage.live") : event.status}
                     </span>
                   </div>
                 ))}
@@ -126,10 +128,10 @@ export default async function AnalyticsPage() {
           {/* Event Category Distribution */}
           <Card>
             <h3 className="mb-4 text-lg font-semibold text-gray-900">
-              Event Categories
+              {t(locale, "analyticsPage.eventCategories")}
             </h3>
             {categoryEntries.length === 0 ? (
-              <p className="text-sm text-gray-500">No events to categorize.</p>
+              <p className="text-sm text-gray-500">{t(locale, "analyticsPage.noCategorize")}</p>
             ) : (
               <div className="space-y-3">
                 {categoryEntries.map(([category, count]) => {
@@ -158,14 +160,14 @@ export default async function AnalyticsPage() {
           {/* Rating Distribution */}
           <Card>
             <h3 className="mb-4 text-lg font-semibold text-gray-900">
-              Rating Distribution
+              {t(locale, "analyticsPage.ratingDistribution")}
             </h3>
             <div className="flex items-center gap-4">
               <div className="text-center">
                 <p className="text-4xl font-bold text-gray-900">
                   {reviewStats.average > 0 ? reviewStats.average.toFixed(1) : "--"}
                 </p>
-                <p className="text-sm text-gray-500">{reviewStats.count} reviews</p>
+                <p className="text-sm text-gray-500">{reviewStats.count} {t(locale, "analyticsPage.reviews")}</p>
               </div>
               <div className="flex-1 space-y-1.5">
                 {[5, 4, 3, 2, 1].map((star) => {
@@ -192,29 +194,29 @@ export default async function AnalyticsPage() {
           {/* Quick Stats */}
           <Card>
             <h3 className="mb-4 text-lg font-semibold text-gray-900">
-              Quick Stats
+              {t(locale, "analyticsPage.quickStats")}
             </h3>
             <div className="grid grid-cols-2 gap-4">
               <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Tickets Sold</p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">{t(locale, "analyticsPage.ticketsSold")}</p>
                 <p className="mt-1 text-2xl font-semibold text-gray-900">
                   {formatCompactNumber(overviewStats.totalTickets)}
                 </p>
               </div>
               <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Active Events</p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">{t(locale, "analyticsPage.activeEvents")}</p>
                 <p className="mt-1 text-2xl font-semibold text-gray-900">
                   {recentEvents.filter((e) => e.status === "published").length}
                 </p>
               </div>
               <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Total Reviews</p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">{t(locale, "analyticsPage.totalReviews")}</p>
                 <p className="mt-1 text-2xl font-semibold text-gray-900">
                   {reviewStats.count}
                 </p>
               </div>
               <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Revenue</p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">{t(locale, "analyticsPage.revenue")}</p>
                 <p className="mt-1 text-2xl font-semibold text-gray-900">
                   {overviewStats.totalRevenueFormatted}
                 </p>

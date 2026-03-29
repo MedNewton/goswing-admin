@@ -2,7 +2,9 @@
 
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Card } from "@/components/ui/Card";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { getClientLocale, translate } from "@/lib/i18n/client";
+import type { Locale } from "@/lib/i18n";
 import {
   HomeIcon,
   CalendarIcon,
@@ -333,6 +335,8 @@ function AccordionItem({
 // ---------------------------------------------------------------------------
 
 export default function HelpCenterPage() {
+  const [locale, setLocale] = useState<Locale>("fr");
+  useEffect(() => { setLocale(getClientLocale()); }, []);
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -357,9 +361,9 @@ export default function HelpCenterPage() {
   return (
     <MainLayout>
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900">Help Center</h1>
+        <h1 className="text-2xl font-semibold text-gray-900">{translate(locale, "help.title")}</h1>
         <p className="mt-1 text-sm text-gray-500">
-          Learn how to use every part of GoSwing to manage your events.
+          {translate(locale, "help.subtitle")}
         </p>
       </div>
 
@@ -368,7 +372,7 @@ export default function HelpCenterPage() {
         <div className="relative">
           <input
             type="text"
-            placeholder="Search for help..."
+            placeholder={translate(locale, "help.searchPlaceholder")}
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value);
@@ -398,7 +402,7 @@ export default function HelpCenterPage() {
               onClick={() => setActiveSection(null)}
               className="text-sm font-medium text-gray-500 hover:text-gray-700"
             >
-              &larr; Back to all topics
+              &larr; {translate(locale, "help.backToTopics")}
             </button>
             <Card>
               <div className="mb-6 flex items-center gap-3">
@@ -433,8 +437,7 @@ export default function HelpCenterPage() {
                 {filteredSections.length === 0 ? (
                   <Card>
                     <p className="text-center text-sm text-gray-500">
-                      No results found for &quot;{searchQuery}&quot;. Try a
-                      different search term.
+                      {translate(locale, "help.noResults")} &quot;{searchQuery}&quot;. {translate(locale, "help.tryDifferent")}
                     </p>
                   </Card>
                 ) : (
@@ -494,7 +497,7 @@ export default function HelpCenterPage() {
                     </p>
                     <p className="mt-2 text-xs text-gray-400">
                       {section.articles.length}{" "}
-                      {section.articles.length === 1 ? "article" : "articles"}
+                      {section.articles.length === 1 ? translate(locale, "help.article") : translate(locale, "help.articles")}
                     </p>
                   </button>
                 ))}
@@ -507,17 +510,16 @@ export default function HelpCenterPage() {
         <Card>
           <div className="text-center">
             <h3 className="font-semibold text-gray-900">
-              Still need help?
+              {translate(locale, "help.needMore")}
             </h3>
             <p className="mt-1 text-sm text-gray-500">
-              If you can&apos;t find the answer you&apos;re looking for, reach
-              out to our support team.
+              {translate(locale, "help.needMoreDesc")}
             </p>
             <a
               href="mailto:support@goswing.com"
               className="mt-3 inline-block rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
             >
-              Contact Support
+              {translate(locale, "help.contactSupport")}
             </a>
           </div>
         </Card>

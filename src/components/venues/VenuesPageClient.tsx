@@ -1,18 +1,23 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { SearchBar } from "@/components/ui/SearchBar";
 import { Button } from "@/components/ui/Button";
 import { MapPinIcon } from "@/components/icons";
 import { VenueCard } from "@/components/venues/VenueCard";
 import type { Venue } from "@/types";
+import { getClientLocale, translate } from "@/lib/i18n/client";
+import type { Locale } from "@/lib/i18n";
 
 interface VenuesPageClientProps {
   venues: Venue[];
 }
 
 export function VenuesPageClient({ venues }: VenuesPageClientProps) {
+  const [locale, setLocale] = useState<Locale>("fr");
+  useEffect(() => { setLocale(getClientLocale()); }, []);
+
   const [search, setSearch] = useState("");
 
   const filtered = useMemo(() => {
@@ -33,7 +38,7 @@ export function VenuesPageClient({ venues }: VenuesPageClientProps) {
       {/* Search */}
       <div className="flex items-center gap-4">
         <SearchBar
-          placeholder="Search venues..."
+          placeholder={translate(locale, "venuesPage.searchPlaceholder")}
           className="flex-1 max-w-md"
           value={search}
           onChange={setSearch}
@@ -46,16 +51,16 @@ export function VenuesPageClient({ venues }: VenuesPageClientProps) {
           <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
             <MapPinIcon className="h-8 w-8 text-gray-400" />
           </div>
-          <h3 className="mb-2 text-lg font-semibold text-gray-900">No venues yet</h3>
+          <h3 className="mb-2 text-lg font-semibold text-gray-900">{translate(locale, "venuesPage.noVenues")}</h3>
           <p className="mb-6 max-w-sm text-sm text-gray-500">
-            Create your first venue to use it when creating events. You can add details like address, city, and type.
+            {translate(locale, "venuesPage.noVenuesDesc")}
           </p>
           <Link href="/venues/create">
-            <Button variant="primary" size="sm">+ Create Your First Venue</Button>
+            <Button variant="primary" size="sm">{translate(locale, "venuesPage.createFirst")}</Button>
           </Link>
         </div>
       ) : filtered.length === 0 ? (
-        <p className="py-12 text-center text-gray-500">No venues match your search.</p>
+        <p className="py-12 text-center text-gray-500">{translate(locale, "venuesPage.noMatch")}</p>
       ) : (
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((venue) => (

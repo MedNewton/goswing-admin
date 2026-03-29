@@ -1,11 +1,17 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 import Link from "next/link";
 import { BellIcon } from "@/components/icons";
 import { Button } from "@/components/ui/Button";
+import { getClientLocale, translate } from "@/lib/i18n/client";
+import type { Locale } from "@/lib/i18n";
 
 export function TopHeader() {
+  const [locale, setLocale] = useState<Locale>("fr");
+  useEffect(() => { setLocale(getClientLocale()); }, []);
+
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-gray-200 bg-white px-6">
       {/* Logo */}
@@ -19,7 +25,7 @@ export function TopHeader() {
         <SignedIn>
           <Link href="/events/create">
             <Button variant="primary" size="sm">
-              Create Event
+              {translate(locale, "header.createEvent")}
             </Button>
           </Link>
         </SignedIn>
@@ -27,7 +33,7 @@ export function TopHeader() {
         {/* Notifications */}
         <SignedIn>
           <button
-            aria-label="Notifications"
+            aria-label={translate(locale, "header.notifications")}
             className="rounded-lg p-2 text-gray-700 transition-colors hover:bg-gray-100"
           >
             <BellIcon className="h-5 w-5" />
@@ -39,7 +45,7 @@ export function TopHeader() {
             href="/login"
             className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
           >
-            Log In
+            {translate(locale, "header.logIn")}
           </Link>
         </SignedOut>
 

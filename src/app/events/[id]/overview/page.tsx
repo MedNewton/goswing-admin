@@ -10,6 +10,7 @@ import {
   UsersIcon,
 } from "@/components/icons";
 import { getEvent, getEventOverview } from "@/lib/data/events";
+import { getLocale, t } from "@/lib/i18n";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import type { ComponentType, SVGProps } from "react";
@@ -56,6 +57,7 @@ export default async function EventOverviewPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const locale = await getLocale();
 
   let eventData: Awaited<ReturnType<typeof getEvent>> | null = null;
   let overview: Awaited<ReturnType<typeof getEventOverview>> | null = null;
@@ -77,15 +79,15 @@ export default async function EventOverviewPage({
     <MainLayout>
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Event Overview</h1>
+          <h1 className="text-2xl font-semibold text-gray-900">{t(locale, "eventOverview.title")}</h1>
           <p className="mt-1 text-sm text-gray-500">{event.title}</p>
         </div>
         <div className="flex gap-2">
           <Link href={`/events/${id}`}>
-            <Button variant="outline" size="sm">View Event</Button>
+            <Button variant="outline" size="sm">{t(locale, "eventOverview.viewEvent")}</Button>
           </Link>
           <Link href={`/events/${id}/edit`}>
-            <Button variant="primary" size="sm">Edit Event</Button>
+            <Button variant="primary" size="sm">{t(locale, "eventOverview.editEvent")}</Button>
           </Link>
         </div>
       </div>
@@ -95,37 +97,37 @@ export default async function EventOverviewPage({
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
           <StatCard
             icon={CalendarIcon}
-            label="Reservations"
+            label={t(locale, "eventOverview.reservations")}
             value={overview.reservationsCount.toLocaleString()}
             tone="sky"
           />
           <StatCard
             icon={UsersIcon}
-            label="Checked In"
+            label={t(locale, "eventOverview.checkedIn")}
             value={overview.checkedInCount.toLocaleString()}
             tone="emerald"
           />
           <StatCard
             icon={DollarIcon}
-            label="Revenue"
+            label={t(locale, "eventOverview.revenue")}
             value={overview.totalRevenueFormatted}
             tone="amber"
           />
           <StatCard
             icon={MusicIcon}
-            label="Songs"
+            label={t(locale, "eventOverview.songs")}
             value={overview.songSuggestionsCount.toLocaleString()}
             tone="purple"
           />
           <StatCard
             icon={StarIcon}
-            label="Rating"
+            label={t(locale, "eventOverview.rating")}
             value={overview.reviewScore != null ? overview.reviewScore.toFixed(1) : "--"}
             tone="rose"
           />
           <StatCard
             icon={ChartIcon}
-            label="Tickets Sold"
+            label={t(locale, "eventOverview.ticketsSold")}
             value={overview.totalTicketsSold.toLocaleString()}
             tone="sky"
           />
@@ -135,10 +137,10 @@ export default async function EventOverviewPage({
           {/* Ticket Sales Breakdown */}
           <Card>
             <h2 className="mb-4 text-lg font-semibold text-gray-900">
-              Ticket Sales Breakdown
+              {t(locale, "eventOverview.ticketBreakdown")}
             </h2>
             {overview.ticketSalesBreakdown.length === 0 ? (
-              <p className="text-sm text-gray-500">No ticket sales yet.</p>
+              <p className="text-sm text-gray-500">{t(locale, "eventOverview.noTicketSales")}</p>
             ) : (
               <div className="space-y-3">
                 {overview.ticketSalesBreakdown.map((tier) => (
@@ -149,7 +151,7 @@ export default async function EventOverviewPage({
                     <div>
                       <p className="font-medium text-gray-900">{tier.ticketTypeName}</p>
                       <p className="text-sm text-gray-500">
-                        {tier.ticketsSold} sold
+                        {tier.ticketsSold} {t(locale, "eventOverview.sold")}
                       </p>
                     </div>
                     <span className="text-sm font-semibold text-gray-900">
@@ -164,12 +166,12 @@ export default async function EventOverviewPage({
           {/* Rates & Reviews */}
           <Card>
             <h2 className="mb-4 text-lg font-semibold text-gray-900">
-              Performance Metrics
+              {t(locale, "eventOverview.performanceMetrics")}
             </h2>
             <div className="space-y-4">
               <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
                 <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">
-                  Cancellation Rate
+                  {t(locale, "eventOverview.cancellationRate")}
                 </p>
                 <p className="mt-1 text-xl font-semibold text-gray-900">
                   {overview.cancellationRate != null
@@ -179,26 +181,26 @@ export default async function EventOverviewPage({
               </div>
               <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
                 <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">
-                  Reviews
+                  {t(locale, "eventOverview.reviews")}
                 </p>
                 <p className="mt-1 text-xl font-semibold text-gray-900">
-                  {overview.reviewCount} review{overview.reviewCount !== 1 ? "s" : ""}
+                  {overview.reviewCount} {overview.reviewCount !== 1 ? t(locale, "eventOverview.reviews") : t(locale, "eventOverview.review")}
                   {overview.reviewScore != null && (
                     <span className="ml-2 text-sm font-normal text-gray-500">
-                      (avg {overview.reviewScore.toFixed(1)} / 5)
+                      ({t(locale, "eventOverview.avg")} {overview.reviewScore.toFixed(1)} / 5)
                     </span>
                   )}
                 </p>
               </div>
               <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
                 <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">
-                  Total Revenue
+                  {t(locale, "eventOverview.totalRevenue")}
                 </p>
                 <p className="mt-1 text-xl font-semibold text-gray-900">
                   {overview.totalRevenueFormatted}
                 </p>
                 <p className="text-sm text-gray-500">
-                  from {overview.totalTicketsSold} tickets
+                  {t(locale, "eventOverview.fromTickets")} {overview.totalTicketsSold} {t(locale, "eventOverview.tickets")}
                 </p>
               </div>
             </div>
