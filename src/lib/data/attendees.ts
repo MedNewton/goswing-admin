@@ -90,6 +90,7 @@ export async function getCheckinSummary(): Promise<
     eventName: string;
     totalReservations: number;
     checkedIn: number;
+    cancelled: number;
   }>
 > {
   const sb = await createSupabaseServerClient();
@@ -117,11 +118,13 @@ export async function getCheckinSummary(): Promise<
     .map((event) => {
       const reservations = event.reservations ?? [];
       const checkedIn = reservations.filter((r) => r.status === "checkedIn").length;
+      const cancelled = reservations.filter((r) => r.status === "cancelled").length;
       return {
         eventId: event.id,
         eventName: event.title,
         totalReservations: reservations.length,
         checkedIn,
+        cancelled,
       };
     })
     .filter((e) => e.totalReservations > 0);

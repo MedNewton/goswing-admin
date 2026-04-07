@@ -24,6 +24,7 @@ interface CheckinSummaryItem {
   eventName: string;
   totalReservations: number;
   checkedIn: number;
+  cancelled: number;
 }
 
 interface AttendeesPageClientProps {
@@ -100,12 +101,11 @@ export function AttendeesPageClient({ attendees, checkinSummary }: AttendeesPage
     return result;
   }, [checkinSummary, search, eventFilter]);
 
-  // Updated stats: total attendees, checked in, pending, cancellations
-  const totalReservations = checkinSummary.reduce((sum, s) => sum + s.totalReservations, 0);
+  // Header stats: total attendees, checked in, pending (total - checked in), cancellations
+  const totalAttendees = checkinSummary.reduce((sum, s) => sum + s.totalReservations, 0);
   const totalCheckedIn = checkinSummary.reduce((sum, s) => sum + s.checkedIn, 0);
-  const totalPending = totalReservations - totalCheckedIn;
-  // Cancellations approximation — events with 0 checkins but had reservations
-  const cancellations = checkinSummary.filter((s) => s.totalReservations > 0 && s.checkedIn === 0).length;
+  const totalPending = totalAttendees - totalCheckedIn;
+  const cancellations = checkinSummary.reduce((sum, s) => sum + s.cancelled, 0);
 
   const handleExport = () => {
     const csv = generateCsv(filteredAttendees, [
@@ -149,8 +149,8 @@ export function AttendeesPageClient({ attendees, checkinSummary }: AttendeesPage
           <div className="grid gap-3 sm:grid-cols-2">
             <SummaryCard
               icon={UsersIcon}
-              label={translate(locale, "attendeesPage.reservations")}
-              value={String(totalReservations)}
+              label={translate(locale, "attendeesPage.totalAttendees")}
+              value={String(totalAttendees)}
               accentClass="bg-emerald-50 text-emerald-700"
             />
             <SummaryCard

@@ -844,6 +844,7 @@ const en = {
   "attendeesPage.eventsShown": "events shown",
   "attendeesPage.checkedIn": "Checked In",
   "attendeesPage.reservations": "Reservations",
+  "attendeesPage.totalAttendees": "Total Attendees",
   "attendeesPage.activeEvents": "Active Events",
   "attendeesPage.trackedEvents": "Tracked Events",
   "attendeesPage.searchTitle": "Search attendee activity",

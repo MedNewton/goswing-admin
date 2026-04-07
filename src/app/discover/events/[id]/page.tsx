@@ -123,17 +123,6 @@ export default async function PublicEventDetailPage({
         .join(", ")
     : null;
 
-  const mapsUrl =
-    venue?.lat && venue?.lng
-      ? `https://www.google.com/maps/dir/?api=1&destination=${venue.lat},${venue.lng}`
-      : venueAddress
-        ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venueAddress)}`
-        : null;
-
-  const venueLocation = venue
-    ? [venue.city, venue.region, venue.country_code].filter(Boolean).join(", ")
-    : "";
-
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -361,6 +350,24 @@ export default async function PublicEventDetailPage({
 
         {/* Sidebar */}
         <div className="space-y-6">
+          {/* Book Now CTA */}
+          <div className="rounded-[2rem] border border-gray-200 bg-gradient-to-br from-gray-950 to-gray-800 p-6 text-center shadow-lg">
+            <h3 className="text-lg font-semibold text-white">
+              {t(locale, "eventGuest.bookNow")}
+            </h3>
+            <p className="mt-2 text-sm text-gray-300">
+              {t(locale, "eventGuest.downloadApp")}
+            </p>
+            <a
+              href="https://goswing.app"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-white px-6 py-3 text-sm font-semibold text-gray-900 transition-colors hover:bg-gray-100"
+            >
+              {t(locale, "eventGuest.bookNow")}
+            </a>
+          </div>
+
           {/* Tickets */}
           {ticketTypes.length > 0 && (
             <div className="rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100">
@@ -397,14 +404,13 @@ export default async function PublicEventDetailPage({
             </div>
           )}
 
-          {/* Venue / Location */}
+          {/* Venue / Location with map + directions */}
           {venue && (
             <div className="rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100">
               <SectionHeader
                 icon={MapPinIcon}
                 eyebrow={t(locale, "eventDetail.venue")}
                 title={t(locale, "eventDetail.locationDetails")}
-                description={t(locale, "eventDetail.locationDetailsDesc")}
               />
               <div className="mt-6 rounded-3xl border border-gray-100 bg-gradient-to-br from-white to-slate-50 p-5">
                 <p className="font-semibold text-gray-900">{venue.name}</p>
@@ -418,12 +424,9 @@ export default async function PublicEventDetailPage({
                     {venue.address_line1}
                   </p>
                 )}
-                {venueLocation && (
-                  <p className="text-sm text-gray-600">{venueLocation}</p>
-                )}
               </div>
 
-              {venue.lat && venue.lng ? (
+              {venue.lat && venue.lng && (
                 <>
                   <div className="mt-4 overflow-hidden rounded-[1.5rem] border border-gray-200">
                     <iframe
@@ -446,17 +449,7 @@ export default async function PublicEventDetailPage({
                     {t(locale, "common.getDirections")}
                   </a>
                 </>
-              ) : mapsUrl ? (
-                <a
-                  href={mapsUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
-                >
-                  <MapPinIcon className="h-4 w-4" />
-                  {t(locale, "common.getDirections")}
-                </a>
-              ) : null}
+              )}
 
               <Link
                 href={`/discover/venues/${venue.id}`}

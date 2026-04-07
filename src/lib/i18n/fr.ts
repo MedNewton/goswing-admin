@@ -844,6 +844,7 @@ const fr: Record<string, string> = {
   "attendeesPage.eventsShown": "événements affichés",
   "attendeesPage.checkedIn": "Enregistrés",
   "attendeesPage.reservations": "Réservations",
+  "attendeesPage.totalAttendees": "Participants",
   "attendeesPage.activeEvents": "Événements actifs",
   "attendeesPage.trackedEvents": "Événements suivis",
   "attendeesPage.searchTitle": "Rechercher dans les participants",
