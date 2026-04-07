@@ -1,6 +1,8 @@
 "use server";
 
+import { auth } from "@clerk/nextjs/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { updateTable } from "@/lib/supabase/mutations";
 import { getTagsByType, getOrganizerTags, setOrganizerTags } from "@/lib/data/tags";
 import {
@@ -11,6 +13,38 @@ import {
 import { getVenueOrganizer } from "@/lib/data/venueStats";
 import type { GalleryItem } from "@/types";
 import type { VenueOrganizer } from "@/lib/data/venueStats";
+
+/**
+ * Verify the currently authenticated Clerk user is an admin member
+ * (or owner) of the given organizer. Throws if not.
+ */
+async function assertOrganizerAdmin(organizerId: string): Promise<void> {
+  const { userId } = await auth();
+  if (!userId) throw new Error("Not authenticated");
+
+  const sb = createSupabaseAdminClient();
+
+  // Owner check (legacy fallback)
+  const { data: owner } = await sb
+    .from("organizers")
+    .select("id")
+    .eq("id", organizerId)
+    .eq("owner_user_id", userId)
+    .maybeSingle();
+  if (owner) return;
+
+  // Membership check
+  const { data: member } = await sb
+    .from("organizer_members")
+    .select("role")
+    .eq("organizer_id", organizerId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (!member || (member as { role: string }).role !== "admin") {
+    throw new Error("Forbidden");
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Re-exports as server actions (callable from client components)
@@ -36,10 +70,25 @@ export async function addGalleryImage(
   organizerId: string,
   item: { image_url: string; media_type?: string; caption?: string; sort_order?: number },
 ): Promise<string> {
+  await assertOrganizerAdmin(organizerId);
   return addOrganizerGalleryItem(organizerId, item);
 }
 
 export async function removeGalleryImage(id: string): Promise<void> {
+  const { userId } = await auth();
+  if (!userId) throw new Error("Not authenticated");
+
+  // Look up the gallery item's organizer, then verify ownership.
+  const sb = createSupabaseAdminClient();
+  const { data, error } = await sb
+    .from("organizer_gallery")
+    .select("organizer_id")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error("Gallery item not found");
+
+  await assertOrganizerAdmin((data as { organizer_id: string }).organizer_id);
   await removeOrganizerGalleryItem(id);
 }
 

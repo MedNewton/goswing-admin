@@ -417,34 +417,44 @@ export default function EditVenuePage({
 
   const handleGalleryUpload = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file || !venue?.organizerId) return;
+      const files = Array.from(e.target.files ?? []);
+      if (files.length === 0 || !venue?.organizerId) return;
       setIsUploadingGallery(true);
+      let hadError = false;
       try {
-        const fd = new FormData();
-        fd.append("file", file);
-        const uploadResult = await uploadOrganizerImageAction(fd);
-        if (uploadResult.success) {
-          const newId = await addGalleryImage(venue.organizerId, {
-            image_url: uploadResult.url,
-            media_type: "image",
-            sort_order: gallery.length,
-          });
-          setGallery((prev) => [
-            ...prev,
-            {
-              id: newId,
-              mediaUrl: uploadResult.url,
-              mediaType: "image" as const,
-              sortOrder: prev.length,
-            },
-          ]);
-          markExtraDirty();
-        } else {
-          setServerError(uploadResult.error);
+        for (const file of files) {
+          const fd = new FormData();
+          fd.append("file", file);
+          const uploadResult = await uploadOrganizerImageAction(fd);
+          if (!uploadResult.success) {
+            hadError = true;
+            setServerError(uploadResult.error);
+            continue;
+          }
+          try {
+            const sortOrder = gallery.length;
+            const newId = await addGalleryImage(venue.organizerId, {
+              image_url: uploadResult.url,
+              media_type: "image",
+              sort_order: sortOrder,
+            });
+            setGallery((prev) => [
+              ...prev,
+              {
+                id: newId,
+                mediaUrl: uploadResult.url,
+                mediaType: "image" as const,
+                sortOrder: prev.length,
+              },
+            ]);
+            markExtraDirty();
+          } catch (err) {
+            hadError = true;
+            console.error("addGalleryImage failed", err);
+            setServerError("Failed to save gallery image.");
+          }
         }
-      } catch {
-        setServerError("Failed to upload gallery image.");
+        if (!hadError) setServerError(null);
       } finally {
         setIsUploadingGallery(false);
         if (galleryInputRef.current) galleryInputRef.current.value = "";
@@ -831,6 +841,7 @@ export default function EditVenuePage({
             <input
               ref={galleryInputRef}
               type="file"
+              multiple
               accept="image/jpeg,image/png,image/webp,image/gif"
               className="hidden"
               onChange={handleGalleryUpload}

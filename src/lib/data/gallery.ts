@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { insertInto } from "@/lib/supabase/mutations";
 import type { GalleryItem } from "@/types";
 
@@ -37,7 +38,10 @@ export async function addOrganizerGalleryItem(
   organizerId: string,
   item: { image_url: string; media_type?: string; caption?: string; sort_order?: number },
 ) {
-  const sb = await createSupabaseServerClient();
+  // Use admin client: the venue/organizer edit flow needs to bypass RLS
+  // for inserts. Caller is responsible for verifying the user owns the
+  // organizer before calling this function.
+  const sb = createSupabaseAdminClient();
 
   const { data, error } = await insertInto(sb, "organizer_gallery", {
     organizer_id: organizerId,
@@ -52,7 +56,7 @@ export async function addOrganizerGalleryItem(
 
 /** Remove a gallery item. */
 export async function removeOrganizerGalleryItem(id: string) {
-  const sb = await createSupabaseServerClient();
+  const sb = createSupabaseAdminClient();
 
   const { error } = await sb
     .from("organizer_gallery")
