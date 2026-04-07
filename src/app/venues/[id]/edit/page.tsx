@@ -654,8 +654,10 @@ export default function EditVenuePage({
           cancellation_policy: data.cancellation_policy,
           refund_policy: data.refund_policy,
         });
-      } catch {
-        setServerError("An unexpected error occurred. Please try again.");
+      } catch (err) {
+        console.error("venue edit save failed", err);
+        const message = err instanceof Error ? err.message : "Unknown error";
+        setServerError(`Save failed: ${message}`);
       }
     });
   };

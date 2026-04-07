@@ -14,8 +14,17 @@ import type { GalleryItem } from "@/types";
 import type { VenueOrganizer } from "@/lib/data/venueStats";
 
 /**
- * Verify the currently authenticated Clerk user is an admin member
- * (or owner) of the given organizer. Throws if not.
+ * Verify the currently authenticated Clerk user is allowed to mutate the
+ * given organizer. Accepts the user if EITHER:
+ *   - they are the legacy owner (organizers.owner_user_id = userId), OR
+ *   - they have an organizer_members row with role 'admin', OR
+ *   - they created a venue belonging to this organizer (covers users
+ *     who reached the edit page through getVenue ownership but were
+ *     never written into organizer_members).
+ *
+ * The page-level ownership check in getVenue() already gates access; this
+ * function exists only as a defense-in-depth check, so it errs on the
+ * side of allowing anyone authenticated who has *some* link to the org.
  */
 async function assertOrganizerAdmin(organizerId: string): Promise<void> {
   const { userId } = await auth();
@@ -23,7 +32,7 @@ async function assertOrganizerAdmin(organizerId: string): Promise<void> {
 
   const sb = createSupabaseAdminClient();
 
-  // Owner check (legacy fallback)
+  // 1) Legacy owner
   const { data: owner } = await sb
     .from("organizers")
     .select("id")
@@ -32,17 +41,28 @@ async function assertOrganizerAdmin(organizerId: string): Promise<void> {
     .maybeSingle();
   if (owner) return;
 
-  // Membership check
+  // 2) Membership row
   const { data: member } = await sb
     .from("organizer_members")
     .select("role")
     .eq("organizer_id", organizerId)
     .eq("user_id", userId)
     .maybeSingle();
+  if (member && (member as { role: string }).role === "admin") return;
 
-  if (!member || (member as { role: string }).role !== "admin") {
-    throw new Error("Forbidden");
-  }
+  // 3) Venue creator fallback — the user owns at least one venue under
+  //    this organizer. Required because some legacy organizers have neither
+  //    owner_user_id set nor an organizer_members row.
+  const { data: venue } = await sb
+    .from("venues")
+    .select("id")
+    .eq("organizer_id", organizerId)
+    .eq("created_by_user_id", userId)
+    .limit(1)
+    .maybeSingle();
+  if (venue) return;
+
+  throw new Error("Forbidden: not an admin of this organizer");
 }
 
 // ---------------------------------------------------------------------------

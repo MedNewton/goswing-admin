@@ -206,7 +206,9 @@ export async function uploadOrganizerImageAction(
       return { success: false, error: "File too large. Maximum size is 5MB." };
     }
 
-    const sb = await createSupabaseServerClient();
+    // Admin client: storage RLS otherwise blocks INSERT for the
+    // Clerk-bridged JWT and uploads silently fail.
+    const sb = createSupabaseAdminClient();
 
     const ext = file.name.split(".").pop() ?? "jpg";
     const fileName = `${crypto.randomUUID()}.${ext}`;

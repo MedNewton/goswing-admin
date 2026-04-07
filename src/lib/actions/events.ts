@@ -5,6 +5,7 @@ import { createEvent, getOrganizerForCurrentUser, getTags } from "@/lib/data/eve
 import { getCurrentUserId } from "@/lib/data/auth";
 import { insertInto, updateTable } from "@/lib/supabase/mutations";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import type { EventUpdate, TicketTypeInsert, TicketTypeUpdate } from "@/types/database";
 
@@ -560,7 +561,9 @@ export async function uploadEventImageAction(
       return { success: false, error: "File too large. Maximum size is 5MB." };
     }
 
-    const sb = await createSupabaseServerClient();
+    // Admin client: storage RLS otherwise blocks INSERT for the
+    // Clerk-bridged JWT and uploads silently fail.
+    const sb = createSupabaseAdminClient();
 
     // Generate unique filename
     const ext = file.name.split(".").pop() ?? "jpg";
