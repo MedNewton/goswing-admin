@@ -1,7 +1,6 @@
 "use server";
 
 import { auth } from "@clerk/nextjs/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { updateTable } from "@/lib/supabase/mutations";
 import { getTagsByType, getOrganizerTags, setOrganizerTags } from "@/lib/data/tags";
@@ -59,6 +58,7 @@ export async function fetchOrganizerTags(organizerId: string) {
 }
 
 export async function syncOrganizerTags(organizerId: string, tagIds: string[]) {
+  await assertOrganizerAdmin(organizerId);
   await setOrganizerTags(organizerId, tagIds);
 }
 
@@ -125,7 +125,11 @@ export async function updateOrganizerAction(
   input: UpdateOrganizerInput,
 ): Promise<UpdateOrganizerResult> {
   try {
-    const sb = await createSupabaseServerClient();
+    await assertOrganizerAdmin(organizerId);
+    // Use admin client: organizer RLS policies otherwise silently drop the
+    // UPDATE (no error, zero rows changed) and the cover image / policies
+    // never persist.
+    const sb = createSupabaseAdminClient();
 
     const { error } = await updateTable(sb, "organizers", {
       cover_image_url: input.cover_image_url,

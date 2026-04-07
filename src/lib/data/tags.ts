@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { insertInto } from "@/lib/supabase/mutations";
 
 // ---------------------------------------------------------------------------
@@ -38,9 +39,12 @@ export async function getOrganizerTags(organizerId: string) {
 // Mutations
 // ---------------------------------------------------------------------------
 
-/** Sync organizer_tags: delete old, insert new. */
+/** Sync organizer_tags: delete old, insert new.
+ * Uses admin client; caller must verify the user is allowed to mutate
+ * this organizer (see assertOrganizerAdmin in lib/actions/venueEdit.ts).
+ */
 export async function setOrganizerTags(organizerId: string, tagIds: string[]) {
-  const sb = await createSupabaseServerClient();
+  const sb = createSupabaseAdminClient();
 
   // Delete existing tags for this organizer
   const { error: deleteError } = await sb
