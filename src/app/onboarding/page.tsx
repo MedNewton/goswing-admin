@@ -425,7 +425,11 @@ export default function OnboardingPage() {
           </div>
         </section>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        <form onSubmit={handleSubmit(onSubmit, (errs) => {
+          const first = Object.values(errs)[0] as { message?: string } | undefined;
+          setServerError(first?.message ?? "Please fix the highlighted fields before continuing.");
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        })} className="space-y-6">
           {/* Server Error */}
           {serverError && (
             <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
