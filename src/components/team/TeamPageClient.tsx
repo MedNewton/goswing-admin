@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useTransition, useCallback, useRef } from "react";
+import { useState, useTransition, useCallback, useRef, useEffect } from "react";
+import { getClientLocale, translate } from "@/lib/i18n/client";
+import type { Locale } from "@/lib/i18n";
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -25,12 +27,13 @@ import { formatDate } from "@/lib/utils/format";
 import type { TeamMember } from "@/lib/data/team";
 import type { OrganizerRole } from "@/types/database";
 
-const ROLE_OPTIONS: { value: OrganizerRole; label: string }[] = [
-  { value: "admin", label: "Admin" },
-  { value: "dj", label: "DJ" },
-  { value: "entrance_manager", label: "Entrance Manager" },
-  { value: "finance_manager", label: "Finance Manager" },
-];
+const ROLE_LABEL_KEYS: Record<OrganizerRole, "teamPage.roleAdmin" | "teamPage.roleDj" | "teamPage.roleEntranceManager" | "teamPage.roleFinanceManager"> = {
+  admin: "teamPage.roleAdmin",
+  dj: "teamPage.roleDj",
+  entrance_manager: "teamPage.roleEntranceManager",
+  finance_manager: "teamPage.roleFinanceManager",
+};
+const ROLE_VALUES: OrganizerRole[] = ["admin", "dj", "entrance_manager", "finance_manager"];
 
 const roleBadgeVariant: Record<OrganizerRole, string> = {
   admin: "success",
@@ -56,6 +59,9 @@ export function TeamPageClient({ members: initialMembers }: { members: TeamMembe
   const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [locale, setLocaleState] = useState<Locale>("fr");
+  useEffect(() => { setLocaleState(getClientLocale()); }, []);
+  const tr = (key: Parameters<typeof translate>[1]) => translate(locale, key);
 
   const handleSearch = useCallback((query: string) => {
     setSearchQuery(query);
@@ -130,13 +136,13 @@ export function TeamPageClient({ members: initialMembers }: { members: TeamMembe
             <UsersIcon className="h-5 w-5 text-gray-600" />
           </div>
           <div>
-            <p className="text-sm text-gray-500">Total members</p>
+            <p className="text-sm text-gray-500">{tr("teamPage.totalMembers")}</p>
             <p className="text-lg font-semibold text-gray-900">{members.length}</p>
           </div>
         </div>
         <Button variant="primary" onClick={() => setShowAddModal(true)}>
           <PlusIcon className="h-4 w-4" />
-          Add Member
+          {tr("teamPage.addMember")}
         </Button>
       </div>
 
@@ -145,14 +151,14 @@ export function TeamPageClient({ members: initialMembers }: { members: TeamMembe
         {members.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <UsersIcon className="h-12 w-12 text-gray-300" />
-            <h3 className="mt-4 text-lg font-medium text-gray-900">No team members yet</h3>
+            <h3 className="mt-4 text-lg font-medium text-gray-900">{tr("teamPage.noMembersTitle")}</h3>
             <p className="mt-2 text-sm text-gray-500">
-              Add members to your team to collaborate on managing events.
+              {tr("teamPage.noMembersDesc")}
             </p>
             <div className="mt-6">
               <Button variant="primary" onClick={() => setShowAddModal(true)}>
                 <PlusIcon className="h-4 w-4" />
-                Add First Member
+                {tr("teamPage.addFirstMember")}
               </Button>
             </div>
           </div>
@@ -160,10 +166,10 @@ export function TeamPageClient({ members: initialMembers }: { members: TeamMembe
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Member</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Joined</TableHead>
-                <TableHead>Actions</TableHead>
+                <TableHead>{tr("teamPage.colMember")}</TableHead>
+                <TableHead>{tr("teamPage.colRole")}</TableHead>
+                <TableHead>{tr("teamPage.colJoined")}</TableHead>
+                <TableHead>{tr("teamPage.colActions")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -195,9 +201,9 @@ export function TeamPageClient({ members: initialMembers }: { members: TeamMembe
                         onBlur={() => setEditingMemberId(null)}
                         autoFocus
                       >
-                        {ROLE_OPTIONS.map((opt) => (
-                          <option key={opt.value} value={opt.value}>
-                            {opt.label}
+                        {ROLE_VALUES.map((value) => (
+                          <option key={value} value={value}>
+                            {tr(ROLE_LABEL_KEYS[value])}
                           </option>
                         ))}
                       </select>
@@ -205,12 +211,12 @@ export function TeamPageClient({ members: initialMembers }: { members: TeamMembe
                       <button
                         onClick={() => setEditingMemberId(member.memberId)}
                         className="cursor-pointer"
-                        title="Click to change role"
+                        title={tr("teamPage.changeRoleTitle")}
                       >
                         <Badge
                           variant={roleBadgeVariant[member.role] as "success" | "info" | "warning" | "secondary"}
                         >
-                          {ROLE_OPTIONS.find((o) => o.value === member.role)?.label ?? member.role}
+                          {tr(ROLE_LABEL_KEYS[member.role])}
                         </Badge>
                       </button>
                     )}
@@ -228,14 +234,14 @@ export function TeamPageClient({ members: initialMembers }: { members: TeamMembe
                           size="sm"
                           onClick={() => handleRemove(member.memberId)}
                         >
-                          Confirm
+                          {tr("teamPage.confirm")}
                         </Button>
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => setConfirmRemoveId(null)}
                         >
-                          Cancel
+                          {tr("teamPage.cancel")}
                         </Button>
                       </div>
                     ) : (
@@ -245,7 +251,7 @@ export function TeamPageClient({ members: initialMembers }: { members: TeamMembe
                         onClick={() => setConfirmRemoveId(member.memberId)}
                         className="text-red-600 hover:text-red-700 hover:bg-red-50"
                       >
-                        Remove
+                        {tr("teamPage.remove")}
                       </Button>
                     )}
                   </TableCell>
@@ -260,9 +266,9 @@ export function TeamPageClient({ members: initialMembers }: { members: TeamMembe
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="mx-4 w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
-            <h2 className="text-lg font-semibold text-gray-900">Add Team Member</h2>
+            <h2 className="text-lg font-semibold text-gray-900">{tr("teamPage.modalTitle")}</h2>
             <p className="mt-1 text-sm text-gray-500">
-              Search for existing users to add to your team.
+              {tr("teamPage.modalDesc")}
             </p>
 
             <div className="mt-4 space-y-4">
@@ -270,22 +276,22 @@ export function TeamPageClient({ members: initialMembers }: { members: TeamMembe
               <SearchBar
                 value={searchQuery}
                 onChange={handleSearch}
-                placeholder="Search by name or email..."
+                placeholder={tr("teamPage.searchPlaceholder")}
               />
 
               {/* Role selector */}
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                  Role
+                  {tr("teamPage.roleLabel")}
                 </label>
                 <select
                   className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
                   value={selectedRole}
                   onChange={(e) => setSelectedRole(e.target.value as OrganizerRole)}
                 >
-                  {ROLE_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
+                  {ROLE_VALUES.map((value) => (
+                    <option key={value} value={value}>
+                      {tr(ROLE_LABEL_KEYS[value])}
                     </option>
                   ))}
                 </select>
@@ -295,7 +301,7 @@ export function TeamPageClient({ members: initialMembers }: { members: TeamMembe
               <div className="max-h-64 overflow-y-auto">
                 {searchQuery.trim().length >= 2 && searchResults.length === 0 && (
                   <p className="py-4 text-center text-sm text-gray-500">
-                    No users found matching &ldquo;{searchQuery}&rdquo;
+                    {tr("teamPage.noUsersFound")} &ldquo;{searchQuery}&rdquo;
                   </p>
                 )}
                 {searchResults.map((user) => (
@@ -324,7 +330,7 @@ export function TeamPageClient({ members: initialMembers }: { members: TeamMembe
                       onClick={() => handleAddMember(user.userId)}
                       disabled={isPending}
                     >
-                      Add
+                      {tr("teamPage.add")}
                     </Button>
                   </div>
                 ))}
@@ -340,7 +346,7 @@ export function TeamPageClient({ members: initialMembers }: { members: TeamMembe
                   setSearchResults([]);
                 }}
               >
-                Close
+                {tr("teamPage.close")}
               </Button>
             </div>
           </div>
