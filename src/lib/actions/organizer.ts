@@ -30,6 +30,7 @@ const onboardingSchema = z.object({
   tiktok_handle: z.string().max(100).optional().or(z.literal("")),
   logo_url: z.string().optional().or(z.literal("")),
   cover_image_url: z.string().optional().or(z.literal("")),
+  gallery_image_urls: z.array(z.string().url()).optional().default([]),
   custom_policies: z.array(customPolicySchema).optional().default([]),
 
   // Venue info
@@ -173,6 +174,23 @@ export async function completeOnboardingAction(
 
     if (venueUpdateError) {
       console.error("[completeOnboarding] venue update error:", venueUpdateError.message);
+    }
+  }
+
+  // Replace any pre-existing gallery rows for this organizer with the
+  // freshly uploaded ones from onboarding (clean slate per onboarding run).
+  if ((data.gallery_image_urls?.length ?? 0) > 0) {
+    await sb.from("organizer_gallery").delete().eq("organizer_id", organizerId);
+    const galleryRows = data.gallery_image_urls!.map((url, idx) => ({
+      organizer_id: organizerId,
+      image_url: url,
+      media_type: "image",
+      sort_order: idx,
+    }));
+    const { error: galleryError } = await insertInto(sb, "organizer_gallery", galleryRows);
+    if (galleryError) {
+      console.error("[completeOnboarding] gallery insert error:", galleryError.message);
+      return { success: false, error: `Failed to save gallery: ${galleryError.message}` };
     }
   }
 

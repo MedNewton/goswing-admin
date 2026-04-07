@@ -13,6 +13,7 @@ import {
   GlobeIcon,
   MapPinIcon,
   EyeIcon,
+  ImageIcon,
   ChevronRightIcon,
   ChevronLeftIcon,
   PlusIcon,
@@ -151,6 +152,13 @@ export default function OnboardingPage() {
   // Custom policies
   const [policies, setPolicies] = useState<Array<{ title: string; description: string }>>([]);
 
+  // Gallery state — list of public URLs already uploaded to storage. Sent to
+  // completeOnboardingAction on submit and inserted into organizer_gallery.
+  const [galleryUrls, setGalleryUrls] = useState<string[]>([]);
+  const [isUploadingGallery, setIsUploadingGallery] = useState(false);
+  const [galleryError, setGalleryError] = useState<string | null>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => { setLocale(getClientLocale()); }, []);
 
   const {
@@ -288,6 +296,34 @@ export default function OnboardingPage() {
     setValue("custom_policies", updated);
   };
 
+  const handleGallerySelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    if (galleryInputRef.current) galleryInputRef.current.value = "";
+    if (files.length === 0) return;
+    setIsUploadingGallery(true);
+    setGalleryError(null);
+    try {
+      for (const file of files) {
+        const fd = new FormData();
+        fd.append("file", file);
+        const result = await uploadOrganizerImageAction(fd);
+        if (result.success) {
+          setGalleryUrls((prev) => [...prev, result.url]);
+        } else {
+          setGalleryError(result.error);
+        }
+      }
+    } catch {
+      setGalleryError("Failed to upload gallery image.");
+    } finally {
+      setIsUploadingGallery(false);
+    }
+  };
+
+  const handleRemoveGalleryImage = (url: string) => {
+    setGalleryUrls((prev) => prev.filter((u) => u !== url));
+  };
+
   const handleNextStep = async () => {
     const valid = await trigger(["name", "email"]);
     if (valid) {
@@ -308,6 +344,7 @@ export default function OnboardingPage() {
           venue_lat: data.venue_lat,
           venue_lng: data.venue_lng,
           custom_policies: policies.filter((p) => p.title.trim() && p.description.trim()),
+          gallery_image_urls: galleryUrls,
         } as Parameters<typeof completeOnboardingAction>[0]);
         if (result.success) {
           window.location.href = "/overview";
@@ -451,41 +488,6 @@ export default function OnboardingPage() {
                     </div>
                   </div>
 
-                  {/* Cover Image */}
-                  <div>
-                    <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                      {translate(locale, "onboarding.coverLabel")}
-                    </label>
-                    <div className="relative h-40 w-full overflow-hidden rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50">
-                      {coverPreview ? (
-                        <>
-                          <Image src={coverPreview} alt="Cover" fill className="object-cover" />
-                          {isUploadingCover && (
-                            <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                              <div className="h-6 w-6 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                            </div>
-                          )}
-                        </>
-                      ) : (
-                        <div className="flex h-full items-center justify-center text-gray-300">
-                          <EyeIcon className="h-8 w-8" />
-                        </div>
-                      )}
-                    </div>
-                    <input ref={coverInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleCoverSelect} className="hidden" id="cover-input" />
-                    <div className="mt-2 flex gap-2">
-                      <Button variant="outline" size="sm" type="button" onClick={() => coverInputRef.current?.click()} disabled={isUploadingCover}>
-                        {isUploadingCover ? translate(locale, "createEvent.uploading") : coverPreview ? translate(locale, "onboarding.changeCover") : translate(locale, "onboarding.uploadCover")}
-                      </Button>
-                      {coverPreview && !isUploadingCover && (
-                        <Button variant="ghost" size="sm" type="button" onClick={handleRemoveCover} className="text-red-600 hover:text-red-700">
-                          {translate(locale, "common.remove")}
-                        </Button>
-                      )}
-                    </div>
-                    {coverError && <p className="mt-1 text-sm text-red-600">{coverError}</p>}
-                    <p className="mt-1 text-xs text-gray-400">{translate(locale, "onboarding.coverHint")}</p>
-                  </div>
                 </div>
 
                 {/* Organization Details */}
@@ -690,6 +692,111 @@ export default function OnboardingPage() {
                         </div>
                       </div>
                     </div>
+                  </div>
+                </div>
+
+                {/* Cover Image */}
+                <div className="mt-8 border-t border-gray-100 pt-8">
+                  <SectionHeader
+                    icon={EyeIcon}
+                    eyebrow={translate(locale, "onboarding.identityEyebrow")}
+                    title={translate(locale, "onboarding.coverLabel")}
+                    description={translate(locale, "onboarding.coverHint")}
+                  />
+                  <div className="mt-6">
+                    <div className="relative h-40 w-full overflow-hidden rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50">
+                      {coverPreview ? (
+                        <>
+                          <Image src={coverPreview} alt="Cover" fill className="object-cover" />
+                          {isUploadingCover && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                              <div className="h-6 w-6 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <div className="flex h-full items-center justify-center text-gray-300">
+                          <EyeIcon className="h-8 w-8" />
+                        </div>
+                      )}
+                    </div>
+                    <input ref={coverInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleCoverSelect} className="hidden" id="cover-input" />
+                    <div className="mt-2 flex gap-2">
+                      <Button variant="outline" size="sm" type="button" onClick={() => coverInputRef.current?.click()} disabled={isUploadingCover}>
+                        {isUploadingCover ? translate(locale, "createEvent.uploading") : coverPreview ? translate(locale, "onboarding.changeCover") : translate(locale, "onboarding.uploadCover")}
+                      </Button>
+                      {coverPreview && !isUploadingCover && (
+                        <Button variant="ghost" size="sm" type="button" onClick={handleRemoveCover} className="text-red-600 hover:text-red-700">
+                          {translate(locale, "common.remove")}
+                        </Button>
+                      )}
+                    </div>
+                    {coverError && <p className="mt-1 text-sm text-red-600">{coverError}</p>}
+                  </div>
+                </div>
+
+                {/* Gallery */}
+                <div className="mt-8 border-t border-gray-100 pt-8">
+                  <SectionHeader
+                    icon={ImageIcon}
+                    eyebrow={translate(locale, "onboarding.identityEyebrow")}
+                    title="Gallery"
+                    description="Showcase your venue with additional photos."
+                  />
+                  <div className="mt-6">
+                    {galleryUrls.length > 0 ? (
+                      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                        {galleryUrls.map((url) => (
+                          <div key={url} className="group relative overflow-hidden rounded-xl border border-gray-200">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={url} alt="Gallery" className="h-32 w-full object-cover" />
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveGalleryImage(url)}
+                              className="absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-red-600 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                              title="Remove image"
+                            >
+                              <svg className="h-3.5 w-3.5" viewBox="0 0 14 14" fill="none">
+                                <path d="M10.5 3.5L3.5 10.5M3.5 3.5L10.5 10.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                              </svg>
+                            </button>
+                          </div>
+                        ))}
+                        <button
+                          type="button"
+                          disabled={isUploadingGallery}
+                          onClick={() => galleryInputRef.current?.click()}
+                          className="flex h-32 flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 text-gray-400 transition-colors hover:border-gray-400 hover:text-gray-500"
+                        >
+                          <PlusIcon className="h-5 w-5" />
+                          <span className="mt-1 text-xs">{isUploadingGallery ? "Uploading..." : "Add Image"}</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-300 bg-gray-50 py-10">
+                        <ImageIcon className="h-8 w-8 text-gray-400" />
+                        <p className="mt-2 text-sm text-gray-500">No gallery images yet</p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          type="button"
+                          className="mt-3"
+                          disabled={isUploadingGallery}
+                          onClick={() => galleryInputRef.current?.click()}
+                        >
+                          {isUploadingGallery ? "Uploading..." : "Add Image"}
+                        </Button>
+                      </div>
+                    )}
+                    <input
+                      ref={galleryInputRef}
+                      type="file"
+                      multiple
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      className="hidden"
+                      onChange={handleGallerySelect}
+                    />
+                    {galleryError && <p className="mt-2 text-sm text-red-600">{galleryError}</p>}
                   </div>
                 </div>
               </div>
