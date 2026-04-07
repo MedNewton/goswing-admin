@@ -143,7 +143,6 @@ export async function updateVenueAction(
       postal_code: normalizeOptionalText(data.postal_code),
       timezone: normalizeOptionalText(data.timezone),
       capacity: data.capacity ?? null,
-      organizer_id: normalizeOptionalText(data.organizer_id),
       description: normalizeOptionalText(data.description),
       free_access: data.free_access ?? undefined,
       free_for_ladies: data.free_for_ladies ?? undefined,
