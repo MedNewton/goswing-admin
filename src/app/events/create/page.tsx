@@ -29,7 +29,6 @@ import {
   type CreateEventResult,
 } from "@/lib/actions/events";
 import { fetchVenuesForSelect } from "@/lib/actions/venues";
-import Link from "next/link";
 import Image from "next/image";
 import type { ComponentType, SVGProps } from "react";
 import { getClientLocale, translate } from "@/lib/i18n/client";
@@ -271,7 +270,7 @@ export default function CreateEventPage() {
     fetchOrganizerContact().then((contact) => {
       if (contact.email) setValue("contactEmail", contact.email);
       if (contact.phone) setValue("contactPhone", contact.phone);
-    }).catch(() => {});
+    }).catch(() => { /* ignore */ });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

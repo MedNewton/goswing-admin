@@ -40,7 +40,11 @@ export async function GET() {
     return NextResponse.json({ role: orgData ? "admin" : "dj" });
   }
 
-  const validRoles = ["admin", "dj", "entrance_manager", "finance_manager"];
-  const role = validRoles.includes(data.role) ? data.role : "admin";
+  const validRoles = ["admin", "dj", "entrance_manager", "finance_manager"] as const;
+  type Role = (typeof validRoles)[number];
+  const rawRole = (data as { role: string | null }).role;
+  const role: Role = (validRoles as readonly string[]).includes(rawRole ?? "")
+    ? (rawRole as Role)
+    : "admin";
   return NextResponse.json({ role });
 }
