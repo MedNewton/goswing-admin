@@ -238,7 +238,7 @@ export default function EditEventPage({
   const [venues, setVenues] = useState<Array<{ id: string; name: string; city: string | null }>>([]);
   const [venuesLoading, setVenuesLoading] = useState(true);
   const [tags, setTags] = useState<Array<{ id: string; label: string; type: string }>>([]);
-  const [tagsLoading, setTagsLoading] = useState(true);
+  const [, setTagsLoading] = useState(true);
   const [selectedPartyTypeIds, setSelectedPartyTypeIds] = useState<string[]>([]);
   const [selectedMusicStyleIds, setSelectedMusicStyleIds] = useState<string[]>([]);
   const [selectedExtraServiceIds, setSelectedExtraServiceIds] = useState<string[]>([]);
@@ -367,7 +367,7 @@ export default function EditEventPage({
         setVenuesLoading(false);
         setTagsLoading(false);
       });
-  }, [eventId, reset]);
+  }, [eventId, reset, locale]);
 
   // Split tags by type
   const partyTypeTags = tags.filter((t) => t.type === "party_type");

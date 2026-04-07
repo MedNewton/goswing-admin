@@ -1,12 +1,8 @@
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
 import {
   ChevronLeftIcon,
-  DollarIcon,
-  ShoppingBagIcon,
-  UsersIcon,
 } from "@/components/icons";
 import { getOrderDetail } from "@/lib/data/orders";
 import { formatMoney, formatDateTime } from "@/lib/utils/format";
@@ -14,11 +10,8 @@ import { getLocale, t } from "@/lib/i18n";
 import { checkRoleAccess } from "@/lib/auth/requireAdmin";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import type { ComponentType, SVGProps } from "react";
 
 export const dynamic = "force-dynamic";
-
-type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
 
 function StatusBadgeVariant(status: string): "confirmed" | "checkedIn" | "pending" | "cancelled" | "draft" | "error" | "info" | "secondary" {
   switch (status) {
