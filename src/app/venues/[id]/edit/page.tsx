@@ -4,16 +4,10 @@ import { MainLayout } from "@/components/layout/MainLayout";
 import {
   BuildingIcon,
   ImageIcon,
-  LinkIcon,
-  TagIcon,
   ShieldIcon,
-  SettingsIcon,
   MapPinIcon,
   GlobeIcon,
   EyeIcon,
-  HomeIcon,
-  EditIcon,
-  ExternalLinkIcon,
   PlusIcon,
 } from "@/components/icons";
 import { Card } from "@/components/ui/Card";
@@ -56,8 +50,6 @@ import {
 } from "@/lib/actions/venueEdit";
 import type { Venue, GalleryItem } from "@/types";
 import type { VenueOrganizer } from "@/lib/data/venueStats";
-import { getClientLocale, translate } from "@/lib/i18n/client";
-import type { Locale } from "@/lib/i18n";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -195,9 +187,7 @@ export default function EditVenuePage({
   const [serverError, setServerError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [venue, setVenue] = useState<Venue | null>(null);
-  const [organizer, setOrganizer] = useState<VenueOrganizer | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [locale, setLocale] = useState<Locale>("fr");
 
   // Tags state
   const [categoryTags, setCategoryTags] = useState<TagOption[]>([]);
@@ -225,8 +215,6 @@ export default function EditVenuePage({
   const coverInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => { setLocale(getClientLocale()); }, []);
-  const t = (key: Parameters<typeof translate>[1]) => translate(locale, key);
 
   const {
     register,
@@ -284,7 +272,6 @@ export default function EditVenuePage({
         let org: VenueOrganizer | null = null;
         if (venueData.organizerId) {
           org = await fetchVenueOrganizer(venueData.organizerId);
-          setOrganizer(org);
           setCoverImageUrl(org?.coverImageUrl ?? null);
           setCustomPolicies(org?.customPolicies ?? []);
 
@@ -565,17 +552,17 @@ export default function EditVenuePage({
         if (venue?.organizerId) {
           const organizerInput: UpdateOrganizerInput = {
             cover_image_url: coverImageUrl,
-            website_url: data.website_url || null,
-            google_business_url: data.google_business_url || null,
-            instagram_handle: data.instagram_handle || null,
-            tiktok_handle: data.tiktok_handle || null,
-            facebook_handle: data.facebook_handle || null,
-            snapchat_handle: data.snapchat_handle || null,
-            twitter_handle: data.twitter_handle || null,
-            youtube_handle: data.youtube_handle || null,
-            pinterest_handle: data.pinterest_handle || null,
-            cancellation_policy: data.cancellation_policy || null,
-            refund_policy: data.refund_policy || null,
+            website_url: data.website_url ?? null,
+            google_business_url: data.google_business_url ?? null,
+            instagram_handle: data.instagram_handle ?? null,
+            tiktok_handle: data.tiktok_handle ?? null,
+            facebook_handle: data.facebook_handle ?? null,
+            snapchat_handle: data.snapchat_handle ?? null,
+            twitter_handle: data.twitter_handle ?? null,
+            youtube_handle: data.youtube_handle ?? null,
+            pinterest_handle: data.pinterest_handle ?? null,
+            cancellation_policy: data.cancellation_policy ?? null,
+            refund_policy: data.refund_policy ?? null,
             custom_policies: customPolicies.filter((p) => p.title.trim() !== ""),
           };
 
@@ -734,6 +721,7 @@ export default function EditVenuePage({
           <div className="mt-6">
             {coverImageUrl ? (
               <div className="relative overflow-hidden rounded-2xl border border-gray-200">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={coverImageUrl}
                   alt="Cover"
