@@ -131,7 +131,10 @@ export async function completeOnboardingAction(
     .maybeSingle();
 
   if (!existingVenue) {
-    const { error: venueError } = await insertInto(sb, "venues", {
+    if (!organizerId) {
+      return { success: false, error: "Internal error: organizerId missing before venue insert" };
+    }
+    const { data: insertedVenue, error: venueError } = await sb.from("venues").insert({
       name: data.venue_name.trim(),
       organizer_id: organizerId,
       description: emptyStringToNull(data.venue_description),
@@ -147,16 +150,26 @@ export async function completeOnboardingAction(
       lat: data.venue_lat ?? null,
       lng: data.venue_lng ?? null,
       created_by_user_id: userId,
-    });
+    }).select("id, organizer_id").single();
 
     if (venueError) {
       console.error("[completeOnboarding] venue creation error:", venueError.message);
       return { success: false, error: `Failed to create venue: ${venueError.message}` };
     }
+    const inserted = insertedVenue as { id: string; organizer_id: string | null } | null;
+    if (!inserted?.organizer_id) {
+      console.error("[completeOnboarding] venue inserted without organizer_id, repairing", { organizerId, inserted });
+      if (inserted?.id) {
+        await sb.from("venues").update({ organizer_id: organizerId }).eq("id", inserted.id);
+      } else {
+        return { success: false, error: "Venue insert returned no row" };
+      }
+    }
   } else {
     // Update existing venue
     const { error: venueUpdateError } = await updateTable(sb, "venues", {
       name: data.venue_name.trim(),
+      organizer_id: organizerId,
       description: emptyStringToNull(data.venue_description),
       free_access: data.venue_free_access ?? false,
       free_for_ladies: data.venue_free_for_ladies ?? false,
