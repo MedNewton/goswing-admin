@@ -15,7 +15,6 @@ import {
   DollarIcon,
   MapPinIcon,
   BuildingIcon,
-  SettingsIcon,
   HelpIcon,
 } from "@/components/icons";
 import { getClientLocale, translate } from "@/lib/i18n/client";
@@ -47,7 +46,6 @@ const bottomNavigation: NavItem[] = [
   { name: "sidebar.team", href: "/team", icon: UsersIcon, roles: ["admin"] },
   { name: "sidebar.helpCenter", href: "/help", icon: HelpIcon },
   { name: "sidebar.profile", href: "/settings", icon: BuildingIcon },
-  { name: "sidebar.settings", href: "/settings/general", icon: SettingsIcon },
 ];
 
 export function Sidebar() {
