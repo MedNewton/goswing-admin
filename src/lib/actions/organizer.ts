@@ -122,6 +122,26 @@ export async function completeOnboardingAction(
     return { success: false, error: updateError.message };
   }
 
+  // Ensure the current user is registered as an admin member of the organizer.
+  // Some legacy organizers only have owner_user_id set; downstream permission
+  // checks expect an organizer_members row.
+  const { data: existingMember } = await sb
+    .from("organizer_members")
+    .select("id")
+    .eq("organizer_id", organizerId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (!existingMember) {
+    const { error: memberError } = await insertInto(sb, "organizer_members", {
+      organizer_id: organizerId,
+      user_id: userId,
+      role: "admin",
+    });
+    if (memberError) {
+      console.error("[completeOnboarding] member insert error:", memberError.message);
+    }
+  }
+
   // Create venue (one per organizer) — check if one already exists first
   const { data: existingVenue } = await sb
     .from("venues")
@@ -134,7 +154,7 @@ export async function completeOnboardingAction(
     if (!organizerId) {
       return { success: false, error: "Internal error: organizerId missing before venue insert" };
     }
-    const { data: insertedVenue, error: venueError } = await sb.from("venues").insert({
+    const { data: insertedVenue, error: venueError } = await insertInto(sb, "venues", {
       name: data.venue_name.trim(),
       organizer_id: organizerId,
       description: emptyStringToNull(data.venue_description),
@@ -160,7 +180,7 @@ export async function completeOnboardingAction(
     if (!inserted?.organizer_id) {
       console.error("[completeOnboarding] venue inserted without organizer_id, repairing", { organizerId, inserted });
       if (inserted?.id) {
-        await sb.from("venues").update({ organizer_id: organizerId }).eq("id", inserted.id);
+        await updateTable(sb, "venues", { organizer_id: organizerId }).eq("id", inserted.id);
       } else {
         return { success: false, error: "Venue insert returned no row" };
       }
