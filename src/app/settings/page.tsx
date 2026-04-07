@@ -9,7 +9,6 @@ import {
   UsersIcon,
   MailIcon,
   BellIcon,
-  ChevronRightIcon,
 } from "@/components/icons";
 import { useState, useEffect, useTransition, useRef } from "react";
 import { useForm } from "react-hook-form";
@@ -21,7 +20,6 @@ import {
   type ProfileActionResult,
 } from "@/lib/actions/profile";
 import { uploadOrganizerImageAction } from "@/lib/actions/organizer";
-import Link from "next/link";
 import type { ComponentType, SVGProps } from "react";
 import { getClientLocale, translate } from "@/lib/i18n/client";
 import type { Locale } from "@/lib/i18n";
@@ -47,7 +45,6 @@ type ProfileFormValues = z.infer<typeof profileFormSchema>;
 const SETTINGS_LINKS: {
   labelKey: "settingsPage.generalSettings" | "settingsPage.notifications" | "settingsPage.security" | "settingsPage.paymentMethods" | "settingsPage.withdrawalMethods" | "settingsPage.deleteAccount";
   descKey: "settingsPage.generalDesc" | "settingsPage.notificationsDesc" | "settingsPage.securityDesc" | "settingsPage.paymentMethodsDesc" | "settingsPage.withdrawalMethodsDesc" | "settingsPage.deleteAccountDesc";
-  href: string;
   icon: ComponentType<SVGProps<SVGSVGElement>>;
   tone: string;
   danger?: boolean;
@@ -55,42 +52,36 @@ const SETTINGS_LINKS: {
   {
     labelKey: "settingsPage.generalSettings",
     descKey: "settingsPage.generalDesc",
-    href: "/settings/general",
     icon: SettingsIcon,
     tone: "bg-sky-50 text-sky-600",
   },
   {
     labelKey: "settingsPage.paymentMethods",
     descKey: "settingsPage.paymentMethodsDesc",
-    href: "/finance/payment-methods",
     icon: SettingsIcon,
     tone: "bg-emerald-50 text-emerald-600",
   },
   {
     labelKey: "settingsPage.withdrawalMethods",
     descKey: "settingsPage.withdrawalMethodsDesc",
-    href: "/finance/payment-methods",
     icon: SettingsIcon,
     tone: "bg-teal-50 text-teal-600",
   },
   {
     labelKey: "settingsPage.notifications",
     descKey: "settingsPage.notificationsDesc",
-    href: "/settings/general",
     icon: BellIcon,
     tone: "bg-amber-50 text-amber-600",
   },
   {
     labelKey: "settingsPage.security",
     descKey: "settingsPage.securityDesc",
-    href: "/settings/general",
     icon: SettingsIcon,
     tone: "bg-violet-50 text-violet-600",
   },
   {
     labelKey: "settingsPage.deleteAccount",
     descKey: "settingsPage.deleteAccountDesc",
-    href: "/settings/general",
     icon: UsersIcon,
     tone: "bg-red-50 text-red-600",
     danger: true,
@@ -423,10 +414,10 @@ export default function ProfileSettingsPage() {
           />
           <div className="mt-6 space-y-3">
             {SETTINGS_LINKS.map((item) => (
-              <Link
+              <div
                 key={item.labelKey}
-                href={item.href}
-                className="group flex items-center gap-4 rounded-2xl border border-gray-100 px-5 py-4 transition-all hover:-translate-y-0.5 hover:border-gray-200 hover:shadow-md"
+                aria-disabled="true"
+                className="flex items-center gap-4 rounded-2xl border border-gray-100 px-5 py-4 opacity-75 cursor-not-allowed"
               >
                 <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${item.tone}`}>
                   <item.icon className="h-5 w-5" />
@@ -441,10 +432,10 @@ export default function ProfileSettingsPage() {
                   </p>
                   <p className="text-xs text-gray-500">{translate(locale, item.descKey)}</p>
                 </div>
-                <div className="rounded-full bg-gray-100 p-1.5 text-gray-400 transition-transform group-hover:translate-x-0.5">
-                  <ChevronRightIcon className="h-4 w-4" />
-                </div>
-              </Link>
+                <span className="inline-flex shrink-0 items-center rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700 ring-1 ring-amber-200">
+                  {translate(locale, "common.comingSoon")}
+                </span>
+              </div>
             ))}
           </div>
         </div>
