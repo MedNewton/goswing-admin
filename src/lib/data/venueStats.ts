@@ -31,18 +31,30 @@ export async function getVenueStats(venueId: string, organizerId: string | null)
     0,
   );
 
-  // Venue review stats
-  const { data: reviewData } = await sb
-    .from("venue_reviews")
-    .select("rating")
+  // Review stats: average rating across all reviews of every event held at
+  // this venue (not the venue_reviews table).
+  const { data: eventIdRows } = await sb
+    .from("events")
+    .select("id")
     .eq("venue_id", venueId);
 
-  const reviews = (reviewData ?? []) as Array<{ rating: number }>;
-  const reviewCount = reviews.length;
-  const reviewScore =
-    reviewCount > 0
-      ? Math.round((reviews.reduce((sum, r) => sum + r.rating, 0) / reviewCount) * 10) / 10
-      : null;
+  const eventIds = ((eventIdRows ?? []) as Array<{ id: string }>).map((e) => e.id);
+
+  let reviewCount = 0;
+  let reviewScore: number | null = null;
+  if (eventIds.length > 0) {
+    const { data: reviewData } = await sb
+      .from("event_reviews")
+      .select("rating")
+      .in("event_id", eventIds);
+
+    const reviews = (reviewData ?? []) as Array<{ rating: number }>;
+    reviewCount = reviews.length;
+    reviewScore =
+      reviewCount > 0
+        ? Math.round((reviews.reduce((sum, r) => sum + r.rating, 0) / reviewCount) * 10) / 10
+        : null;
+  }
 
   // Follower count (from organizer_follows)
   let followerCount = 0;

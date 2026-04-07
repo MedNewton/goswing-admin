@@ -595,8 +595,7 @@ export default function EditVenuePage({
           // 5. Apply pending gallery additions (items with temp ids)
           const pendingAdds = gallery.filter((item) => item.id.startsWith("new-"));
           const persistedIds = new Map<string, string>(); // tempId -> realId
-          for (let i = 0; i < pendingAdds.length; i++) {
-            const item = pendingAdds[i]!;
+          for (const item of pendingAdds) {
             try {
               const newId = await addGalleryImage(venue.organizerId, {
                 image_url: item.mediaUrl,
