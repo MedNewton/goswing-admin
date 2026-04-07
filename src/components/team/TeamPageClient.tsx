@@ -64,9 +64,11 @@ export function TeamPageClient({ members: initialMembers }: { members: TeamMembe
       setSearchResults([]);
       return;
     }
-    searchTimeoutRef.current = setTimeout(async () => {
-      const results = await searchUsersAction(query);
-      setSearchResults(results);
+    searchTimeoutRef.current = setTimeout(() => {
+      void (async () => {
+        const results = await searchUsersAction(query);
+        setSearchResults(results);
+      })();
     }, 300);
   }, []);
 

@@ -3,14 +3,6 @@ import { getUserRole } from "@/lib/data/role";
 import { AccessDenied } from "@/components/layout/AccessDenied";
 import type { OrganizerRole } from "@/types/database";
 
-/** Routes each role is allowed to access (beyond shared routes like /settings, /help, /api). */
-const roleAllowedPrefixes: Record<OrganizerRole, string[]> = {
-  admin: [], // admin can access everything
-  dj: ["/music"],
-  entrance_manager: ["/orders", "/attendees"],
-  finance_manager: ["/finance", "/analytics"],
-};
-
 /** Default landing page per role (used by AccessDenied redirect). */
 export const roleDefaultPage: Record<OrganizerRole, string> = {
   admin: "/overview",

@@ -160,23 +160,17 @@ export default function VenueDetailPage({
             : Promise.resolve([]),
         ]);
 
-        if (promises[0].status === "fulfilled") setStats(promises[0].value as VenueStats);
-        if (promises[1].status === "fulfilled") setOrganizer(promises[1].value as VenueOrganizer | null);
+        if (promises[0].status === "fulfilled") setStats(promises[0].value);
+        if (promises[1].status === "fulfilled") setOrganizer(promises[1].value);
         if (promises[2].status === "fulfilled") {
-          const ev = promises[2].value as { live: VenueEventItem[]; upcoming: VenueEventItem[]; past: VenueEventItem[] };
-          setEvents(ev);
+          setEvents(promises[2].value);
         }
-        if (promises[3].status === "fulfilled") setSimilarVenues(promises[3].value as SimilarVenueItem[]);
+        if (promises[3].status === "fulfilled") setSimilarVenues(promises[3].value);
         if (promises[4].status === "fulfilled") {
-          setReviewData(
-            promises[4].value as {
-              reviews: VenueReview[];
-              stats: { count: number; average: number; distribution: Record<number, number> };
-            },
-          );
+          setReviewData(promises[4].value);
         }
-        if (promises[5].status === "fulfilled") setGallery(promises[5].value as GalleryItem[]);
-        if (promises[6].status === "fulfilled") setTags(promises[6].value as TagItem[]);
+        if (promises[5].status === "fulfilled") setGallery(promises[5].value);
+        if (promises[6].status === "fulfilled") setTags(promises[6].value);
       } catch {
         setError("Failed to load venue.");
       } finally {
@@ -410,7 +404,7 @@ export default function VenueDetailPage({
                 title={t("venueDetail.description") || "Description"}
               />
               <p className="mt-6 whitespace-pre-line text-sm leading-relaxed text-gray-600">
-                {venue.description || organizer?.about || "No description available."}
+                {venue.description ?? organizer?.about ?? "No description available."}
               </p>
             </div>
 
@@ -454,7 +448,7 @@ export default function VenueDetailPage({
                 {venue.address && (
                   <p className="text-sm text-gray-700">{venue.address}</p>
                 )}
-                {(venue.city || venue.region || venue.countryCode) && (
+                {(venue.city ?? venue.region ?? venue.countryCode) && (
                   <p className="text-sm text-gray-500">
                     {[venue.city, venue.region, venue.countryCode]
                       .filter(Boolean)
@@ -565,6 +559,7 @@ export default function VenueDetailPage({
                         controls
                       />
                     ) : (
+                      /* eslint-disable-next-line @next/next/no-img-element */
                       <img
                         src={gallery[galleryIndex]?.mediaUrl}
                         alt={gallery[galleryIndex]?.caption ?? "Gallery image"}
@@ -815,6 +810,7 @@ function EventSection({
               className="flex-shrink-0 w-64 rounded-2xl border border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow overflow-hidden"
             >
               {event.hero_image_url ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
                 <img
                   src={event.hero_image_url}
                   alt={event.title}

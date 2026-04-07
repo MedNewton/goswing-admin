@@ -795,6 +795,7 @@ export default function EditVenuePage({
                     key={item.id}
                     className="group relative overflow-hidden rounded-xl border border-gray-200"
                   >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={item.mediaUrl}
                       alt={item.caption ?? "Gallery image"}
