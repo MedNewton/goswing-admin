@@ -4,7 +4,6 @@ import { z } from "zod";
 import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { updateTable, insertInto } from "@/lib/supabase/mutations";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 // ---------------------------------------------------------------------------
 // Zod Schema
@@ -181,7 +180,7 @@ export async function completeOnboardingAction(
   // freshly uploaded ones from onboarding (clean slate per onboarding run).
   if ((data.gallery_image_urls?.length ?? 0) > 0) {
     await sb.from("organizer_gallery").delete().eq("organizer_id", organizerId);
-    const galleryRows = data.gallery_image_urls!.map((url, idx) => ({
+    const galleryRows = data.gallery_image_urls.map((url, idx) => ({
       organizer_id: organizerId,
       image_url: url,
       media_type: "image",
