@@ -198,7 +198,11 @@ export default function EditVenuePage({
   const [selectedCategory, setSelectedCategory] = useState<string>("");
 
   // Gallery state
+  // Items with id starting with "new-" are pending uploads not yet persisted.
+  // pendingGalleryDeletions holds DB ids of items the user removed but
+  // which still need to be deleted server-side on save.
   const [gallery, setGallery] = useState<GalleryItem[]>([]);
+  const [pendingGalleryDeletions, setPendingGalleryDeletions] = useState<string[]>([]);
   const [isUploadingGallery, setIsUploadingGallery] = useState(false);
 
   // Cover image state
@@ -418,60 +422,52 @@ export default function EditVenuePage({
   const handleGalleryUpload = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = Array.from(e.target.files ?? []);
-      if (files.length === 0 || !venue?.organizerId) return;
+      // Reset the input immediately so picking the same file again still
+      // fires onChange after this handler runs.
+      if (galleryInputRef.current) galleryInputRef.current.value = "";
+      if (files.length === 0) return;
       setIsUploadingGallery(true);
-      let hadError = false;
+      setServerError(null);
       try {
         for (const file of files) {
           const fd = new FormData();
           fd.append("file", file);
           const uploadResult = await uploadOrganizerImageAction(fd);
           if (!uploadResult.success) {
-            hadError = true;
             setServerError(uploadResult.error);
             continue;
           }
-          try {
-            const sortOrder = gallery.length;
-            const newId = await addGalleryImage(venue.organizerId, {
-              image_url: uploadResult.url,
-              media_type: "image",
-              sort_order: sortOrder,
-            });
-            setGallery((prev) => [
-              ...prev,
-              {
-                id: newId,
-                mediaUrl: uploadResult.url,
-                mediaType: "image" as const,
-                sortOrder: prev.length,
-              },
-            ]);
-            markExtraDirty();
-          } catch (err) {
-            hadError = true;
-            console.error("addGalleryImage failed", err);
-            setServerError("Failed to save gallery image.");
-          }
+          // Stage locally with a temp id; persisted on Save Changes.
+          setGallery((prev) => [
+            ...prev,
+            {
+              id: `new-${crypto.randomUUID()}`,
+              mediaUrl: uploadResult.url,
+              mediaType: "image" as const,
+              sortOrder: prev.length,
+            },
+          ]);
+          markExtraDirty();
         }
-        if (!hadError) setServerError(null);
+      } catch (err) {
+        console.error("gallery upload failed", err);
+        setServerError("Failed to upload gallery image.");
       } finally {
         setIsUploadingGallery(false);
-        if (galleryInputRef.current) galleryInputRef.current.value = "";
       }
     },
-    [venue?.organizerId, gallery.length, markExtraDirty],
+    [markExtraDirty],
   );
 
   const handleRemoveGalleryImage = useCallback(
-    async (imageId: string) => {
-      try {
-        await removeGalleryImage(imageId);
-        setGallery((prev) => prev.filter((item) => item.id !== imageId));
-        markExtraDirty();
-      } catch {
-        setServerError("Failed to remove gallery image.");
+    (imageId: string) => {
+      // If it's a pending (not-yet-persisted) item, just drop it locally.
+      // Otherwise, queue the DB id for deletion on Save Changes.
+      setGallery((prev) => prev.filter((item) => item.id !== imageId));
+      if (!imageId.startsWith("new-")) {
+        setPendingGalleryDeletions((prev) => [...prev, imageId]);
       }
+      markExtraDirty();
     },
     [markExtraDirty],
   );
@@ -584,6 +580,48 @@ export default function EditVenuePage({
 
           // 3. Sync tags
           await syncOrganizerTags(venue.organizerId, Array.from(selectedTagIds));
+
+          // 4. Apply pending gallery deletions
+          for (const deleteId of pendingGalleryDeletions) {
+            try {
+              await removeGalleryImage(deleteId);
+            } catch (err) {
+              console.error("removeGalleryImage failed", err);
+              setServerError("Failed to remove a gallery image.");
+              return;
+            }
+          }
+
+          // 5. Apply pending gallery additions (items with temp ids)
+          const pendingAdds = gallery.filter((item) => item.id.startsWith("new-"));
+          const persistedIds = new Map<string, string>(); // tempId -> realId
+          for (let i = 0; i < pendingAdds.length; i++) {
+            const item = pendingAdds[i]!;
+            try {
+              const newId = await addGalleryImage(venue.organizerId, {
+                image_url: item.mediaUrl,
+                media_type: item.mediaType,
+                sort_order: gallery.findIndex((g) => g.id === item.id),
+              });
+              persistedIds.set(item.id, newId);
+            } catch (err) {
+              console.error("addGalleryImage failed", err);
+              setServerError("Failed to save a gallery image.");
+              return;
+            }
+          }
+
+          // Swap temp ids with real ids in local state
+          if (persistedIds.size > 0) {
+            setGallery((prev) =>
+              prev.map((item) =>
+                persistedIds.has(item.id)
+                  ? { ...item, id: persistedIds.get(item.id)! }
+                  : item,
+              ),
+            );
+          }
+          setPendingGalleryDeletions([]);
         }
 
         setSuccessMessage("Venue updated successfully.");
