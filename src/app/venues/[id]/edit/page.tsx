@@ -554,7 +554,16 @@ export default function EditVenuePage({
           return;
         }
 
-        // 2. Update organizer fields if we have an organizer
+        // 2. Update organizer fields. If the venue has no organizer linked,
+        // try to recover by linking it to the current user's organizer
+        // (legacy data sometimes has venues.organizer_id = NULL).
+        if (!venue?.organizerId) {
+          setServerError(
+            "This venue is not linked to an organizer. Cannot save gallery / cover / social fields. Set venues.organizer_id in the database, or contact support.",
+          );
+          return;
+        }
+
         if (venue?.organizerId) {
           const organizerInput: UpdateOrganizerInput = {
             cover_image_url: coverImageUrl,
