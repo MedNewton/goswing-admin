@@ -45,8 +45,8 @@ type ProfileFormValues = z.infer<typeof profileFormSchema>;
 // ---------------------------------------------------------------------------
 
 const SETTINGS_LINKS: {
-  labelKey: "settingsPage.generalSettings" | "settingsPage.notifications" | "settingsPage.security" | "settingsPage.deleteAccount";
-  descKey: "settingsPage.generalDesc" | "settingsPage.notificationsDesc" | "settingsPage.securityDesc" | "settingsPage.deleteAccountDesc";
+  labelKey: "settingsPage.generalSettings" | "settingsPage.notifications" | "settingsPage.security" | "settingsPage.paymentMethods" | "settingsPage.withdrawalMethods" | "settingsPage.deleteAccount";
+  descKey: "settingsPage.generalDesc" | "settingsPage.notificationsDesc" | "settingsPage.securityDesc" | "settingsPage.paymentMethodsDesc" | "settingsPage.withdrawalMethodsDesc" | "settingsPage.deleteAccountDesc";
   href: string;
   icon: ComponentType<SVGProps<SVGSVGElement>>;
   tone: string;
@@ -60,6 +60,20 @@ const SETTINGS_LINKS: {
     tone: "bg-sky-50 text-sky-600",
   },
   {
+    labelKey: "settingsPage.paymentMethods",
+    descKey: "settingsPage.paymentMethodsDesc",
+    href: "/finance/payment-methods",
+    icon: SettingsIcon,
+    tone: "bg-emerald-50 text-emerald-600",
+  },
+  {
+    labelKey: "settingsPage.withdrawalMethods",
+    descKey: "settingsPage.withdrawalMethodsDesc",
+    href: "/finance/payment-methods",
+    icon: SettingsIcon,
+    tone: "bg-teal-50 text-teal-600",
+  },
+  {
     labelKey: "settingsPage.notifications",
     descKey: "settingsPage.notificationsDesc",
     href: "/settings/general",
@@ -71,7 +85,7 @@ const SETTINGS_LINKS: {
     descKey: "settingsPage.securityDesc",
     href: "/settings/general",
     icon: SettingsIcon,
-    tone: "bg-emerald-50 text-emerald-600",
+    tone: "bg-violet-50 text-violet-600",
   },
   {
     labelKey: "settingsPage.deleteAccount",

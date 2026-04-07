@@ -31,7 +31,6 @@ const createEventSchema = z.object({
   // Event details
   title: z.string().min(1, "Event title is required"),
   description: z.string().optional(),
-  category: z.string().optional(),
 
   // Image
   heroImageUrl: z.string().optional().or(z.literal("")),
@@ -47,14 +46,13 @@ const createEventSchema = z.object({
 
   // Pricing
   ticketTiers: z.array(ticketTierSchema).min(1, "At least one ticket tier is required"),
-  currency: z.string().default("USD"),
+  currency: z.string().default("MAD"),
 
-  // Tags
+  // Tags (party types + music styles + extra services all stored as event_tags)
   tagIds: z.array(z.string()).optional(),
 
   // Settings
   publishEvent: z.boolean().default(false),
-  waitlistEnabled: z.boolean().default(false),
   approvalMode: z.enum(["auto", "manual"]).default("auto"),
   sharingEnabled: z.boolean().default(true),
   policies: z.array(eventPolicySchema).optional(),
@@ -173,7 +171,6 @@ export async function createEventAction(
       {
         title: data.title,
         description: emptyStringToNull(data.description),
-        category: emptyStringToNull(data.category),
         organizer_id: organizer.id,
         external_id: externalId,
         starts_at: startsAt,
@@ -184,7 +181,6 @@ export async function createEventAction(
         currency: data.currency,
         min_price_cents: minPriceCents,
         is_free: isFree,
-        waitlist_enabled: data.waitlistEnabled,
         approval_mode: data.approvalMode,
         sharing_enabled: data.sharingEnabled,
         policies: data.policies ?? [],
@@ -216,7 +212,6 @@ export async function createEventAction(
 const updateEventSchema = z.object({
   title: z.string().min(1, "Event title is required"),
   description: z.string().optional(),
-  category: z.string().optional(),
   heroImageUrl: z.string().optional().or(z.literal("")),
   eventDate: z.string().min(1, "Event date is required"),
   startTime: z.string().min(1, "Start time is required"),
@@ -224,10 +219,9 @@ const updateEventSchema = z.object({
   endTime: z.string().optional(),
   venueId: z.string().optional().or(z.literal("")),
   ticketTiers: z.array(ticketTierSchema).min(1, "At least one ticket tier is required"),
-  currency: z.string().default("USD"),
+  currency: z.string().default("MAD"),
   tagIds: z.array(z.string()).optional(),
   publishEvent: z.boolean().default(false),
-  waitlistEnabled: z.boolean().default(false),
   approvalMode: z.enum(["auto", "manual"]).default("auto"),
   sharingEnabled: z.boolean().default(true),
   policies: z.array(eventPolicySchema).optional(),
@@ -331,7 +325,6 @@ export async function updateEventAction(
     const eventUpdates: EventUpdate = {
       title: data.title,
       description: emptyStringToNull(data.description),
-      category: emptyStringToNull(data.category),
       starts_at: startsAt,
       ends_at: endsAt,
       venue_id: venueId,
@@ -340,7 +333,6 @@ export async function updateEventAction(
       currency: data.currency,
       min_price_cents: minPriceCents,
       is_free: isFree,
-      waitlist_enabled: data.waitlistEnabled,
       approval_mode: data.approvalMode,
       sharing_enabled: data.sharingEnabled,
       policies: data.policies ?? [],
@@ -490,19 +482,36 @@ export async function fetchEventForEdit(eventId: string) {
     id: row.id as string,
     title: row.title as string,
     description: (row.description as string | null) ?? "",
-    category: (row.category as string | null) ?? "",
     heroImageUrl: (row.hero_image_url as string | null) ?? "",
     startsAt: row.starts_at as string,
     endsAt: (row.ends_at as string | null) ?? null,
     venueId: (row.venue_id as string | null) ?? "",
-    currency: ((row.currency as string) ?? "USD").trim(),
+    currency: ((row.currency as string) ?? "MAD").trim(),
     status: row.status as string,
     ticketTypes,
     tagIds,
-    waitlistEnabled: (row.waitlist_enabled as boolean) ?? false,
     approvalMode: (row.approval_mode as string) ?? "auto",
     sharingEnabled: (row.sharing_enabled as boolean) ?? true,
     policies: (row.policies as Array<{ title: string; description: string }>) ?? [],
+  };
+}
+
+/** Fetch organizer contact info for prefilling the create event form. */
+export async function fetchOrganizerContact() {
+  const sb = await createSupabaseServerClient();
+  const userId = await getCurrentUserId();
+
+  const { data, error } = await sb
+    .from("organizers")
+    .select("email, phone")
+    .eq("owner_user_id", userId)
+    .limit(1)
+    .single();
+
+  if (error) return { email: "", phone: "" };
+  return {
+    email: (data as { email: string | null }).email ?? "",
+    phone: (data as { phone: string | null }).phone ?? "",
   };
 }
 

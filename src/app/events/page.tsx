@@ -4,11 +4,15 @@ import { getCheckinSummary } from "@/lib/data/attendees";
 import { getEvents } from "@/lib/data/events";
 import { EventsPageClient } from "@/components/events/EventsPageClient";
 import { getLocale, t } from "@/lib/i18n";
+import { checkAdminAccess } from "@/lib/auth/requireAdmin";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
 export default async function EventsPage() {
+  const denied = await checkAdminAccess();
+  if (denied) return denied;
+
   const locale = await getLocale();
   let events: Awaited<ReturnType<typeof getEvents>> = [];
 

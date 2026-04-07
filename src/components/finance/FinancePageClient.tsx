@@ -27,7 +27,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/Table";
-import type { Transaction } from "@/types";
+import Link from "next/link";
+import type { Transaction, Payout } from "@/types";
 
 interface FinancePageClientProps {
   transactions: Transaction[];
@@ -37,6 +38,10 @@ interface FinancePageClientProps {
     totalFees: number;
     totalNet: number;
   };
+  upcomingPayouts: Payout[];
+  thisMonthGross: number;
+  pendingPayoutTotal: number;
+  payoutCurrency: string;
 }
 
 type PeriodOption = 7 | 30 | 90;
@@ -226,6 +231,10 @@ function SummaryCard({
 export function FinancePageClient({
   transactions,
   stats,
+  upcomingPayouts,
+  thisMonthGross,
+  pendingPayoutTotal,
+  payoutCurrency,
 }: FinancePageClientProps) {
   const [locale, setLocale] = useState<Locale>("fr");
   useEffect(() => { setLocale(getClientLocale()); }, []);
@@ -437,14 +446,14 @@ export function FinancePageClient({
             />
             <SummaryCard
               icon={ChartIcon}
-              label={translate(locale, "financePage.transactions")}
-              value={String(stats.transactionCount)}
+              label={translate(locale, "financePage.thisMonth")}
+              value={formatMoney(thisMonthGross, currency)}
               accentClass="bg-amber-50 text-amber-700"
             />
             <SummaryCard
               icon={DollarIcon}
-              label={translate(locale, "financePage.platformFees")}
-              value={formatMoney(stats.totalFees, currency)}
+              label={translate(locale, "financePage.pendingPayouts")}
+              value={formatMoney(pendingPayoutTotal, payoutCurrency)}
               accentClass="bg-rose-50 text-rose-700"
             />
           </div>
@@ -872,7 +881,7 @@ export function FinancePageClient({
               <TableHead className="px-6 py-4">Status</TableHead>
             </TableHeader>
             <TableBody>
-              {visibleTransactions.map((transaction) => (
+              {visibleTransactions.slice(0, 10).map((transaction) => (
                 <TableRow
                   key={transaction.id}
                   className="transition-colors hover:bg-slate-50/80"
@@ -904,6 +913,79 @@ export function FinancePageClient({
               ))}
             </TableBody>
           </Table>
+        )}
+        {visibleTransactions.length > 0 && (
+          <div className="border-t border-gray-100 px-6 py-4 text-center">
+            <Link
+              href="/finance/transactions"
+              className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-900 hover:text-emerald-600 transition-colors"
+            >
+              {translate(locale, "financePage.seeAllTransactions")}
+              <ChevronRightIcon className="h-4 w-4" />
+            </Link>
+          </div>
+        )}
+      </Card>
+
+      {/* Quick Actions */}
+      <div className="flex flex-wrap gap-3">
+        <Link href="/finance/transactions">
+          <Button variant="outline" size="sm" className="rounded-full border-gray-200 px-5">
+            <ChartIcon className="h-4 w-4" />
+            {translate(locale, "financePage.seeAllTransactions")}
+          </Button>
+        </Link>
+        <Link href="/finance/payment-methods">
+          <Button variant="outline" size="sm" className="rounded-full border-gray-200 px-5">
+            <DollarIcon className="h-4 w-4" />
+            {translate(locale, "financePage.managePaymentMethods")}
+          </Button>
+        </Link>
+      </div>
+
+      {/* Upcoming Payouts */}
+      <Card className="rounded-[2rem] border border-gray-200 bg-white shadow-lg shadow-gray-100">
+        <div className="border-b border-gray-100 px-6 py-5">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gray-950 text-white">
+              <DollarIcon className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">
+                {translate(locale, "financePage.upcomingPayouts")}
+              </p>
+              <h2 className="mt-1 text-2xl font-semibold text-gray-950">
+                {translate(locale, "financePage.upcomingPayouts")}
+              </h2>
+            </div>
+          </div>
+        </div>
+        {upcomingPayouts.length === 0 ? (
+          <p className="px-6 py-12 text-center text-gray-500">
+            {translate(locale, "financePage.noUpcomingPayouts")}
+          </p>
+        ) : (
+          <div className="space-y-3 p-6">
+            {upcomingPayouts.map((payout) => (
+              <div
+                key={payout.id}
+                className="flex flex-col gap-3 rounded-[1.5rem] border border-gray-200 bg-gradient-to-r from-white to-slate-50 p-5 lg:flex-row lg:items-center lg:justify-between"
+              >
+                <div>
+                  <p className="font-medium text-gray-900">{payout.amountFormatted}</p>
+                  <p className="mt-1 text-sm text-gray-500">
+                    {payout.provider} &bull; {payout.scheduledAt ? formatDate(payout.scheduledAt) : "—"}
+                    {payout.periodStart && payout.periodEnd && (
+                      <> &bull; {formatDate(payout.periodStart)} – {formatDate(payout.periodEnd)}</>
+                    )}
+                  </p>
+                </div>
+                <Badge variant={payout.status === "pending" ? "pending" : "info"}>
+                  {formatStatus(payout.status)}
+                </Badge>
+              </div>
+            ))}
+          </div>
         )}
       </Card>
     </div>

@@ -25,6 +25,7 @@ import {
   createEventAction,
   uploadEventImageAction,
   fetchTagsForSelect,
+  fetchOrganizerContact,
   type CreateEventResult,
 } from "@/lib/actions/events";
 import { fetchVenuesForSelect } from "@/lib/actions/venues";
@@ -50,7 +51,6 @@ const ticketTierSchema = z.object({
 const createEventFormSchema = z.object({
   title: z.string().min(1, "Event title is required"),
   description: z.string().optional(),
-  category: z.string().optional(),
   heroImageUrl: z.string().optional().or(z.literal("")),
   eventDate: z.string().min(1, "Event date is required"),
   startTime: z.string().min(1, "Start time is required"),
@@ -61,7 +61,6 @@ const createEventFormSchema = z.object({
   currency: z.string(),
   tagIds: z.array(z.string()).optional(),
   publishEvent: z.boolean(),
-  waitlistEnabled: z.boolean().optional(),
   approvalMode: z.enum(["auto", "manual"]).optional(),
   sharingEnabled: z.boolean().optional(),
   contactEmail: z.union([z.string().email("Invalid email"), z.literal("")]).optional(),
@@ -148,6 +147,93 @@ function SectionHeader({
 }
 
 // ---------------------------------------------------------------------------
+// Tag Multi-Select Component
+// ---------------------------------------------------------------------------
+
+function TagMultiSelect({
+  label,
+  tags,
+  selectedIds,
+  onToggle,
+  placeholder,
+  emptyMessage,
+  loading,
+  loadingMessage,
+  pillColor,
+}: {
+  label: string;
+  tags: Array<{ id: string; label: string }>;
+  selectedIds: string[];
+  onToggle: (id: string) => void;
+  placeholder: string;
+  emptyMessage: string;
+  loading: boolean;
+  loadingMessage: string;
+  pillColor: string;
+}) {
+  const pillColors: Record<string, string> = {
+    teal: "bg-teal-900 text-teal-100",
+    violet: "bg-violet-900 text-violet-100",
+    gray: "bg-gray-900 text-white",
+  };
+  const cls = pillColors[pillColor] ?? "bg-gray-900 text-white";
+
+  return (
+    <div>
+      <label className="mb-1.5 block text-sm font-medium text-gray-700">{label}</label>
+      {loading ? (
+        <p className="text-sm text-gray-400">{loadingMessage}</p>
+      ) : tags.length === 0 ? (
+        <p className="text-sm text-gray-400">{emptyMessage}</p>
+      ) : (
+        <>
+          {selectedIds.length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-2">
+              {selectedIds.map((tagId) => {
+                const tag = tags.find((t) => t.id === tagId);
+                if (!tag) return null;
+                return (
+                  <span
+                    key={tagId}
+                    className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ${cls}`}
+                  >
+                    {tag.label}
+                    <button
+                      type="button"
+                      onClick={() => onToggle(tagId)}
+                      className="ml-0.5 hover:opacity-70"
+                    >
+                      &times;
+                    </button>
+                  </span>
+                );
+              })}
+            </div>
+          )}
+          <select
+            className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-500"
+            value=""
+            onChange={(e) => {
+              const val = e.target.value;
+              if (val) onToggle(val);
+            }}
+          >
+            <option value="">{placeholder}</option>
+            {tags
+              .filter((t) => !selectedIds.includes(t.id))
+              .map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.label}
+                </option>
+              ))}
+          </select>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Page Component
 // ---------------------------------------------------------------------------
 
@@ -159,7 +245,9 @@ export default function CreateEventPage() {
   const [venuesLoading, setVenuesLoading] = useState(true);
   const [tags, setTags] = useState<Array<{ id: string; label: string; type: string }>>([]);
   const [tagsLoading, setTagsLoading] = useState(true);
-  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [selectedPartyTypeIds, setSelectedPartyTypeIds] = useState<string[]>([]);
+  const [selectedMusicStyleIds, setSelectedMusicStyleIds] = useState<string[]>([]);
+  const [selectedExtraServiceIds, setSelectedExtraServiceIds] = useState<string[]>([]);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
@@ -179,6 +267,12 @@ export default function CreateEventPage() {
       .then((data) => setTags(data))
       .catch(() => setTags([]))
       .finally(() => setTagsLoading(false));
+    // Prefill contact from organizer
+    fetchOrganizerContact().then((contact) => {
+      if (contact.email) setValue("contactEmail", contact.email);
+      if (contact.phone) setValue("contactPhone", contact.phone);
+    }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const {
@@ -193,14 +287,13 @@ export default function CreateEventPage() {
     defaultValues: {
       title: "",
       description: "",
-      category: "",
       eventDate: "",
       startTime: "",
       endDate: "",
       endTime: "",
       venueId: "",
       ticketTiers: [{ name: "Standard", price: 0, description: "", capacity: "" as unknown as undefined }],
-      currency: "USD",
+      currency: "MAD",
       tagIds: [],
       publishEvent: false,
       contactEmail: "",
@@ -214,11 +307,24 @@ export default function CreateEventPage() {
     name: "ticketTiers",
   });
 
-  const publishEvent = watch("publishEvent");
   const eventDate = watch("eventDate");
+  const publishEvent = watch("publishEvent");
 
   const todayStr = new Date().toISOString().split("T")[0];
   const minEndDate = eventDate || todayStr;
+
+  // Split tags by type
+  const partyTypeTags = tags.filter((t) => t.type === "party_type");
+  const musicStyleTags = tags.filter((t) => t.type === "music_style");
+  const extraServiceTags = tags.filter((t) => t.type === "extra_service");
+
+  const toggleTag = (id: string, selected: string[], setter: (ids: string[]) => void) => {
+    if (selected.includes(id)) {
+      setter(selected.filter((s) => s !== id));
+    } else {
+      setter([...selected, id]);
+    }
+  };
 
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -260,12 +366,13 @@ export default function CreateEventPage() {
 
   const onSubmit = (data: CreateEventFormValues) => {
     setServerError(null);
+    // Merge all tag selections into tagIds
+    const allTagIds = [...selectedPartyTypeIds, ...selectedMusicStyleIds, ...selectedExtraServiceIds];
     startTransition(async () => {
       try {
         const result: CreateEventResult = await createEventAction({
           ...data,
-          tagIds: selectedTagIds,
-          waitlistEnabled: data.waitlistEnabled ?? false,
+          tagIds: allTagIds,
           approvalMode: data.approvalMode ?? "auto",
           sharingEnabled: data.sharingEnabled ?? true,
           ticketTiers: data.ticketTiers.map((t) => ({
@@ -432,13 +539,13 @@ export default function CreateEventPage() {
           </div>
         </div>
 
-        {/* Event Details */}
+        {/* Event Details — category replaced with typed tag selects */}
         <div className="rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100 sm:p-8">
           <SectionHeader
             icon={EditIcon}
             eyebrow={translate(locale, "createEvent.detailsEyebrow")}
             title={translate(locale, "createEvent.eventDetails")}
-            description={translate(locale, "createEvent.eventDetailsDesc")}
+            description={translate(locale, "createEvent.eventDetailsDescUpdated")}
           />
           <div className="mt-6 space-y-4">
             <Input
@@ -454,80 +561,45 @@ export default function CreateEventPage() {
               error={errors.description?.message}
               {...register("description")}
             />
-            <Select
-              label={translate(locale, "createEvent.categoryLabel")}
-              options={[
-                { value: "", label: translate(locale, "createEvent.selectCategory") },
-                { value: "music", label: translate(locale, "createEvent.catMusic") },
-                { value: "food", label: translate(locale, "createEvent.catFood") },
-                { value: "business", label: translate(locale, "createEvent.catBusiness") },
-                { value: "sports", label: translate(locale, "createEvent.catSports") },
-                { value: "other", label: translate(locale, "createEvent.catOther") },
-              ]}
-              error={errors.category?.message}
-              {...register("category")}
+
+            {/* Party Types */}
+            <TagMultiSelect
+              label={translate(locale, "createEvent.partyTypesLabel")}
+              tags={partyTypeTags}
+              selectedIds={selectedPartyTypeIds}
+              onToggle={(id) => toggleTag(id, selectedPartyTypeIds, setSelectedPartyTypeIds)}
+              placeholder={translate(locale, "createEvent.addPartyType")}
+              emptyMessage={translate(locale, "createEvent.noPartyTypes")}
+              loading={tagsLoading}
+              loadingMessage={translate(locale, "createEvent.loadingTags")}
+              pillColor="teal"
             />
 
-            {/* Tags Multi-Select */}
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                {translate(locale, "createEvent.tagsLabel")}
-              </label>
-              {tagsLoading ? (
-                <p className="text-sm text-gray-400">{translate(locale, "createEvent.loadingTags")}</p>
-              ) : tags.length === 0 ? (
-                <p className="text-sm text-gray-400">{translate(locale, "createEvent.noTags")}</p>
-              ) : (
-                <>
-                  {selectedTagIds.length > 0 && (
-                    <div className="mb-2 flex flex-wrap gap-2">
-                      {selectedTagIds.map((tagId) => {
-                        const tag = tags.find((t) => t.id === tagId);
-                        if (!tag) return null;
-                        return (
-                          <span
-                            key={tagId}
-                            className="inline-flex items-center gap-1 rounded-full bg-gray-900 px-3 py-1 text-xs font-medium text-white"
-                          >
-                            {tag.label}
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setSelectedTagIds((prev) =>
-                                  prev.filter((id) => id !== tagId)
-                                )
-                              }
-                              className="ml-0.5 hover:text-gray-300"
-                            >
-                              &times;
-                            </button>
-                          </span>
-                        );
-                      })}
-                    </div>
-                  )}
-                  <select
-                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-500"
-                    value=""
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      if (val && !selectedTagIds.includes(val)) {
-                        setSelectedTagIds((prev) => [...prev, val]);
-                      }
-                    }}
-                  >
-                    <option value="">{translate(locale, "createEvent.addTag")}</option>
-                    {tags
-                      .filter((t) => !selectedTagIds.includes(t.id))
-                      .map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.label}
-                        </option>
-                      ))}
-                  </select>
-                </>
-              )}
-            </div>
+            {/* Music Styles */}
+            <TagMultiSelect
+              label={translate(locale, "createEvent.musicStylesLabel")}
+              tags={musicStyleTags}
+              selectedIds={selectedMusicStyleIds}
+              onToggle={(id) => toggleTag(id, selectedMusicStyleIds, setSelectedMusicStyleIds)}
+              placeholder={translate(locale, "createEvent.addMusicStyle")}
+              emptyMessage={translate(locale, "createEvent.noMusicStyles")}
+              loading={tagsLoading}
+              loadingMessage={translate(locale, "createEvent.loadingTags")}
+              pillColor="violet"
+            />
+
+            {/* Extra Services */}
+            <TagMultiSelect
+              label={translate(locale, "createEvent.extraServicesLabel")}
+              tags={extraServiceTags}
+              selectedIds={selectedExtraServiceIds}
+              onToggle={(id) => toggleTag(id, selectedExtraServiceIds, setSelectedExtraServiceIds)}
+              placeholder={translate(locale, "createEvent.addExtraService")}
+              emptyMessage={translate(locale, "createEvent.noExtraServices")}
+              loading={tagsLoading}
+              loadingMessage={translate(locale, "createEvent.loadingTags")}
+              pillColor="gray"
+            />
           </div>
         </div>
 
@@ -587,19 +659,10 @@ export default function CreateEventPage() {
               error={errors.venueId?.message}
               {...register("venueId")}
             />
-            <div className="flex items-center gap-2 text-sm text-gray-500">
-              <span>{translate(locale, "createEvent.noVenueHint")}</span>
-              <Link
-                href="/venues/create"
-                className="font-medium text-gray-900 underline hover:text-gray-700"
-              >
-                {translate(locale, "createEvent.createVenue")}
-              </Link>
-            </div>
           </div>
         </div>
 
-        {/* Pricing */}
+        {/* Pricing — currency removed, defaults to MAD */}
         <div className="rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100 sm:p-8">
           <SectionHeader
             icon={DollarIcon}
@@ -608,102 +671,94 @@ export default function CreateEventPage() {
             description={translate(locale, "createEvent.ticketsPricingDesc")}
           />
 
-          <div className="mt-6 mb-4">
-            <Select
-              label={translate(locale, "createEvent.currency")}
-              options={[
-                { value: "USD", label: "USD ($)" },
-                { value: "EUR", label: "EUR (€)" },
-                { value: "GBP", label: "GBP (£)" },
-                { value: "MAD", label: "MAD (د.م.)" },
-              ]}
-              error={errors.currency?.message}
-              {...register("currency")}
-            />
-          </div>
-
           {errors.ticketTiers?.message && (
-            <p className="mb-3 text-sm text-red-600">{errors.ticketTiers.message}</p>
+            <p className="mt-4 text-sm text-red-600">{errors.ticketTiers.message}</p>
           )}
 
-          <div className="space-y-4">
-            {fields.map((field, index) => (
-              <div
-                key={field.id}
-                className="rounded-2xl border border-gray-200 bg-gray-50/50 p-5"
-              >
-                <div className="mb-4 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gray-900 text-xs font-bold text-white">
-                      {index + 1}
+          <div className="mt-6 space-y-4">
+            {fields.map((field, index) => {
+              const isFreeTicket = watch(`ticketTiers.${index}.is_free`);
+              return (
+                <div
+                  key={field.id}
+                  className="rounded-2xl border border-gray-200 bg-gray-50/50 p-5"
+                >
+                  <div className="mb-4 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gray-900 text-xs font-bold text-white">
+                        {index + 1}
+                      </div>
+                      <h3 className="font-medium text-gray-900">
+                        {translate(locale, "createEvent.ticketTier")} {index + 1}
+                      </h3>
                     </div>
-                    <h3 className="font-medium text-gray-900">
-                      {translate(locale, "createEvent.ticketTier")} {index + 1}
-                    </h3>
+                    {fields.length > 1 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        type="button"
+                        onClick={() => remove(index)}
+                        className="text-red-500 hover:text-red-600"
+                      >
+                        {translate(locale, "common.remove")}
+                      </Button>
+                    )}
                   </div>
-                  {fields.length > 1 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      type="button"
-                      onClick={() => remove(index)}
-                      className="text-red-500 hover:text-red-600"
-                    >
-                      {translate(locale, "common.remove")}
-                    </Button>
-                  )}
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <Input
-                    label={translate(locale, "createEvent.ticketName")}
-                    placeholder={translate(locale, "createEvent.ticketNamePlaceholder")}
-                    error={fieldError(`ticketTiers.${index}.name`)}
-                    {...register(`ticketTiers.${index}.name`)}
-                  />
-                  <Input
-                    label={translate(locale, "createEvent.priceLabel")}
-                    placeholder="0.00"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    error={fieldError(`ticketTiers.${index}.price`)}
-                    {...register(`ticketTiers.${index}.price`)}
-                  />
-                </div>
-                <div className="mt-3 grid grid-cols-2 gap-4">
-                  <Input
-                    label={translate(locale, "createEvent.descOptional")}
-                    placeholder={translate(locale, "createEvent.descOptionalPlaceholder")}
-                    {...register(`ticketTiers.${index}.description`)}
-                  />
-                  <Input
-                    label={translate(locale, "createEvent.capacityOptional")}
-                    placeholder="e.g., 100"
-                    type="number"
-                    min="1"
-                    {...register(`ticketTiers.${index}.capacity`)}
-                  />
-                </div>
-                <div className="mt-4 flex flex-wrap gap-6">
-                  <label className="flex items-center gap-2 text-sm text-gray-700">
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
-                      {...register(`ticketTiers.${index}.is_free`)}
+                  <div className="grid grid-cols-2 gap-4">
+                    <Input
+                      label={translate(locale, "createEvent.ticketName")}
+                      placeholder={translate(locale, "createEvent.ticketNamePlaceholder")}
+                      error={fieldError(`ticketTiers.${index}.name`)}
+                      {...register(`ticketTiers.${index}.name`)}
                     />
-                    {translate(locale, "createEvent.freeTicket")}
-                  </label>
-                  <label className="flex items-center gap-2 text-sm text-gray-700">
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
-                      {...register(`ticketTiers.${index}.free_for_ladies`)}
+                    {/* Hide price when is_free */}
+                    {!isFreeTicket && (
+                      <Input
+                        label={translate(locale, "createEvent.priceLabel")}
+                        placeholder="0.00"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        error={fieldError(`ticketTiers.${index}.price`)}
+                        {...register(`ticketTiers.${index}.price`)}
+                      />
+                    )}
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-4">
+                    <Input
+                      label={translate(locale, "createEvent.descOptional")}
+                      placeholder={translate(locale, "createEvent.descOptionalPlaceholder")}
+                      {...register(`ticketTiers.${index}.description`)}
                     />
-                    {translate(locale, "createEvent.freeForLadies")}
-                  </label>
+                    <Input
+                      label={translate(locale, "createEvent.capacityOptional")}
+                      placeholder="e.g., 100"
+                      type="number"
+                      min="1"
+                      {...register(`ticketTiers.${index}.capacity`)}
+                    />
+                  </div>
+                  <div className="mt-4 flex flex-wrap gap-6">
+                    <label className="flex items-center gap-2 text-sm text-gray-700">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                        {...register(`ticketTiers.${index}.is_free`)}
+                      />
+                      {translate(locale, "createEvent.freeTicket")}
+                    </label>
+                    <label className="flex items-center gap-2 text-sm text-gray-700">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                        {...register(`ticketTiers.${index}.free_for_ladies`)}
+                      />
+                      {translate(locale, "createEvent.freeForLadies")}
+                    </label>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
 
             <button
               type="button"
@@ -723,7 +778,7 @@ export default function CreateEventPage() {
           </div>
         </div>
 
-        {/* Event Settings */}
+        {/* Event Settings — waitlist removed, publish toggle → dropdown */}
         <div className="rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100 sm:p-8">
           <SectionHeader
             icon={SettingsIcon}
@@ -732,18 +787,19 @@ export default function CreateEventPage() {
             description={translate(locale, "createEvent.eventSettingsDesc")}
           />
           <div className="mt-6 space-y-5">
-            <Toggle
-              label={translate(locale, "createEvent.publishEvent")}
-              checked={publishEvent}
-              onChange={(checked) => setValue("publishEvent", checked)}
-            />
-            <div className="border-t border-gray-100 pt-5">
-              <Toggle
-                label={translate(locale, "createEvent.enableWaitlist")}
-                checked={watch("waitlistEnabled") ?? false}
-                onChange={(checked) => setValue("waitlistEnabled", checked)}
-              />
-              <p className="mt-1 ml-11 text-xs text-gray-500">{translate(locale, "createEvent.waitlistHint")}</p>
+            {/* Status dropdown instead of publish toggle */}
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                {translate(locale, "createEvent.eventStatus")}
+              </label>
+              <select
+                value={publishEvent ? "published" : "draft"}
+                onChange={(e) => setValue("publishEvent", e.target.value === "published")}
+                className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-500"
+              >
+                <option value="draft">{translate(locale, "createEvent.statusDraft")}</option>
+                <option value="published">{translate(locale, "createEvent.statusPublished")}</option>
+              </select>
             </div>
             <div className="border-t border-gray-100 pt-5">
               <Toggle
@@ -770,7 +826,7 @@ export default function CreateEventPage() {
           </div>
         </div>
 
-        {/* Contact Information */}
+        {/* Contact Information — prefilled from organizer */}
         <div className="rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100 sm:p-8">
           <SectionHeader
             icon={MailIcon}

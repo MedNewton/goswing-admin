@@ -17,6 +17,9 @@ export function mapVenue(row: VenueRow): Venue {
     postalCode: row.postal_code,
     capacity: row.capacity,
     organizerId: row.organizer_id,
+    description: row.description,
+    freeAccess: row.free_access,
+    freeForLadies: row.free_for_ladies,
   };
 }
 

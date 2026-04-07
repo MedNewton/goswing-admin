@@ -13,6 +13,7 @@ export type {
   Update,
   TableName,
   EventPolicy,
+  OrganizerPolicy,
 } from "./database";
 
 import type { EventPolicy } from "./database";
@@ -33,7 +34,7 @@ export interface Event {
   capacity?: number;
   attendeeCount: number;
   reservationCount?: number;
-  status: "published" | "draft" | "completed" | "cancelled";
+  status: "published" | "draft" | "completed" | "cancelled" | "live";
   category?: string;
   ticketsSold?: number;
   revenue?: number;         // formatted / display value
@@ -43,6 +44,9 @@ export interface Event {
   organizerId?: string;
   organizerName?: string;
   tags?: string[];
+  partyTypes?: string[];
+  musicStyles?: string[];
+  extraServices?: string[];
   // New fields
   songSuggestionsCount?: number;
   checkedInCount?: number;
@@ -71,6 +75,9 @@ export interface Venue {
   postalCode: string | null;
   capacity: number | null;
   organizerId: string | null;
+  description: string | null;
+  freeAccess: boolean;
+  freeForLadies: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -119,6 +126,9 @@ export interface Review {
   comment: string;
   date: string;
   helpful: number;
+  adminLiked: boolean;
+  adminReply?: string;
+  adminReplyAt?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -204,6 +214,60 @@ export interface GalleryItem {
   caption?: string;
   sortOrder: number;
 }
+
+// ---------------------------------------------------------------------------
+// Venue Reviews
+// ---------------------------------------------------------------------------
+export interface VenueReview {
+  id: string;
+  venueId: string;
+  userName: string;
+  userAvatar?: string;
+  rating: number;
+  comment: string;
+  date: string;
+  adminLiked: boolean;
+  adminReply?: string;
+  adminReplyAt?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Payouts
+// ---------------------------------------------------------------------------
+export interface Payout {
+  id: string;
+  organizerId: string;
+  amountCents: number;
+  amountFormatted: string;
+  currency: string;
+  status: "pending" | "processing" | "completed" | "failed";
+  scheduledAt?: string;
+  completedAt?: string;
+  provider: string;
+  periodStart?: string;
+  periodEnd?: string;
+  createdAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// Organizer Payment Methods
+// ---------------------------------------------------------------------------
+export interface OrganizerPaymentMethod {
+  id: string;
+  organizerId: string;
+  methodType: "payment" | "withdrawal";
+  provider: string;
+  providerAccountId?: string;
+  label?: string;
+  isDefault: boolean;
+  details: Record<string, unknown>;
+  createdAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// Organizer Members / Roles
+// ---------------------------------------------------------------------------
+export type { OrganizerRole } from "./database";
 
 // ---------------------------------------------------------------------------
 // Event Overview (analytics)

@@ -20,6 +20,7 @@ import { getEventGallery } from "@/lib/data/gallery";
 import { getReviews } from "@/lib/data/reviews";
 import { formatPrice, formatDate, formatTime, formatDateTime } from "@/lib/utils/format";
 import { getLocale, t } from "@/lib/i18n";
+import { checkAdminAccess } from "@/lib/auth/requireAdmin";
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import type { ComponentType, ReactNode, SVGProps } from "react";
@@ -67,12 +68,13 @@ function MetricCard({
   icon: IconComponent;
   label: string;
   value: string;
-  tone: "emerald" | "sky" | "amber";
+  tone: "emerald" | "sky" | "amber" | "violet";
 }) {
   const tones = {
     emerald: "bg-emerald-50 text-emerald-700",
     sky: "bg-sky-50 text-sky-700",
     amber: "bg-amber-50 text-amber-700",
+    violet: "bg-violet-50 text-violet-700",
   };
 
   return (
@@ -112,12 +114,39 @@ function DetailRow({
   );
 }
 
+function TagPills({ label, tags, color }: { label: string; tags: string[]; color: string }) {
+  if (tags.length === 0) return null;
+  const colorMap: Record<string, string> = {
+    teal: "bg-teal-400/20 text-teal-100",
+    violet: "bg-violet-400/20 text-violet-100",
+    amber: "bg-amber-400/20 text-amber-100",
+  };
+  const pillClass = colorMap[color] ?? "bg-white/15 text-white/80";
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="text-xs font-semibold uppercase tracking-[0.18em] text-white/50">
+        {label}
+      </span>
+      {tags.map((tag) => (
+        <span
+          key={tag}
+          className={`rounded-full px-3 py-1 text-xs font-medium ${pillClass}`}
+        >
+          {tag}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 export default async function EventDetailsPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const denied = await checkAdminAccess();
+  if (denied) return denied;
   const locale = await getLocale();
 
   let eventData: Awaited<ReturnType<typeof getEvent>> | null = null;
@@ -137,6 +166,15 @@ export default async function EventDetailsPage({
   if (!eventData) notFound();
 
   const { event, ticketTypes, organizer, venue } = eventData;
+
+  // Compute total capacity from ticket tiers
+  const totalCapacity = ticketTypes
+    ? ticketTypes.reduce((sum, tt) => sum + (tt.capacity ?? 0), 0)
+    : 0;
+
+  // Determine if event has ended
+  const isEnded = event.endsAt ? new Date(event.endsAt) < new Date() : false;
+
   const hasOrganizerLocation = organizer
     ? [organizer.city, organizer.country_code].some(Boolean)
     : false;
@@ -185,13 +223,16 @@ export default async function EventDetailsPage({
                       <Badge variant={event.status}>
                         {event.status.charAt(0).toUpperCase() + event.status.slice(1)}
                       </Badge>
-                      {event.category && (
-                        <Badge
-                          variant="info"
-                          className="bg-white/85 text-gray-700 backdrop-blur"
-                        >
-                          {event.category.charAt(0).toUpperCase() + event.category.slice(1)}
-                        </Badge>
+                      {event.partyTypes && event.partyTypes.length > 0 && (
+                        event.partyTypes.map((pt) => (
+                          <Badge
+                            key={pt}
+                            variant="info"
+                            className="bg-white/85 text-gray-700 backdrop-blur"
+                          >
+                            {pt}
+                          </Badge>
+                        ))
                       )}
                       {event.isFree && (
                         <Badge
@@ -211,8 +252,15 @@ export default async function EventDetailsPage({
                   </div>
                 </div>
 
+                {/* Gradient metric cards — redesigned for Phase 3 */}
                 <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-teal-800 p-6">
-                  <div className="grid gap-4 md:grid-cols-3">
+                  <div className="grid gap-4 md:grid-cols-4">
+                    <MetricCard
+                      icon={CalendarIcon}
+                      label={t(locale, "adminEvent.schedule")}
+                      value={isEnded ? t(locale, "adminEvent.complete") : (formatDate(event.startsAt) + (event.startsAt ? ` • ${formatTime(event.startsAt)}` : ""))}
+                      tone="sky"
+                    />
                     <MetricCard
                       icon={DollarIcon}
                       label={t(locale, "adminEvent.price")}
@@ -221,17 +269,26 @@ export default async function EventDetailsPage({
                     />
                     <MetricCard
                       icon={UsersIcon}
-                      label={t(locale, "adminEvent.attendees")}
-                      value={event.attendeeCount.toLocaleString()}
+                      label={t(locale, "adminEvent.totalCapacity")}
+                      value={totalCapacity > 0 ? totalCapacity.toLocaleString() : "—"}
                       tone="emerald"
                     />
                     <MetricCard
-                      icon={CalendarIcon}
-                      label={t(locale, "adminEvent.currency")}
-                      value={event.currency ?? t(locale, "adminEvent.notSet")}
-                      tone="sky"
+                      icon={UsersIcon}
+                      label={t(locale, "adminEvent.attendees")}
+                      value={event.attendeeCount.toLocaleString()}
+                      tone="violet"
                     />
                   </div>
+
+                  {/* Tag pills in gradient area */}
+                  {((event.partyTypes?.length ?? 0) > 0 || (event.musicStyles?.length ?? 0) > 0 || (event.extraServices?.length ?? 0) > 0) && (
+                    <div className="mt-5 flex flex-wrap gap-4">
+                      <TagPills label={t(locale, "adminEvent.partyType")} tags={event.partyTypes ?? []} color="teal" />
+                      <TagPills label={t(locale, "adminEvent.musicStyle")} tags={event.musicStyles ?? []} color="violet" />
+                      <TagPills label={t(locale, "adminEvent.extraServices")} tags={event.extraServices ?? []} color="amber" />
+                    </div>
+                  )}
                 </div>
               </section>
 
@@ -266,11 +323,6 @@ export default async function EventDetailsPage({
                       {event.attendeeCount.toLocaleString()} {t(locale, "adminEvent.attendees")}
                     </p>
                   </DetailRow>
-                  {event.currency && (
-                    <DetailRow icon={DollarIcon} label={t(locale, "adminEvent.currency")}>
-                      <p className="font-medium text-gray-900">{event.currency}</p>
-                    </DetailRow>
-                  )}
                 </div>
 
                 {event.description && (
@@ -282,11 +334,46 @@ export default async function EventDetailsPage({
                   </div>
                 )}
 
-                {event.tags && event.tags.length > 0 && (
+                {/* Party Types */}
+                {event.partyTypes && event.partyTypes.length > 0 && (
                   <div className="mt-8">
-                    <h2 className="text-lg font-semibold text-gray-900">{t(locale, "adminEvent.tags")}</h2>
+                    <h2 className="text-lg font-semibold text-gray-900">{t(locale, "adminEvent.partyType")}</h2>
                     <div className="mt-3 flex flex-wrap gap-2">
-                      {event.tags.map((tag) => (
+                      {event.partyTypes.map((tag) => (
+                        <span
+                          key={tag}
+                          className="rounded-full border border-teal-200 bg-teal-50 px-3 py-1.5 text-sm font-medium text-teal-700"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Music Styles */}
+                {event.musicStyles && event.musicStyles.length > 0 && (
+                  <div className="mt-8">
+                    <h2 className="text-lg font-semibold text-gray-900">{t(locale, "adminEvent.musicStyle")}</h2>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {event.musicStyles.map((tag) => (
+                        <span
+                          key={tag}
+                          className="rounded-full border border-violet-200 bg-violet-50 px-3 py-1.5 text-sm font-medium text-violet-700"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Extra Services */}
+                {event.extraServices && event.extraServices.length > 0 && (
+                  <div className="mt-8">
+                    <h2 className="text-lg font-semibold text-gray-900">{t(locale, "adminEvent.extraServices")}</h2>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {event.extraServices.map((tag) => (
                         <span
                           key={tag}
                           className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm font-medium text-gray-700"
@@ -593,9 +680,17 @@ export default async function EventDetailsPage({
                           <span className="font-medium text-gray-900">
                             {ticket.name}
                           </span>
-                          <span className="rounded-full bg-gray-900 px-3 py-1 text-sm font-semibold text-white">
-                            {formatPrice(ticket.price_cents, ticket.currency)}
-                          </span>
+                          {/* Hide price when is_free */}
+                          {!ticket.is_free && (
+                            <span className="rounded-full bg-gray-900 px-3 py-1 text-sm font-semibold text-white">
+                              {formatPrice(ticket.price_cents, ticket.currency)}
+                            </span>
+                          )}
+                          {ticket.is_free && (
+                            <span className="rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-800">
+                              {t(locale, "adminEvent.free")}
+                            </span>
+                          )}
                         </div>
                         {ticket.description && (
                           <p className="mt-3 text-sm text-gray-600">{ticket.description}</p>
@@ -604,6 +699,11 @@ export default async function EventDetailsPage({
                           {ticket.capacity != null && (
                             <p className="text-xs font-medium uppercase tracking-[0.16em] text-gray-500">
                               {t(locale, "adminEvent.capacityLabel")} <span className="normal-case tracking-normal text-gray-700">{ticket.capacity}</span>
+                            </p>
+                          )}
+                          {ticket.free_for_ladies && (
+                            <p className="text-xs font-medium uppercase tracking-[0.16em] text-emerald-600">
+                              {t(locale, "adminEvent.freeForLadies")}
                             </p>
                           )}
                         {ticket.benefits && Array.isArray(ticket.benefits) && ticket.benefits.length > 0 && (
@@ -655,6 +755,11 @@ export default async function EventDetailsPage({
                         {venueLocation}
                     </p>
                   )}
+                  {venue.capacity != null && (
+                      <p className="mt-2 text-xs font-medium uppercase tracking-[0.16em] text-gray-500">
+                        {t(locale, "adminEvent.venueCapacity")} <span className="normal-case tracking-normal text-gray-700">{venue.capacity.toLocaleString()}</span>
+                      </p>
+                  )}
                   {venue.timezone && (
                       <p className="mt-2 text-xs font-medium uppercase tracking-[0.16em] text-gray-500">
                         {t(locale, "adminEvent.timezone")} <span className="normal-case tracking-normal text-gray-700">{venue.timezone}</span>
@@ -692,7 +797,7 @@ export default async function EventDetailsPage({
                 </div>
               )}
 
-              {/* Event Settings */}
+              {/* Event Settings — waitlist removed */}
               <div className="rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100">
                 <SectionHeader
                   icon={SettingsIcon}
@@ -701,11 +806,6 @@ export default async function EventDetailsPage({
                   description={t(locale, "adminEvent.settingsDesc")}
                 />
                 <div className="mt-6 grid gap-3">
-                  <DetailRow icon={UsersIcon} label={t(locale, "adminEvent.waitlist")}>
-                    <p className="font-medium text-gray-900">
-                      {event.waitlistEnabled ? t(locale, "adminEvent.waitlistEnabled") : t(locale, "adminEvent.waitlistDisabled")}
-                    </p>
-                  </DetailRow>
                   <DetailRow icon={SettingsIcon} label={t(locale, "adminEvent.approvalMode")}>
                     <p className="font-medium text-gray-900">
                       {event.approvalMode === "manual" ? t(locale, "adminEvent.manualApproval") : t(locale, "adminEvent.autoApproval")}

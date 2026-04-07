@@ -81,14 +81,32 @@ export function OrdersPageClient({ orders }: OrdersPageClientProps) {
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [eventFilter, setEventFilter] = useState<string>("all");
   const [sortAsc, setSortAsc] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const router = useRouter();
 
+  // Event options for dropdown
+  const eventOptions = useMemo(() => {
+    const seen = new Set<string>();
+    return orders
+      .filter((o) => {
+        if (seen.has(o.eventId)) return false;
+        seen.add(o.eventId);
+        return true;
+      })
+      .map((o) => ({ value: o.eventId, label: o.eventName }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [orders]);
+
   const filtered = useMemo(() => {
     let result = orders;
+
+    if (eventFilter !== "all") {
+      result = result.filter((o) => o.eventId === eventFilter);
+    }
 
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -114,7 +132,7 @@ export function OrdersPageClient({ orders }: OrdersPageClientProps) {
     });
 
     return result;
-  }, [orders, search, statusFilter, sortAsc]);
+  }, [orders, search, statusFilter, eventFilter, sortAsc]);
 
   const overview = useMemo(() => {
     const uniqueCustomers = new Set(
@@ -274,13 +292,28 @@ export function OrdersPageClient({ orders }: OrdersPageClientProps) {
           </div>
         </div>
 
-        <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px] lg:items-end">
+        <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px_220px] lg:items-end">
           <SearchBar
             placeholder={translate(locale, "ordersPage.searchPlaceholder")}
             className="max-w-none [&_input]:h-12 [&_input]:rounded-2xl [&_input]:border-gray-200 [&_input]:pr-4 [&_input]:text-sm [&_input]:shadow-sm [&_input]:focus:border-gray-900 [&_input]:focus:ring-gray-900"
             value={search}
             onChange={setSearch}
           />
+          <label className="block">
+            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
+              {translate(locale, "ordersPage.eventFilter")}
+            </span>
+            <select
+              value={eventFilter}
+              onChange={(e) => setEventFilter(e.target.value)}
+              className="h-12 w-full rounded-2xl border border-gray-200 bg-white px-4 text-sm text-gray-700 shadow-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
+            >
+              <option value="all">{translate(locale, "ordersPage.allEventsFilter")}</option>
+              {eventOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </label>
           <label className="block">
             <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
               {translate(locale, "ordersPage.statusLabel")}
@@ -349,7 +382,7 @@ export function OrdersPageClient({ orders }: OrdersPageClientProps) {
                 const isUpdating = updatingId === order.id;
 
                 return (
-                  <TableRow key={order.id} className="transition-colors hover:bg-slate-50/80">
+                  <TableRow key={order.id} className="cursor-pointer transition-colors hover:bg-slate-50/80" onClick={() => router.push(`/orders/${order.id}`)}>
                     <TableCell className="font-mono text-sm font-medium text-gray-900">
                       {order.id.slice(0, 8)}
                     </TableCell>
@@ -384,7 +417,14 @@ export function OrdersPageClient({ orders }: OrdersPageClientProps) {
                       {isUpdating ? (
                         <span className="text-xs text-gray-400">{translate(locale, "ordersPage.updating")}</span>
                       ) : (
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            type="button"
+                            onClick={() => router.push(`/orders/${order.id}`)}
+                            className="inline-flex min-h-10 items-center justify-center rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition-all hover:-translate-y-0.5 hover:bg-gray-50 hover:shadow-md"
+                          >
+                            {translate(locale, "ordersPage.viewOrder")}
+                          </button>
                           {order.status === "pending" && (
                             <>
                               <button

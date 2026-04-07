@@ -10,6 +10,7 @@ interface BadgeProps {
     | "checkedIn"
     | "completed"
     | "cancelled"
+    | "live"
     | "active"
     | "paused"
     | "default"
@@ -34,6 +35,7 @@ export function Badge({
     checkedIn: "bg-blue-100 text-blue-700",
     completed: "bg-blue-100 text-blue-700",
     cancelled: "bg-red-100 text-red-700",
+    live: "bg-emerald-100 text-emerald-700",
     active: "bg-green-100 text-green-700",
     paused: "bg-yellow-100 text-yellow-700",
     // Semantic variants (used by statusVariant())
@@ -47,8 +49,14 @@ export function Badge({
 
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${variants[variant] ?? variants.default} ${className}`}
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${variants[variant] ?? variants.default} ${className}`}
     >
+      {variant === "live" && (
+        <span className="relative flex h-2 w-2">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75" />
+          <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+        </span>
+      )}
       {children}
     </span>
   );

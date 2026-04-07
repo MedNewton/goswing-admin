@@ -3,5 +3,8 @@ export { mapVenue, mapVenues } from "./venues";
 export { mapOrder, mapOrders, type OrderQueryRow } from "./orders";
 export { mapAttendee, mapAttendees, type AttendeeQueryRow } from "./attendees";
 export { mapReview, mapReviews, computeReviewStats, type ReviewQueryRow } from "./reviews";
+export { mapVenueReview, mapVenueReviews, computeVenueReviewStats, type VenueReviewQueryRow } from "./venueReviews";
 export { mapTransaction, mapTransactions, computeFinanceStats, type PaymentQueryRow } from "./finance";
 export { mapSong, mapSongs, type SongQueryRow } from "./music";
+export { mapPayout, mapPayouts } from "./payouts";
+export { mapPaymentMethod, mapPaymentMethods } from "./paymentMethods";

@@ -8,14 +8,15 @@ import { Badge } from "@/components/ui/Badge";
 import {
   CalendarIcon,
   ChevronRightIcon,
+  DollarIcon,
   EditIcon,
-  MapPinIcon,
   MusicIcon,
   StarIcon,
   UsersIcon,
 } from "@/components/icons";
 import { getClientLocale, translate } from "@/lib/i18n/client";
 import type { Locale } from "@/lib/i18n";
+import { formatTime } from "@/lib/utils/format";
 
 interface EventCardProps {
   event: Event;
@@ -40,12 +41,12 @@ export function EventCard({ event }: EventCardProps) {
             <Badge variant={event.status}>
               {event.status.charAt(0).toUpperCase() + event.status.slice(1)}
             </Badge>
-            {event.category && (
+            {event.partyTypes && event.partyTypes.length > 0 && (
               <Badge
                 variant="secondary"
                 className="bg-white/85 text-gray-700 backdrop-blur"
               >
-                {event.category}
+                {event.partyTypes[0]}
               </Badge>
             )}
           </div>
@@ -65,19 +66,8 @@ export function EventCard({ event }: EventCardProps) {
       </Link>
 
       <div className="space-y-5 p-5">
-        {/* 4-Metric Grid */}
+        {/* 4-Metric Grid — reordered: reservation, music, check-in, review */}
         <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-2xl bg-green-50 p-4">
-            <div className="flex items-center gap-2 text-green-700">
-              <UsersIcon className="h-4 w-4" />
-              <span className="text-xs font-semibold uppercase tracking-[0.18em]">
-                {translate(locale, "eventCard.checkedIn")}
-              </span>
-            </div>
-            <p className="mt-3 text-2xl font-semibold text-gray-950">
-              {(event.checkedInCount ?? event.attendeeCount).toLocaleString()}
-            </p>
-          </div>
           <div className="rounded-2xl bg-blue-50 p-4">
             <div className="flex items-center gap-2 text-blue-700">
               <CalendarIcon className="h-4 w-4" />
@@ -100,6 +90,17 @@ export function EventCard({ event }: EventCardProps) {
               {(event.songSuggestionsCount ?? 0).toLocaleString()}
             </p>
           </div>
+          <div className="rounded-2xl bg-green-50 p-4">
+            <div className="flex items-center gap-2 text-green-700">
+              <UsersIcon className="h-4 w-4" />
+              <span className="text-xs font-semibold uppercase tracking-[0.18em]">
+                {translate(locale, "eventCard.checkedIn")}
+              </span>
+            </div>
+            <p className="mt-3 text-2xl font-semibold text-gray-950">
+              {(event.checkedInCount ?? event.attendeeCount).toLocaleString()}
+            </p>
+          </div>
           <div className="rounded-2xl bg-amber-50 p-4">
             <div className="flex items-center gap-2 text-amber-700">
               <StarIcon className="h-4 w-4" />
@@ -113,34 +114,32 @@ export function EventCard({ event }: EventCardProps) {
           </div>
         </div>
 
+        {/* Bottom rows — date+time first, price second */}
         <div className="space-y-3 text-sm text-gray-600">
           <div className="flex items-start gap-3 rounded-2xl border border-gray-100 px-4 py-3">
             <CalendarIcon className="mt-0.5 h-4 w-4 text-gray-400" />
             <div>
-              <p className="font-medium text-gray-900">{event.date}</p>
-              {event.minPrice && (
-                <p className="text-xs text-gray-500">
-                  {translate(locale, "eventCard.startingAt")} {event.minPrice}
-                </p>
-              )}
+              <p className="font-medium text-gray-900">
+                {event.date}
+                {event.startsAt && ` • ${formatTime(event.startsAt)}`}
+              </p>
             </div>
           </div>
 
           <div className="flex items-start gap-3 rounded-2xl border border-gray-100 px-4 py-3">
-            <MapPinIcon className="mt-0.5 h-4 w-4 text-gray-400" />
+            <DollarIcon className="mt-0.5 h-4 w-4 text-gray-400" />
             <div>
-              <p className="line-clamp-2 font-medium text-gray-900">{event.location}</p>
-              {event.organizerName && (
-                <p className="text-xs text-gray-500">{translate(locale, "eventCard.hostedBy")} {event.organizerName}</p>
-              )}
+              <p className="font-medium text-gray-900">
+                {event.minPrice ?? translate(locale, "eventCard.free")}
+              </p>
             </div>
           </div>
         </div>
 
-        {/* Dual Action Icons */}
+        {/* Dual Action Icons — chevron → overview */}
         <div className="flex items-center justify-end gap-2 border-t border-gray-100 pt-4">
           <Link
-            href={`/events/${event.id}`}
+            href={`/events/${event.id}/overview`}
             className="rounded-full p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
             title={translate(locale, "eventCard.viewEvent")}
           >

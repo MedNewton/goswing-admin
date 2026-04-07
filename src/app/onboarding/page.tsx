@@ -13,6 +13,9 @@ import {
   GlobeIcon,
   MapPinIcon,
   EyeIcon,
+  ChevronRightIcon,
+  ChevronLeftIcon,
+  PlusIcon,
 } from "@/components/icons";
 import { useState, useEffect, useTransition, useRef } from "react";
 import { useForm } from "react-hook-form";
@@ -35,7 +38,7 @@ import Image from "next/image";
 // ---------------------------------------------------------------------------
 
 const onboardingFormSchema = z.object({
-  // Personal / organizer
+  // Organizer
   name: z.string().min(1, "Organization name is required").max(100),
   tagline: z.string().max(200).optional().or(z.literal("")),
   about: z.string().max(2000).optional().or(z.literal("")),
@@ -49,9 +52,16 @@ const onboardingFormSchema = z.object({
   tiktok_handle: z.string().max(100).optional().or(z.literal("")),
   logo_url: z.string().optional().or(z.literal("")),
   cover_image_url: z.string().optional().or(z.literal("")),
+  custom_policies: z.array(z.object({
+    title: z.string().min(1).max(200),
+    description: z.string().min(1).max(2000),
+  })),
   // Venue
   venue_name: z.string().min(1, "Venue name is required").max(200),
   venue_type: z.string().optional().or(z.literal("")),
+  venue_description: z.string().max(5000).optional().or(z.literal("")),
+  venue_free_access: z.boolean(),
+  venue_free_for_ladies: z.boolean(),
   venue_address: z.string().optional().or(z.literal("")),
   venue_city: z.string().optional().or(z.literal("")),
   venue_region: z.string().optional().or(z.literal("")),
@@ -65,7 +75,7 @@ const onboardingFormSchema = z.object({
 type OnboardingFormValues = z.infer<typeof onboardingFormSchema>;
 
 // ---------------------------------------------------------------------------
-// Country options
+// Constants
 // ---------------------------------------------------------------------------
 
 const VENUE_TYPE_OPTIONS = [
@@ -126,6 +136,7 @@ export default function OnboardingPage() {
   const [serverError, setServerError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [locale, setLocale] = useState<Locale>("fr");
+  const [step, setStep] = useState<1 | 2>(1);
 
   // Image states
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -137,9 +148,10 @@ export default function OnboardingPage() {
   const logoInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    setLocale(getClientLocale());
-  }, []);
+  // Custom policies
+  const [policies, setPolicies] = useState<Array<{ title: string; description: string }>>([]);
+
+  useEffect(() => { setLocale(getClientLocale()); }, []);
 
   const {
     register,
@@ -147,30 +159,19 @@ export default function OnboardingPage() {
     reset,
     setValue,
     watch,
+    trigger,
     formState: { errors },
   } = useForm<OnboardingFormValues>({
     resolver: zodResolver(onboardingFormSchema),
     defaultValues: {
-      name: "",
-      tagline: "",
-      about: "",
-      city: "",
-      country_code: "",
-      email: "",
-      phone: "",
-      website_url: "",
-      instagram_handle: "",
-      facebook_handle: "",
-      tiktok_handle: "",
-      logo_url: "",
-      cover_image_url: "",
-      venue_name: "",
-      venue_type: "",
-      venue_address: "",
-      venue_city: "",
-      venue_region: "",
-      venue_country_code: "",
-      venue_postal_code: "",
+      name: "", tagline: "", about: "", city: "", country_code: "",
+      email: "", phone: "", website_url: "",
+      instagram_handle: "", facebook_handle: "", tiktok_handle: "",
+      logo_url: "", cover_image_url: "", custom_policies: [],
+      venue_name: "", venue_type: "", venue_description: "",
+      venue_free_access: false, venue_free_for_ladies: false,
+      venue_address: "", venue_city: "", venue_region: "",
+      venue_country_code: "", venue_postal_code: "",
       venue_capacity: "" as unknown as undefined,
     },
   });
@@ -182,24 +183,21 @@ export default function OnboardingPage() {
         const org = await fetchOrganizerForOnboarding();
         if (org) {
           reset({
-            name: org.name ?? "",
-            tagline: org.tagline ?? "",
-            about: org.about ?? "",
-            city: org.city ?? "",
-            country_code: org.country_code ?? "",
-            email: org.email ?? "",
-            phone: org.phone ?? "",
+            name: org.name ?? "", tagline: org.tagline ?? "", about: org.about ?? "",
+            city: org.city ?? "", country_code: org.country_code ?? "",
+            email: org.email ?? "", phone: org.phone ?? "",
             website_url: org.website_url ?? "",
             instagram_handle: org.instagram_handle ?? "",
             facebook_handle: org.facebook_handle ?? "",
             tiktok_handle: org.tiktok_handle ?? "",
-            logo_url: org.logo_url ?? "",
-            cover_image_url: org.cover_image_url ?? "",
-            venue_name: org.venue?.name ?? "",
-            venue_type: org.venue?.venue_type ?? "",
+            logo_url: org.logo_url ?? "", cover_image_url: org.cover_image_url ?? "",
+            custom_policies: org.custom_policies ?? [],
+            venue_name: org.venue?.name ?? "", venue_type: org.venue?.venue_type ?? "",
+            venue_description: org.venue?.description ?? "",
+            venue_free_access: org.venue?.free_access ?? false,
+            venue_free_for_ladies: org.venue?.free_for_ladies ?? false,
             venue_address: org.venue?.address_line1 ?? "",
-            venue_city: org.venue?.city ?? "",
-            venue_region: org.venue?.region ?? "",
+            venue_city: org.venue?.city ?? "", venue_region: org.venue?.region ?? "",
             venue_country_code: org.venue?.country_code ?? "",
             venue_postal_code: org.venue?.postal_code ?? "",
             venue_capacity: org.venue?.capacity ?? ("" as unknown as undefined),
@@ -208,6 +206,7 @@ export default function OnboardingPage() {
           });
           if (org.logo_url) setLogoPreview(org.logo_url);
           if (org.cover_image_url) setCoverPreview(org.cover_image_url);
+          if (org.custom_policies?.length) setPolicies(org.custom_policies);
         }
       } catch {
         // Continue with empty form
@@ -228,7 +227,6 @@ export default function OnboardingPage() {
     setPreview(previewUrl);
     setError(null);
     setUploading(true);
-
     try {
       const formData = new FormData();
       formData.append("file", file);
@@ -263,24 +261,45 @@ export default function OnboardingPage() {
   };
 
   const handleRemoveLogo = () => {
-    setLogoPreview(null);
-    setValue("logo_url", "");
-    setLogoError(null);
+    setLogoPreview(null); setValue("logo_url", ""); setLogoError(null);
     if (logoInputRef.current) logoInputRef.current.value = "";
   };
 
   const handleRemoveCover = () => {
-    setCoverPreview(null);
-    setValue("cover_image_url", "");
-    setCoverError(null);
+    setCoverPreview(null); setValue("cover_image_url", ""); setCoverError(null);
     if (coverInputRef.current) coverInputRef.current.value = "";
+  };
+
+  const addPolicy = () => {
+    const updated = [...policies, { title: "", description: "" }];
+    setPolicies(updated);
+    setValue("custom_policies", updated);
+  };
+
+  const updatePolicy = (idx: number, field: "title" | "description", val: string) => {
+    const updated = policies.map((p, i) => i === idx ? { ...p, [field]: val } : p);
+    setPolicies(updated);
+    setValue("custom_policies", updated);
+  };
+
+  const removePolicy = (idx: number) => {
+    const updated = policies.filter((_, i) => i !== idx);
+    setPolicies(updated);
+    setValue("custom_policies", updated);
+  };
+
+  const handleNextStep = async () => {
+    const valid = await trigger(["name", "email"]);
+    if (valid) {
+      setStep(2);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
   };
 
   const onSubmit = (data: OnboardingFormValues) => {
     setServerError(null);
     startTransition(async () => {
       try {
-        // Use venue location for the organization as well
         const result: OnboardingResult = await completeOnboardingAction({
           ...data,
           city: data.venue_city ?? data.city ?? "",
@@ -288,10 +307,10 @@ export default function OnboardingPage() {
           venue_capacity: typeof data.venue_capacity === "number" ? data.venue_capacity : undefined,
           venue_lat: data.venue_lat,
           venue_lng: data.venue_lng,
+          custom_policies: policies.filter((p) => p.title.trim() && p.description.trim()),
         } as Parameters<typeof completeOnboardingAction>[0]);
         if (result.success) {
           window.location.href = "/overview";
-          return;
         } else {
           setServerError(result.error);
         }
@@ -334,6 +353,39 @@ export default function OnboardingPage() {
             </div>
             <LanguageSwitcher variant="dark" />
           </div>
+
+          {/* Stepper */}
+          <div className="relative mt-8 flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setStep(1)}
+              className={`flex items-center gap-2.5 rounded-full px-5 py-2.5 text-sm font-semibold transition-all ${
+                step === 1
+                  ? "bg-white text-gray-900 shadow-lg"
+                  : "bg-white/15 text-white/80 hover:bg-white/25"
+              }`}
+            >
+              <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
+                step === 1 ? "bg-gray-900 text-white" : "bg-white/20 text-white"
+              }`}>1</span>
+              {translate(locale, "onboarding.step1Title")}
+            </button>
+            <div className="h-px w-8 bg-white/30" />
+            <button
+              type="button"
+              onClick={() => step === 2 ? undefined : handleNextStep()}
+              className={`flex items-center gap-2.5 rounded-full px-5 py-2.5 text-sm font-semibold transition-all ${
+                step === 2
+                  ? "bg-white text-gray-900 shadow-lg"
+                  : "bg-white/15 text-white/80 hover:bg-white/25"
+              }`}
+            >
+              <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
+                step === 2 ? "bg-gray-900 text-white" : "bg-white/20 text-white"
+              }`}>2</span>
+              {translate(locale, "onboarding.step2Title")}
+            </button>
+          </div>
         </section>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -345,375 +397,323 @@ export default function OnboardingPage() {
           )}
 
           {/* ============================================================= */}
-          {/* SECTION 1: Personal / Organizer Info                          */}
+          {/* STEP 1: Organizer Profile                                     */}
           {/* ============================================================= */}
-          <div className="rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100 sm:p-8">
-            {/* Branding */}
-            <SectionHeader
-              icon={UsersIcon}
-              eyebrow={translate(locale, "onboarding.step1Eyebrow")}
-              title={translate(locale, "onboarding.step1Title")}
-              description={translate(locale, "onboarding.step1Desc")}
-            />
+          {step === 1 && (
+            <>
+              {/* Branding */}
+              <div className="rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100 sm:p-8">
+                <SectionHeader
+                  icon={UsersIcon}
+                  eyebrow={translate(locale, "onboarding.step1Eyebrow")}
+                  title={translate(locale, "onboarding.step1Title")}
+                  description={translate(locale, "onboarding.step1Desc")}
+                />
 
-            {/* Logo & Cover */}
-            <div className="mt-6 space-y-6">
-              {/* Logo */}
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                  {translate(locale, "onboarding.logoLabel")}
-                </label>
-                <div className="flex items-center gap-4">
-                  <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full border-2 border-dashed border-gray-200 bg-gray-50">
-                    {logoPreview ? (
-                      <>
-                        <Image src={logoPreview} alt="Logo preview" fill className="object-cover" />
-                        {isUploadingLogo && (
-                          <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                            <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                <div className="mt-6 space-y-6">
+                  {/* Logo */}
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                      {translate(locale, "onboarding.logoLabel")}
+                    </label>
+                    <div className="flex items-center gap-4">
+                      <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full border-2 border-dashed border-gray-200 bg-gray-50">
+                        {logoPreview ? (
+                          <>
+                            <Image src={logoPreview} alt="Logo" fill className="object-cover" />
+                            {isUploadingLogo && (
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                                <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <div className="flex h-full items-center justify-center text-gray-300">
+                            <UsersIcon className="h-6 w-6" />
                           </div>
                         )}
-                      </>
-                    ) : (
-                      <div className="flex h-full items-center justify-center text-gray-300">
-                        <UsersIcon className="h-6 w-6" />
                       </div>
-                    )}
+                      <div>
+                        <input ref={logoInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleLogoSelect} className="hidden" id="logo-input" />
+                        <div className="flex gap-2">
+                          <Button variant="outline" size="sm" type="button" onClick={() => logoInputRef.current?.click()} disabled={isUploadingLogo}>
+                            {isUploadingLogo ? translate(locale, "createEvent.uploading") : logoPreview ? translate(locale, "common.edit") : translate(locale, "onboarding.uploadLogo")}
+                          </Button>
+                          {logoPreview && !isUploadingLogo && (
+                            <Button variant="ghost" size="sm" type="button" onClick={handleRemoveLogo} className="text-red-600 hover:text-red-700">
+                              {translate(locale, "common.remove")}
+                            </Button>
+                          )}
+                        </div>
+                        {logoError && <p className="mt-1 text-sm text-red-600">{logoError}</p>}
+                        <p className="mt-1 text-xs text-gray-400">{translate(locale, "settingsPage.squareHint")}</p>
+                      </div>
+                    </div>
                   </div>
+
+                  {/* Cover Image */}
                   <div>
-                    <input
-                      ref={logoInputRef}
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp,image/gif"
-                      onChange={handleLogoSelect}
-                      className="hidden"
-                      id="logo-input"
-                    />
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        type="button"
-                        onClick={() => logoInputRef.current?.click()}
-                        disabled={isUploadingLogo}
-                      >
-                        {isUploadingLogo ? translate(locale, "createEvent.uploading") : logoPreview ? translate(locale, "common.edit") : translate(locale, "onboarding.uploadLogo")}
+                    <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                      {translate(locale, "onboarding.coverLabel")}
+                    </label>
+                    <div className="relative h-40 w-full overflow-hidden rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50">
+                      {coverPreview ? (
+                        <>
+                          <Image src={coverPreview} alt="Cover" fill className="object-cover" />
+                          {isUploadingCover && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                              <div className="h-6 w-6 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <div className="flex h-full items-center justify-center text-gray-300">
+                          <EyeIcon className="h-8 w-8" />
+                        </div>
+                      )}
+                    </div>
+                    <input ref={coverInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleCoverSelect} className="hidden" id="cover-input" />
+                    <div className="mt-2 flex gap-2">
+                      <Button variant="outline" size="sm" type="button" onClick={() => coverInputRef.current?.click()} disabled={isUploadingCover}>
+                        {isUploadingCover ? translate(locale, "createEvent.uploading") : coverPreview ? translate(locale, "onboarding.changeCover") : translate(locale, "onboarding.uploadCover")}
                       </Button>
-                      {logoPreview && !isUploadingLogo && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          type="button"
-                          onClick={handleRemoveLogo}
-                          className="text-red-600 hover:text-red-700"
-                        >
+                      {coverPreview && !isUploadingCover && (
+                        <Button variant="ghost" size="sm" type="button" onClick={handleRemoveCover} className="text-red-600 hover:text-red-700">
                           {translate(locale, "common.remove")}
                         </Button>
                       )}
                     </div>
-                    {logoError && <p className="mt-1 text-sm text-red-600">{logoError}</p>}
-                    <p className="mt-1 text-xs text-gray-400">{translate(locale, "settingsPage.squareHint")}</p>
+                    {coverError && <p className="mt-1 text-sm text-red-600">{coverError}</p>}
+                    <p className="mt-1 text-xs text-gray-400">{translate(locale, "onboarding.coverHint")}</p>
                   </div>
                 </div>
-              </div>
 
-              {/* Cover Image */}
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                  {translate(locale, "onboarding.coverLabel")}
-                </label>
-                <div className="relative h-40 w-full overflow-hidden rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50">
-                  {coverPreview ? (
-                    <>
-                      <Image src={coverPreview} alt="Cover preview" fill className="object-cover" />
-                      {isUploadingCover && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                          <div className="h-6 w-6 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                {/* Organization Details */}
+                <div className="mt-8 border-t border-gray-100 pt-8">
+                  <SectionHeader
+                    icon={MailIcon}
+                    eyebrow={translate(locale, "onboarding.identityEyebrow")}
+                    title={translate(locale, "onboarding.orgDetails")}
+                    description={translate(locale, "onboarding.orgDetailsDesc")}
+                  />
+                  <div className="mt-6 space-y-4">
+                    <Input label={translate(locale, "onboarding.orgName")} placeholder={translate(locale, "onboarding.orgNamePlaceholder")} error={errors.name?.message} {...register("name")} />
+                    <Input label={translate(locale, "onboarding.tagline")} placeholder={translate(locale, "onboarding.taglinePlaceholder")} error={errors.tagline?.message} {...register("tagline")} />
+                    <Textarea label={translate(locale, "onboarding.aboutLabel")} placeholder={translate(locale, "onboarding.aboutPlaceholder")} rows={3} error={errors.about?.message} {...register("about")} />
+                  </div>
+                </div>
+
+                {/* Contact */}
+                <div className="mt-8 border-t border-gray-100 pt-8">
+                  <SectionHeader
+                    icon={MapPinIcon}
+                    eyebrow={translate(locale, "onboarding.contactEyebrow")}
+                    title={translate(locale, "onboarding.contactTitle")}
+                    description={translate(locale, "onboarding.contactDesc")}
+                  />
+                  <div className="mt-6 space-y-4">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <Input label={translate(locale, "onboarding.emailLabel")} type="email" placeholder={translate(locale, "onboarding.emailPlaceholder")} error={errors.email?.message} {...register("email")} />
+                      <Input label={translate(locale, "onboarding.phoneLabel")} type="tel" placeholder={translate(locale, "onboarding.phonePlaceholder")} error={errors.phone?.message} {...register("phone")} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Social */}
+                <div className="mt-8 border-t border-gray-100 pt-8">
+                  <SectionHeader
+                    icon={GlobeIcon}
+                    eyebrow={translate(locale, "onboarding.socialEyebrow")}
+                    title={translate(locale, "onboarding.socialTitle")}
+                    description={translate(locale, "onboarding.socialDesc")}
+                  />
+                  <div className="mt-6 space-y-4">
+                    <Input label={translate(locale, "onboarding.websiteLabel")} type="url" placeholder={translate(locale, "onboarding.websitePlaceholder")} error={errors.website_url?.message} {...register("website_url")} />
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                      <Input label={translate(locale, "onboarding.instagramLabel")} placeholder="@yourhandle" error={errors.instagram_handle?.message} {...register("instagram_handle")} />
+                      <Input label={translate(locale, "onboarding.facebookLabel")} placeholder="@yourpage" error={errors.facebook_handle?.message} {...register("facebook_handle")} />
+                      <Input label={translate(locale, "onboarding.tiktokLabel")} placeholder="@yourhandle" error={errors.tiktok_handle?.message} {...register("tiktok_handle")} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Custom Policies */}
+                <div className="mt-8 border-t border-gray-100 pt-8">
+                  <SectionHeader
+                    icon={EyeIcon}
+                    eyebrow={translate(locale, "onboarding.policiesEyebrow")}
+                    title={translate(locale, "onboarding.policiesTitle")}
+                    description={translate(locale, "onboarding.policiesDesc")}
+                  />
+                  <div className="mt-6 space-y-4">
+                    {policies.map((policy, idx) => (
+                      <div key={idx} className="rounded-2xl border border-gray-200 bg-gray-50 p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+                            {translate(locale, "onboarding.policyNumber")} {idx + 1}
+                          </span>
+                          <Button variant="ghost" size="sm" type="button" onClick={() => removePolicy(idx)} className="text-red-600 hover:text-red-700">
+                            {translate(locale, "common.remove")}
+                          </Button>
                         </div>
-                      )}
-                    </>
-                  ) : (
-                    <div className="flex h-full items-center justify-center text-gray-300">
-                      <EyeIcon className="h-8 w-8" />
-                    </div>
-                  )}
-                </div>
-                <input
-                  ref={coverInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,image/gif"
-                  onChange={handleCoverSelect}
-                  className="hidden"
-                  id="cover-input"
-                />
-                <div className="mt-2 flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    type="button"
-                    onClick={() => coverInputRef.current?.click()}
-                    disabled={isUploadingCover}
-                  >
-                    {isUploadingCover ? translate(locale, "createEvent.uploading") : coverPreview ? translate(locale, "onboarding.changeCover") : translate(locale, "onboarding.uploadCover")}
-                  </Button>
-                  {coverPreview && !isUploadingCover && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      type="button"
-                      onClick={handleRemoveCover}
-                      className="text-red-600 hover:text-red-700"
-                    >
-                      {translate(locale, "common.remove")}
+                        <Input
+                          placeholder={translate(locale, "onboarding.policyTitlePlaceholder")}
+                          value={policy.title}
+                          onChange={(e) => updatePolicy(idx, "title", e.target.value)}
+                        />
+                        <Textarea
+                          placeholder={translate(locale, "onboarding.policyDescPlaceholder")}
+                          rows={2}
+                          value={policy.description}
+                          onChange={(e) => updatePolicy(idx, "description", e.target.value)}
+                        />
+                      </div>
+                    ))}
+                    <Button variant="outline" size="sm" type="button" onClick={addPolicy} className="rounded-full">
+                      <PlusIcon className="h-4 w-4" />
+                      {translate(locale, "onboarding.addPolicy")}
                     </Button>
-                  )}
-                </div>
-                {coverError && <p className="mt-1 text-sm text-red-600">{coverError}</p>}
-                <p className="mt-1 text-xs text-gray-400">{translate(locale, "onboarding.coverHint")}</p>
-              </div>
-            </div>
-
-            {/* Organization Details */}
-            <div className="mt-8 border-t border-gray-100 pt-8">
-              <SectionHeader
-                icon={MailIcon}
-                eyebrow={translate(locale, "onboarding.identityEyebrow")}
-                title={translate(locale, "onboarding.orgDetails")}
-                description={translate(locale, "onboarding.orgDetailsDesc")}
-              />
-              <div className="mt-6 space-y-4">
-                <Input
-                  label={translate(locale, "onboarding.orgName")}
-                  placeholder={translate(locale, "onboarding.orgNamePlaceholder")}
-                  error={errors.name?.message}
-                  {...register("name")}
-                />
-                <Input
-                  label={translate(locale, "onboarding.tagline")}
-                  placeholder={translate(locale, "onboarding.taglinePlaceholder")}
-                  error={errors.tagline?.message}
-                  {...register("tagline")}
-                />
-                <Textarea
-                  label={translate(locale, "onboarding.aboutLabel")}
-                  placeholder={translate(locale, "onboarding.aboutPlaceholder")}
-                  rows={3}
-                  error={errors.about?.message}
-                  {...register("about")}
-                />
-              </div>
-            </div>
-
-            {/* Location & Contact */}
-            <div className="mt-8 border-t border-gray-100 pt-8">
-              <SectionHeader
-                icon={MapPinIcon}
-                eyebrow={translate(locale, "onboarding.contactEyebrow")}
-                title={translate(locale, "onboarding.contactTitle")}
-                description={translate(locale, "onboarding.contactDesc")}
-              />
-              <div className="mt-6 space-y-4">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <Input
-                    label={translate(locale, "onboarding.emailLabel")}
-                    type="email"
-                    placeholder={translate(locale, "onboarding.emailPlaceholder")}
-                    error={errors.email?.message}
-                    {...register("email")}
-                  />
-                  <Input
-                    label={translate(locale, "onboarding.phoneLabel")}
-                    type="tel"
-                    placeholder={translate(locale, "onboarding.phonePlaceholder")}
-                    error={errors.phone?.message}
-                    {...register("phone")}
-                  />
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Online Presence */}
-            <div className="mt-8 border-t border-gray-100 pt-8">
-              <SectionHeader
-                icon={GlobeIcon}
-                eyebrow={translate(locale, "onboarding.socialEyebrow")}
-                title={translate(locale, "onboarding.socialTitle")}
-                description={translate(locale, "onboarding.socialDesc")}
-              />
-              <div className="mt-6 space-y-4">
-                <Input
-                  label={translate(locale, "onboarding.websiteLabel")}
-                  type="url"
-                  placeholder={translate(locale, "onboarding.websitePlaceholder")}
-                  error={errors.website_url?.message}
-                  {...register("website_url")}
-                />
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                  <Input
-                    label={translate(locale, "onboarding.instagramLabel")}
-                    placeholder="@yourhandle"
-                    error={errors.instagram_handle?.message}
-                    {...register("instagram_handle")}
-                  />
-                  <Input
-                    label={translate(locale, "onboarding.facebookLabel")}
-                    placeholder="@yourpage"
-                    error={errors.facebook_handle?.message}
-                    {...register("facebook_handle")}
-                  />
-                  <Input
-                    label={translate(locale, "onboarding.tiktokLabel")}
-                    placeholder="@yourhandle"
-                    error={errors.tiktok_handle?.message}
-                    {...register("tiktok_handle")}
-                  />
-                </div>
+              {/* Next Step Button */}
+              <div className="flex justify-end pb-6">
+                <button
+                  type="button"
+                  onClick={handleNextStep}
+                  className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-gray-950 px-8 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-gray-800"
+                >
+                  {translate(locale, "onboarding.nextStep")}
+                  <ChevronRightIcon className="h-4 w-4" />
+                </button>
               </div>
-            </div>
-          </div>
+            </>
+          )}
 
           {/* ============================================================= */}
-          {/* SECTION 2: Business / Venue Info                              */}
+          {/* STEP 2: Venue Info                                            */}
           {/* ============================================================= */}
-          <div className="rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100 sm:p-8">
-            <SectionHeader
-              icon={BuildingIcon}
-              eyebrow={translate(locale, "onboarding.step2Eyebrow")}
-              title={translate(locale, "onboarding.step2Title")}
-              description={translate(locale, "onboarding.step2Desc")}
-            />
-
-            <div className="mt-6 space-y-4">
-              <Input
-                label={translate(locale, "onboarding.venueName")}
-                placeholder={translate(locale, "onboarding.venueNamePlaceholder")}
-                error={errors.venue_name?.message}
-                {...register("venue_name")}
-              />
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <Select
-                  label={translate(locale, "onboarding.venueType")}
-                  options={VENUE_TYPE_OPTIONS}
-                  error={errors.venue_type?.message}
-                  {...register("venue_type")}
-                />
-                <Input
-                  label={translate(locale, "onboarding.capacityLabel")}
-                  placeholder={translate(locale, "onboarding.capacityPlaceholder")}
-                  type="number"
-                  min="1"
-                  {...register("venue_capacity")}
-                />
-              </div>
-            </div>
-
-            {/* Venue Location */}
-            <div className="mt-8 border-t border-gray-100 pt-8">
-              <SectionHeader
-                icon={MapPinIcon}
-                eyebrow={translate(locale, "onboarding.addressEyebrow")}
-                title={translate(locale, "onboarding.addressTitle")}
-                description={translate(locale, "onboarding.addressDesc")}
-              />
-              <div className="mt-6 space-y-4">
-                <PlacesAutocomplete
-                  label={translate(locale, "createVenue.searchLocation")}
-                  placeholder={translate(locale, "createVenue.searchPlaceholder")}
-                  onPlaceSelect={(place) => {
-                    const currentName = watch("venue_name");
-                    if (!currentName && place.name) {
-                      setValue("venue_name", place.name);
-                    }
-                    if (place.address) setValue("venue_address", place.address);
-                    if (place.city) setValue("venue_city", place.city);
-                    if (place.region) setValue("venue_region", place.region);
-                    if (place.countryCode) setValue("venue_country_code", place.countryCode);
-                    if (place.lat) setValue("venue_lat", place.lat);
-                    if (place.lng) setValue("venue_lng", place.lng);
-                  }}
+          {step === 2 && (
+            <>
+              <div className="rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100 sm:p-8">
+                <SectionHeader
+                  icon={BuildingIcon}
+                  eyebrow={translate(locale, "onboarding.step2Eyebrow")}
+                  title={translate(locale, "onboarding.step2Title")}
+                  description={translate(locale, "onboarding.step2Desc")}
                 />
 
-                {/* Location summary */}
-                {(() => {
-                  const summary = [watch("venue_address"), watch("venue_city"), watch("venue_region"), watch("venue_country_code")].filter(Boolean).join(", ");
-                  return summary ? (
-                    <div className="rounded-lg border border-green-200 bg-green-50 p-3">
-                      <p className="text-xs font-medium text-green-700">
-                        {translate(locale, "createVenue.selectedLocation")}
-                      </p>
-                      <p className="mt-1 text-sm text-green-800">{summary}</p>
-                    </div>
-                  ) : null;
-                })()}
-
-                {/* Interactive Map */}
-                {watch("venue_lat") != null && watch("venue_lng") != null && (
-                  <LocationMapPicker
-                    lat={watch("venue_lat")!}
-                    lng={watch("venue_lng")!}
-                    onLocationChange={(newLat, newLng) => {
-                      setValue("venue_lat", newLat);
-                      setValue("venue_lng", newLng);
-                    }}
+                <div className="mt-6 space-y-4">
+                  <Input label={translate(locale, "onboarding.venueName")} placeholder={translate(locale, "onboarding.venueNamePlaceholder")} error={errors.venue_name?.message} {...register("venue_name")} />
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <Select label={translate(locale, "onboarding.venueType")} options={VENUE_TYPE_OPTIONS} error={errors.venue_type?.message} {...register("venue_type")} />
+                    <Input label={translate(locale, "onboarding.capacityLabel")} placeholder={translate(locale, "onboarding.capacityPlaceholder")} type="number" min="1" {...register("venue_capacity")} />
+                  </div>
+                  <Textarea
+                    label={translate(locale, "onboarding.venueDescLabel")}
+                    placeholder={translate(locale, "onboarding.venueDescPlaceholder")}
+                    rows={3}
+                    error={errors.venue_description?.message}
+                    {...register("venue_description")}
                   />
-                )}
 
-                {/* Editable fields (pre-filled from Places API) */}
-                <div className="border-t border-gray-100 pt-4">
-                  <p className="mb-3 text-xs font-medium text-gray-500">
-                    {translate(locale, "createVenue.editHint")}
-                  </p>
-                  <div className="space-y-4">
-                    <Input
-                      label={translate(locale, "onboarding.addressLabel")}
-                      placeholder={translate(locale, "onboarding.addressPlaceholder")}
-                      error={errors.venue_address?.message}
-                      {...register("venue_address")}
+                  {/* Free Access Toggles */}
+                  <div className="flex flex-wrap gap-6 rounded-2xl border border-gray-200 bg-gray-50 p-5">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input type="checkbox" className="h-5 w-5 rounded border-gray-300 text-gray-900 focus:ring-gray-900" {...register("venue_free_access")} />
+                      <span className="text-sm font-medium text-gray-700">{translate(locale, "onboarding.freeAccess")}</span>
+                    </label>
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input type="checkbox" className="h-5 w-5 rounded border-gray-300 text-gray-900 focus:ring-gray-900" {...register("venue_free_for_ladies")} />
+                      <span className="text-sm font-medium text-gray-700">{translate(locale, "onboarding.freeForLadies")}</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Venue Location */}
+                <div className="mt-8 border-t border-gray-100 pt-8">
+                  <SectionHeader
+                    icon={MapPinIcon}
+                    eyebrow={translate(locale, "onboarding.addressEyebrow")}
+                    title={translate(locale, "onboarding.addressTitle")}
+                    description={translate(locale, "onboarding.addressDesc")}
+                  />
+                  <div className="mt-6 space-y-4">
+                    <PlacesAutocomplete
+                      label={translate(locale, "createVenue.searchLocation")}
+                      placeholder={translate(locale, "createVenue.searchPlaceholder")}
+                      onPlaceSelect={(place) => {
+                        const currentName = watch("venue_name");
+                        if (!currentName && place.name) setValue("venue_name", place.name);
+                        if (place.address) setValue("venue_address", place.address);
+                        if (place.city) setValue("venue_city", place.city);
+                        if (place.region) setValue("venue_region", place.region);
+                        if (place.countryCode) setValue("venue_country_code", place.countryCode);
+                        if (place.lat) setValue("venue_lat", place.lat);
+                        if (place.lng) setValue("venue_lng", place.lng);
+                      }}
                     />
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                      <Input
-                        label={translate(locale, "onboarding.cityLabel")}
-                        placeholder={translate(locale, "onboarding.cityPlaceholder")}
-                        error={errors.venue_city?.message}
-                        {...register("venue_city")}
+
+                    {(() => {
+                      const summary = [watch("venue_address"), watch("venue_city"), watch("venue_region"), watch("venue_country_code")].filter(Boolean).join(", ");
+                      return summary ? (
+                        <div className="rounded-lg border border-green-200 bg-green-50 p-3">
+                          <p className="text-xs font-medium text-green-700">{translate(locale, "createVenue.selectedLocation")}</p>
+                          <p className="mt-1 text-sm text-green-800">{summary}</p>
+                        </div>
+                      ) : null;
+                    })()}
+
+                    {watch("venue_lat") != null && watch("venue_lng") != null && (
+                      <LocationMapPicker
+                        lat={watch("venue_lat")!}
+                        lng={watch("venue_lng")!}
+                        onLocationChange={(newLat, newLng) => {
+                          setValue("venue_lat", newLat);
+                          setValue("venue_lng", newLng);
+                        }}
                       />
-                      <Input
-                        label={translate(locale, "onboarding.regionLabel")}
-                        placeholder={translate(locale, "onboarding.regionPlaceholder")}
-                        error={errors.venue_region?.message}
-                        {...register("venue_region")}
-                      />
-                    </div>
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                      <Input
-                        label={translate(locale, "onboarding.countryLabel")}
-                        placeholder={translate(locale, "onboarding.countryPlaceholder")}
-                        error={errors.venue_country_code?.message}
-                        {...register("venue_country_code")}
-                      />
-                      <Input
-                        label={translate(locale, "onboarding.postalLabel")}
-                        placeholder={translate(locale, "onboarding.postalPlaceholder")}
-                        error={errors.venue_postal_code?.message}
-                        {...register("venue_postal_code")}
-                      />
+                    )}
+
+                    <div className="border-t border-gray-100 pt-4">
+                      <p className="mb-3 text-xs font-medium text-gray-500">{translate(locale, "createVenue.editHint")}</p>
+                      <div className="space-y-4">
+                        <Input label={translate(locale, "onboarding.addressLabel")} placeholder={translate(locale, "onboarding.addressPlaceholder")} error={errors.venue_address?.message} {...register("venue_address")} />
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                          <Input label={translate(locale, "onboarding.cityLabel")} placeholder={translate(locale, "onboarding.cityPlaceholder")} error={errors.venue_city?.message} {...register("venue_city")} />
+                          <Input label={translate(locale, "onboarding.regionLabel")} placeholder={translate(locale, "onboarding.regionPlaceholder")} error={errors.venue_region?.message} {...register("venue_region")} />
+                        </div>
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                          <Input label={translate(locale, "onboarding.countryLabel")} placeholder={translate(locale, "onboarding.countryPlaceholder")} error={errors.venue_country_code?.message} {...register("venue_country_code")} />
+                          <Input label={translate(locale, "onboarding.postalLabel")} placeholder={translate(locale, "onboarding.postalPlaceholder")} error={errors.venue_postal_code?.message} {...register("venue_postal_code")} />
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
 
-          {/* Submit */}
-          <div className="flex justify-end pb-6">
-            <button
-              type="submit"
-              disabled={isPending}
-              className="cursor-pointer rounded-xl bg-gray-950 px-8 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-gray-800 disabled:opacity-50"
-            >
-              {isPending ? translate(locale, "onboarding.settingUp") : translate(locale, "onboarding.completeSetup")}
-            </button>
-          </div>
+              {/* Navigation Buttons */}
+              <div className="flex items-center justify-between pb-6">
+                <button
+                  type="button"
+                  onClick={() => { setStep(1); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                  className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-gray-200 bg-white px-6 py-3 text-sm font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
+                >
+                  <ChevronLeftIcon className="h-4 w-4" />
+                  {translate(locale, "onboarding.previousStep")}
+                </button>
+                <button
+                  type="submit"
+                  disabled={isPending}
+                  className="cursor-pointer rounded-xl bg-gray-950 px-8 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-gray-800 disabled:opacity-50"
+                >
+                  {isPending ? translate(locale, "onboarding.settingUp") : translate(locale, "onboarding.completeSetup")}
+                </button>
+              </div>
+            </>
+          )}
         </form>
       </div>
     </div>

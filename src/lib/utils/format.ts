@@ -111,6 +111,7 @@ export type BadgeVariant =
 const STATUS_MAP: Record<string, BadgeVariant> = {
   // events
   published: "success",
+  live: "info",
   draft: "secondary",
   completed: "default",
   cancelled: "error",

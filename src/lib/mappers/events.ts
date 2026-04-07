@@ -6,7 +6,7 @@ import { formatDate, formatPrice } from "@/lib/utils/format";
 export interface EventQueryRow extends EventRow {
   venues?: Pick<VenueRow, "name" | "city"> | null;
   organizers?: Pick<OrganizerRow, "name"> | null;
-  event_tags?: Array<{ tags: Pick<TagRow, "label"> | null }>;
+  event_tags?: Array<{ tags: Pick<TagRow, "label" | "type"> | null }>;
   // Aggregated counts (optional, populated by enriched queries)
   _songSuggestionsCount?: number;
   _checkedInCount?: number;
@@ -40,6 +40,15 @@ export function mapEvent(row: EventQueryRow): Event {
     tags: row.event_tags
       ?.map((et) => et.tags?.label)
       .filter((l): l is string => !!l),
+    partyTypes: row.event_tags
+      ?.filter((et) => et.tags?.type === "party_type")
+      .map((et) => et.tags!.label) ?? [],
+    musicStyles: row.event_tags
+      ?.filter((et) => et.tags?.type === "music_style")
+      .map((et) => et.tags!.label) ?? [],
+    extraServices: row.event_tags
+      ?.filter((et) => et.tags?.type === "extra_service")
+      .map((et) => et.tags!.label) ?? [],
     // New fields
     songSuggestionsCount: row._songSuggestionsCount,
     checkedInCount: row._checkedInCount,
@@ -58,11 +67,12 @@ export function mapEvents(rows: EventQueryRow[]): Event[] {
 
 function normalizeEventStatus(
   s: string,
-): "published" | "draft" | "completed" | "cancelled" {
+): "published" | "draft" | "completed" | "cancelled" | "live" {
   const lower = s.toLowerCase();
   if (lower === "published") return "published";
   if (lower === "draft") return "draft";
   if (lower === "completed") return "completed";
   if (lower === "cancelled" || lower === "canceled") return "cancelled";
+  if (lower === "live") return "live";
   return "draft";
 }

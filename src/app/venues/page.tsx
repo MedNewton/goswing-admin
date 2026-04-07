@@ -2,10 +2,14 @@ import { MainLayout } from "@/components/layout/MainLayout";
 import { getVenues } from "@/lib/data/venues";
 import { VenuesPageClient } from "@/components/venues/VenuesPageClient";
 import { getLocale, t } from "@/lib/i18n";
+import { checkAdminAccess } from "@/lib/auth/requireAdmin";
 
 export const dynamic = "force-dynamic";
 
 export default async function VenuesPage() {
+  const denied = await checkAdminAccess();
+  if (denied) return denied;
+
   const locale = await getLocale();
   let venues: Awaited<ReturnType<typeof getVenues>> = [];
 

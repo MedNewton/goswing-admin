@@ -20,21 +20,31 @@ import {
 } from "@/components/icons";
 import { getClientLocale, translate } from "@/lib/i18n/client";
 import type { Locale, TranslationKey } from "@/lib/i18n";
+import type { OrganizerRole } from "@/types/database";
 
-const navigation: { name: TranslationKey; href: string; icon: typeof HomeIcon }[] = [
-  { name: "sidebar.overview", href: "/overview", icon: HomeIcon },
-  { name: "sidebar.events", href: "/events", icon: CalendarIcon },
-  { name: "sidebar.venue", href: "/venues", icon: MapPinIcon },
-  { name: "sidebar.orders", href: "/orders", icon: ShoppingBagIcon },
-  { name: "sidebar.attendees", href: "/attendees", icon: UsersIcon },
-  { name: "sidebar.reviews", href: "/reviews", icon: StarIcon },
+interface NavItem {
+  name: TranslationKey;
+  href: string;
+  icon: typeof HomeIcon;
+  /** Which roles can see this link. Omit = all roles. */
+  roles?: OrganizerRole[];
+}
+
+const navigation: NavItem[] = [
+  { name: "sidebar.overview", href: "/overview", icon: HomeIcon, roles: ["admin"] },
+  { name: "sidebar.events", href: "/events", icon: CalendarIcon, roles: ["admin"] },
+  { name: "sidebar.venue", href: "/venues", icon: MapPinIcon, roles: ["admin"] },
+  { name: "sidebar.orders", href: "/orders", icon: ShoppingBagIcon, roles: ["admin", "entrance_manager"] },
+  { name: "sidebar.attendees", href: "/attendees", icon: UsersIcon, roles: ["admin", "entrance_manager"] },
+  { name: "sidebar.reviews", href: "/reviews", icon: StarIcon, roles: ["admin"] },
   { name: "sidebar.music", href: "/music", icon: MusicIcon },
-  { name: "sidebar.finance", href: "/finance", icon: DollarIcon },
-  { name: "sidebar.analytics", href: "/analytics", icon: ChartIcon },
-  { name: "sidebar.marketing", href: "/marketing", icon: EyeIcon },
+  { name: "sidebar.finance", href: "/finance", icon: DollarIcon, roles: ["admin", "finance_manager"] },
+  { name: "sidebar.analytics", href: "/analytics", icon: ChartIcon, roles: ["admin", "finance_manager"] },
+  { name: "sidebar.marketing", href: "/marketing", icon: EyeIcon, roles: ["admin"] },
 ];
 
-const bottomNavigation: { name: TranslationKey; href: string; icon: typeof HomeIcon }[] = [
+const bottomNavigation: NavItem[] = [
+  { name: "sidebar.team", href: "/team", icon: UsersIcon, roles: ["admin"] },
   { name: "sidebar.helpCenter", href: "/help", icon: HelpIcon },
   { name: "sidebar.profile", href: "/settings", icon: BuildingIcon },
   { name: "sidebar.settings", href: "/settings/general", icon: SettingsIcon },
@@ -43,12 +53,35 @@ const bottomNavigation: { name: TranslationKey; href: string; icon: typeof HomeI
 export function Sidebar() {
   const pathname = usePathname();
   const [locale, setLocale] = useState<Locale>("fr");
+  const [role, setRole] = useState<OrganizerRole>("admin");
+
   useEffect(() => { setLocale(getClientLocale()); }, []);
+
+  useEffect(() => {
+    fetch("/api/me/role")
+      .then((r) => r.json())
+      .then((data: { role: string }) => {
+        const validRoles: OrganizerRole[] = ["admin", "dj", "entrance_manager", "finance_manager"];
+        if (validRoles.includes(data.role as OrganizerRole)) {
+          setRole(data.role as OrganizerRole);
+        }
+      })
+      .catch(() => {
+        // Keep default admin
+      });
+  }, []);
 
   const isLinkActive = (href: string) => {
     if (href === "/overview") return pathname === "/overview";
     return pathname === href || pathname.startsWith(href + "/");
   };
+
+  const visibleNav = navigation.filter(
+    (item) => !item.roles || item.roles.includes(role),
+  );
+  const visibleBottomNav = bottomNavigation.filter(
+    (item) => !item.roles || item.roles.includes(role),
+  );
 
   return (
     <aside
@@ -64,7 +97,7 @@ export function Sidebar() {
       {/* Navigation */}
       <nav className="flex h-[calc(100vh-4rem)] flex-col p-2">
         <div className="flex-1 space-y-1">
-          {navigation.map((item) => {
+          {visibleNav.map((item) => {
             const isActive = isLinkActive(item.href);
             const Icon = item.icon;
 
@@ -90,7 +123,7 @@ export function Sidebar() {
 
         {/* Bottom section */}
         <div className="space-y-1 border-t border-gray-100 pt-2 pb-2">
-          {bottomNavigation.map((item) => {
+          {visibleBottomNav.map((item) => {
             const isActive = isLinkActive(item.href);
             const Icon = item.icon;
 

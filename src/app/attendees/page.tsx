@@ -2,10 +2,14 @@ import { MainLayout } from "@/components/layout/MainLayout";
 import { getAttendees, getCheckinSummary } from "@/lib/data/attendees";
 import { AttendeesPageClient } from "@/components/attendees/AttendeesPageClient";
 import { getLocale, t } from "@/lib/i18n";
+import { checkRoleAccess } from "@/lib/auth/requireAdmin";
 
 export const dynamic = "force-dynamic";
 
 export default async function AttendeesPage() {
+  const denied = await checkRoleAccess(["admin", "entrance_manager"]);
+  if (denied) return denied;
+
   const locale = await getLocale();
   let attendees: Awaited<ReturnType<typeof getAttendees>> = [];
   let checkinSummary: Awaited<ReturnType<typeof getCheckinSummary>> = [];

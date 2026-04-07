@@ -4,98 +4,48 @@ import { MainLayout } from "@/components/layout/MainLayout";
 import {
   BuildingIcon,
   CalendarIcon,
-  HomeIcon,
+  UsersIcon,
+  StarIcon,
   MapPinIcon,
-  SettingsIcon,
+  ShareIcon,
+  ImageIcon,
+  HeartIcon,
+  LinkIcon,
+  TagIcon,
+  TrophyIcon,
+  ExternalLinkIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  EditIcon,
+  EyeIcon,
+  GlobeIcon,
+  MusicIcon,
 } from "@/components/icons";
-import { Card } from "@/components/ui/Card";
-import { Input } from "@/components/ui/Input";
-import { Select } from "@/components/ui/Select";
-import { Button } from "@/components/ui/Button";
-import { PlacesAutocomplete } from "@/components/ui/PlacesAutocomplete";
-import { LocationMapPicker } from "@/components/ui/LocationMapPicker";
+import { Badge } from "@/components/ui/Badge";
+import { useState, useEffect, use, type ComponentType, type SVGProps } from "react";
+import { fetchVenue } from "@/lib/actions/venues";
 import {
-  useState,
-  useEffect,
-  useTransition,
-  use,
-  type ComponentType,
-  type SVGProps,
-} from "react";
-import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import {
-  fetchVenue,
-  updateVenueAction,
-  deleteVenueAction,
-  type VenueActionResult,
-} from "@/lib/actions/venues";
-import type { Venue } from "@/types";
+  fetchVenueStats,
+  fetchVenueOrganizer,
+  fetchVenueEvents,
+  fetchSimilarVenues,
+  fetchVenueReviewsWithStats,
+  fetchOrganizerGallery,
+  fetchOrganizerTags,
+  type VenueStats,
+  type VenueOrganizer,
+  type VenueEventItem,
+  type SimilarVenueItem,
+  type TagItem,
+} from "@/lib/actions/venueDetail";
+import type { Venue, GalleryItem, VenueReview } from "@/types";
 import { getClientLocale, translate } from "@/lib/i18n/client";
 import type { Locale } from "@/lib/i18n";
+import Link from "next/link";
 
 // ---------------------------------------------------------------------------
-// Timezone options
+// Helpers
 // ---------------------------------------------------------------------------
-
-const TIMEZONE_OPTIONS = [
-  { value: "", label: "—" },
-  { value: "Europe/Paris", label: "Europe/Paris (CET)" },
-  { value: "Europe/London", label: "Europe/London (GMT)" },
-  { value: "Europe/Berlin", label: "Europe/Berlin (CET)" },
-  { value: "Europe/Madrid", label: "Europe/Madrid (CET)" },
-  { value: "Europe/Rome", label: "Europe/Rome (CET)" },
-  { value: "Europe/Amsterdam", label: "Europe/Amsterdam (CET)" },
-  { value: "Europe/Brussels", label: "Europe/Brussels (CET)" },
-  { value: "Europe/Zurich", label: "Europe/Zurich (CET)" },
-  { value: "Europe/Lisbon", label: "Europe/Lisbon (WET)" },
-  { value: "Europe/Stockholm", label: "Europe/Stockholm (CET)" },
-  { value: "Europe/Istanbul", label: "Europe/Istanbul (TRT)" },
-  { value: "America/New_York", label: "America/New York (EST)" },
-  { value: "America/Chicago", label: "America/Chicago (CST)" },
-  { value: "America/Denver", label: "America/Denver (MST)" },
-  { value: "America/Los_Angeles", label: "America/Los Angeles (PST)" },
-  { value: "America/Toronto", label: "America/Toronto (EST)" },
-  { value: "America/Sao_Paulo", label: "America/São Paulo (BRT)" },
-  { value: "America/Mexico_City", label: "America/Mexico City (CST)" },
-  { value: "Africa/Casablanca", label: "Africa/Casablanca (WET)" },
-  { value: "Africa/Tunis", label: "Africa/Tunis (CET)" },
-  { value: "Africa/Algiers", label: "Africa/Algiers (CET)" },
-  { value: "Africa/Cairo", label: "Africa/Cairo (EET)" },
-  { value: "Asia/Dubai", label: "Asia/Dubai (GST)" },
-  { value: "Asia/Riyadh", label: "Asia/Riyadh (AST)" },
-  { value: "Asia/Tokyo", label: "Asia/Tokyo (JST)" },
-  { value: "Asia/Seoul", label: "Asia/Seoul (KST)" },
-  { value: "Asia/Kolkata", label: "Asia/Kolkata (IST)" },
-  { value: "Australia/Sydney", label: "Australia/Sydney (AEST)" },
-  { value: "Pacific/Auckland", label: "Pacific/Auckland (NZST)" },
-];
-
-// ---------------------------------------------------------------------------
-// Zod Schema
-// ---------------------------------------------------------------------------
-
-const editVenueFormSchema = z.object({
-  name: z.string().min(1, "Venue name is required"),
-  address_line1: z.string().optional().or(z.literal("")),
-  city: z.string().optional().or(z.literal("")),
-  region: z.string().optional().or(z.literal("")),
-  country_code: z.string().optional().or(z.literal("")),
-  venue_type: z.string().optional().or(z.literal("")),
-  postal_code: z.string().optional().or(z.literal("")),
-  timezone: z.string().optional().or(z.literal("")),
-  capacity: z.union([z.coerce.number().int().positive(), z.literal(""), z.undefined()]).optional(),
-  lat: z.coerce.number().optional(),
-  lng: z.coerce.number().optional(),
-});
-
-type EditVenueFormValues = z.infer<typeof editVenueFormSchema>;
-
-function hasAnyTruthyValue(values: Array<number | string | null | undefined>) {
-  return values.some(Boolean);
-}
 
 type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
 
@@ -128,31 +78,20 @@ function SectionHeader({
   );
 }
 
-function DetailBlock({
-  icon: Icon,
-  label,
-  value,
-  hint,
-  className = "",
-}: {
-  icon: IconComponent;
-  label: string;
-  value: string;
-  hint?: string;
-  className?: string;
-}) {
-  return (
-    <div
-      className={`rounded-3xl border border-gray-200 bg-white/80 p-5 shadow-sm shadow-gray-100 ${className}`}
-    >
-      <div className="flex items-center gap-2 text-gray-500">
-        <Icon className="h-4 w-4" />
-        <p className="text-xs font-semibold uppercase tracking-[0.2em]">{label}</p>
-      </div>
-      <p className="mt-3 text-base font-semibold text-gray-950">{value}</p>
-      {hint && <p className="mt-1 text-sm text-gray-500">{hint}</p>}
-    </div>
-  );
+const cardClass =
+  "rounded-[2rem] border border-gray-200/80 bg-gradient-to-br from-white via-white to-slate-50 shadow-lg shadow-gray-100";
+
+function StarRating({ score, max = 5 }: { score: number; max?: number }) {
+  const stars = [];
+  for (let i = 1; i <= max; i++) {
+    stars.push(
+      <StarIcon
+        key={i}
+        className={`h-5 w-5 ${i <= Math.round(score) ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}`}
+      />,
+    );
+  }
+  return <div className="flex items-center gap-0.5">{stars}</div>;
 }
 
 // ---------------------------------------------------------------------------
@@ -165,683 +104,749 @@ export default function VenueDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [serverError, setServerError] = useState<string | null>(null);
-  const [venue, setVenue] = useState<Venue | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isEditing, setIsEditing] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
   const [locale, setLocale] = useState<Locale>("fr");
-  useEffect(() => { setLocale(getClientLocale()); }, []);
-
-  const t = (key: Parameters<typeof translate>[1]) => translate(locale, key);
-
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    watch,
-    reset,
-    formState: { errors, isDirty },
-  } = useForm<EditVenueFormValues>({
-    resolver: zodResolver(editVenueFormSchema),
-    defaultValues: {
-      name: "",
-      address_line1: "",
-      city: "",
-      region: "",
-      country_code: "",
-      venue_type: "",
-      postal_code: "",
-      timezone: "",
-      capacity: "" as unknown as undefined,
-    },
-  });
-
-  // Load venue data
   useEffect(() => {
-    async function loadVenue() {
+    setLocale(getClientLocale());
+  }, []);
+  // Cast to allow keys that may not exist in the translation file yet;
+  // translate() returns the key itself as fallback.
+  const t = (key: string) => translate(locale, key as Parameters<typeof translate>[1]);
+
+  // Data state
+  const [venue, setVenue] = useState<Venue | null>(null);
+  const [stats, setStats] = useState<VenueStats | null>(null);
+  const [organizer, setOrganizer] = useState<VenueOrganizer | null>(null);
+  const [events, setEvents] = useState<{
+    live: VenueEventItem[];
+    upcoming: VenueEventItem[];
+    past: VenueEventItem[];
+  } | null>(null);
+  const [similarVenues, setSimilarVenues] = useState<SimilarVenueItem[]>([]);
+  const [reviewData, setReviewData] = useState<{
+    reviews: VenueReview[];
+    stats: { count: number; average: number; distribution: Record<number, number> };
+  } | null>(null);
+  const [gallery, setGallery] = useState<GalleryItem[]>([]);
+  const [tags, setTags] = useState<TagItem[]>([]);
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Gallery carousel state
+  const [galleryIndex, setGalleryIndex] = useState(0);
+
+  // Load all data
+  useEffect(() => {
+    async function load() {
       try {
-        const data = await fetchVenue(id);
-        setVenue(data);
-        reset({
-          name: data.name,
-          address_line1: data.address ?? "",
-          city: data.city ?? "",
-          region: data.region ?? "",
-          country_code: data.countryCode ?? "",
-          venue_type: data.venueType ?? "",
-          postal_code: data.postalCode ?? "",
-          timezone: data.timezone ?? "",
-          capacity: data.capacity ?? ("" as unknown as undefined),
-          lat: data.lat ?? undefined,
-          lng: data.lng ?? undefined,
-        });
+        const venueData = await fetchVenue(id);
+        setVenue(venueData);
+
+        // Fetch remaining data in parallel
+        const promises = await Promise.allSettled([
+          fetchVenueStats(id, venueData.organizerId),
+          venueData.organizerId
+            ? fetchVenueOrganizer(venueData.organizerId)
+            : Promise.resolve(null),
+          fetchVenueEvents(id),
+          fetchSimilarVenues(id, venueData.city),
+          fetchVenueReviewsWithStats(id),
+          venueData.organizerId
+            ? fetchOrganizerGallery(venueData.organizerId)
+            : Promise.resolve([]),
+          venueData.organizerId
+            ? fetchOrganizerTags(venueData.organizerId)
+            : Promise.resolve([]),
+        ]);
+
+        if (promises[0].status === "fulfilled") setStats(promises[0].value as VenueStats);
+        if (promises[1].status === "fulfilled") setOrganizer(promises[1].value as VenueOrganizer | null);
+        if (promises[2].status === "fulfilled") {
+          const ev = promises[2].value as { live: VenueEventItem[]; upcoming: VenueEventItem[]; past: VenueEventItem[] };
+          setEvents(ev);
+        }
+        if (promises[3].status === "fulfilled") setSimilarVenues(promises[3].value as SimilarVenueItem[]);
+        if (promises[4].status === "fulfilled") {
+          setReviewData(
+            promises[4].value as {
+              reviews: VenueReview[];
+              stats: { count: number; average: number; distribution: Record<number, number> };
+            },
+          );
+        }
+        if (promises[5].status === "fulfilled") setGallery(promises[5].value as GalleryItem[]);
+        if (promises[6].status === "fulfilled") setTags(promises[6].value as TagItem[]);
       } catch {
-        setServerError("Failed to load venue.");
+        setError("Failed to load venue.");
       } finally {
         setIsLoading(false);
       }
     }
-    void loadVenue();
-  }, [id, reset]);
+    void load();
+  }, [id]);
 
-  const city = watch("city");
-  const region = watch("region");
-  const countryCode = watch("country_code");
-  const address = watch("address_line1");
-  const lat = watch("lat");
-  const lng = watch("lng");
-
-  const onSubmit = (data: EditVenueFormValues) => {
-    setServerError(null);
-    startTransition(async () => {
-      try {
-        const result: VenueActionResult = await updateVenueAction(id, {
-          name: data.name,
-          address_line1: data.address_line1,
-          city: data.city,
-          region: data.region,
-          country_code: data.country_code,
-          venue_type: data.venue_type,
-          postal_code: data.postal_code,
-          timezone: data.timezone,
-          capacity: typeof data.capacity === "number" ? data.capacity : null,
-          lat: data.lat,
-          lng: data.lng,
-        });
-
-        if (result.success) {
-          // Refresh venue data
-          const updated = await fetchVenue(id);
-          setVenue(updated);
-          setIsEditing(false);
-        } else {
-          setServerError(result.error);
-        }
-      } catch {
-        setServerError("An unexpected error occurred. Please try again.");
-      }
-    });
-  };
-
-  const handleDelete = () => {
-    setIsDeleting(true);
-    startTransition(async () => {
-      try {
-        const result = await deleteVenueAction(id);
-        if (result.success) {
-          router.push("/venues");
-        } else {
-          setServerError(result.error);
-          setIsDeleting(false);
-          setShowDeleteConfirm(false);
-        }
-      } catch {
-        setServerError("Failed to delete venue.");
-        setIsDeleting(false);
-        setShowDeleteConfirm(false);
-      }
-    });
-  };
-
-  const handlePlaceSelect = (place: {
-    name: string;
-    address: string;
-    city: string | null;
-    region: string | null;
-    countryCode: string | null;
-    lat: number | null;
-    lng: number | null;
-    placeId: string;
-  }) => {
-    if (place.address) setValue("address_line1", place.address, { shouldDirty: true });
-    if (place.city) setValue("city", place.city, { shouldDirty: true });
-    if (place.region) setValue("region", place.region, { shouldDirty: true });
-    if (place.countryCode) setValue("country_code", place.countryCode, { shouldDirty: true });
-    if (place.lat) setValue("lat", place.lat, { shouldDirty: true });
-    if (place.lng) setValue("lng", place.lng, { shouldDirty: true });
-  };
-
-  const handleCancelEdit = () => {
-    if (venue) {
-      reset({
-        name: venue.name,
-        address_line1: venue.address ?? "",
-        city: venue.city ?? "",
-        region: venue.region ?? "",
-        country_code: venue.countryCode ?? "",
-        venue_type: venue.venueType ?? "",
-        postal_code: venue.postalCode ?? "",
-        timezone: venue.timezone ?? "",
-        capacity: venue.capacity ?? ("" as unknown as undefined),
-        lat: venue.lat ?? undefined,
-        lng: venue.lng ?? undefined,
-      });
-    }
-    setIsEditing(false);
-    setServerError(null);
-  };
-
-  // Build location summary
-  const locationParts = [address, city, region, countryCode].filter(Boolean);
-  const locationSummary = locationParts.length > 0 ? locationParts.join(", ") : "No location set";
-  const hasCoordinatePreview = hasAnyTruthyValue([lat, lng]);
-  const venueTypeLabel = venue?.venueType ? venue.venueType.replace(/_/g, " ") : null;
-  const formattedCreatedAt = venue
-    ? new Date(venue.createdAt).toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-    : "";
+  // ---------------------------------------------------------------------------
+  // Loading / Error states
+  // ---------------------------------------------------------------------------
 
   if (isLoading) {
     return (
       <MainLayout>
-        <h1 className="mb-6 text-2xl font-semibold text-gray-900">{t("adminVenue.overviewTitle")}</h1>
-        <div className="flex items-center justify-center py-20">
-          <div className="text-center">
-            <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-gray-900" />
-            <p className="mt-4 text-sm text-gray-500">{t("adminVenue.loading")}</p>
-          </div>
+        <div className="flex h-96 items-center justify-center">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-gray-300 border-t-gray-900" />
         </div>
       </MainLayout>
     );
   }
 
-  if (!venue && !isLoading) {
+  if (error || !venue) {
     return (
       <MainLayout>
-        <h1 className="mb-6 text-2xl font-semibold text-gray-900">{t("adminVenue.notFound")}</h1>
-        <div className="flex items-center justify-center py-20">
-          <div className="text-center">
-            <p className="text-lg font-medium text-gray-900">{t("adminVenue.notFound")}</p>
-            <p className="mt-1 text-sm text-gray-500">
-              {t("adminVenue.notFoundDesc")}
-            </p>
-            <Button
-              variant="primary"
-              size="sm"
-              className="mt-4"
-              onClick={() => router.push("/venues")}
-            >
-              {t("adminVenue.backToVenues")}
-            </Button>
-          </div>
+        <div className="flex h-96 flex-col items-center justify-center gap-4">
+          <p className="text-lg font-semibold text-gray-700">
+            {error ?? "Venue not found"}
+          </p>
+          <Link
+            href="/venues"
+            className="text-sm font-medium text-gray-500 hover:text-gray-900 underline"
+          >
+            Back to venues
+          </Link>
         </div>
       </MainLayout>
     );
   }
+
+  // Derived data
+  const coverUrl = organizer?.coverImageUrl;
+  const categoryTags = tags.filter((t) => t.type === "category");
+  const partyTypeTags = tags.filter((t) => t.type === "party_type");
+  const musicStyleTags = tags.filter((t) => t.type === "music_style");
+  const extraServiceTags = tags.filter((t) => t.type === "extra_service");
+
+  const socialLinks: Array<{ label: string; url: string; icon: IconComponent }> = [];
+  if (organizer) {
+    if (organizer.instagramHandle)
+      socialLinks.push({
+        label: "Instagram",
+        url: `https://instagram.com/${organizer.instagramHandle}`,
+        icon: LinkIcon,
+      });
+    if (organizer.facebookHandle)
+      socialLinks.push({
+        label: "Facebook",
+        url: `https://facebook.com/${organizer.facebookHandle}`,
+        icon: LinkIcon,
+      });
+    if (organizer.tiktokHandle)
+      socialLinks.push({
+        label: "TikTok",
+        url: `https://tiktok.com/@${organizer.tiktokHandle}`,
+        icon: LinkIcon,
+      });
+    if (organizer.snapchatHandle)
+      socialLinks.push({
+        label: "Snapchat",
+        url: `https://snapchat.com/add/${organizer.snapchatHandle}`,
+        icon: LinkIcon,
+      });
+    if (organizer.youtubeHandle)
+      socialLinks.push({
+        label: "YouTube",
+        url: `https://youtube.com/${organizer.youtubeHandle}`,
+        icon: LinkIcon,
+      });
+    if (organizer.twitterHandle)
+      socialLinks.push({
+        label: "Twitter / X",
+        url: `https://x.com/${organizer.twitterHandle}`,
+        icon: LinkIcon,
+      });
+    if (organizer.pinterestHandle)
+      socialLinks.push({
+        label: "Pinterest",
+        url: `https://pinterest.com/${organizer.pinterestHandle}`,
+        icon: LinkIcon,
+      });
+    if (organizer.googleBusinessUrl)
+      socialLinks.push({
+        label: "Google Business",
+        url: organizer.googleBusinessUrl,
+        icon: GlobeIcon,
+      });
+    if (organizer.websiteUrl)
+      socialLinks.push({
+        label: "Website",
+        url: organizer.websiteUrl,
+        icon: GlobeIcon,
+      });
+  }
+
+  const addressParts = [venue.address, venue.city, venue.region, venue.countryCode].filter(Boolean);
+  const fullAddress = addressParts.join(", ");
+
+  const galleryPrev = () => setGalleryIndex((i) => (i > 0 ? i - 1 : gallery.length - 1));
+  const galleryNext = () => setGalleryIndex((i) => (i < gallery.length - 1 ? i + 1 : 0));
+
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
 
   return (
     <MainLayout>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-gray-900">
-          {isEditing ? t("adminVenue.editVenue") : venue?.name ?? t("adminVenue.overviewTitle")}
-        </h1>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            type="button"
-            onClick={() => router.push("/venues")}
-          >
-            &larr; {t("common.back")}
-          </Button>
-          {!isEditing ? (
-            <>
-              <Button
-                variant="primary"
-                size="sm"
-                type="button"
-                onClick={() => setIsEditing(true)}
+      <div className="mx-auto max-w-7xl space-y-8 px-4 py-8 sm:px-6 lg:px-8">
+        {/* ----------------------------------------------------------------- */}
+        {/* HEADER                                                            */}
+        {/* ----------------------------------------------------------------- */}
+        <div
+          className="relative overflow-hidden rounded-[2rem] p-8 md:p-12"
+          style={
+            coverUrl
+              ? {
+                  backgroundImage: `url(${coverUrl})`,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                }
+              : undefined
+          }
+        >
+          {/* Overlay */}
+          <div
+            className={`absolute inset-0 ${
+              coverUrl
+                ? "bg-black/60"
+                : "bg-gradient-to-br from-gray-900 via-gray-800 to-gray-950"
+            }`}
+          />
+
+          {/* Content */}
+          <div className="relative z-10">
+            {/* Top actions */}
+            <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
+              <Link
+                href="/venues"
+                className="flex items-center gap-1.5 text-sm font-medium text-white/70 hover:text-white transition-colors"
               >
-                {t("adminVenue.editVenue")}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                type="button"
-                onClick={() => setShowDeleteConfirm(true)}
-                className="text-red-600 hover:bg-red-50"
-              >
-                {t("common.delete")}
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                type="button"
-                onClick={handleCancelEdit}
-              >
-                {t("common.cancel")}
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                type="button"
-                disabled={isPending || !isDirty}
-                onClick={handleSubmit(onSubmit)}
-              >
-                {isPending ? t("common.saving") : t("editEvent.saveChanges")}
-              </Button>
-            </>
-          )}
-        </div>
-      </div>
-      {/* Delete Confirmation Modal */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="mx-4 w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-            <h3 className="text-lg font-semibold text-gray-900">{t("adminVenue.deleteVenue")}</h3>
-            <p className="mt-2 text-sm text-gray-600">
-              {t("adminVenue.deleteConfirm")} <strong>{venue?.name}</strong>{t("adminVenue.deleteWarning")}
-            </p>
-            <div className="mt-4 flex justify-end gap-3">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowDeleteConfirm(false)}
-                disabled={isDeleting}
-              >
-                {t("common.cancel")}
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={handleDelete}
-                disabled={isDeleting}
-                className="bg-red-600 hover:bg-red-700"
-              >
-                {isDeleting ? t("common.deleting") : t("adminVenue.deleteVenue")}
-              </Button>
+                <ChevronLeftIcon className="h-4 w-4" />
+                {t("venues.title") || "Venues"}
+              </Link>
+              <div className="flex items-center gap-3">
+                <Link
+                  href={`/discover/venues/${id}`}
+                  className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium text-white backdrop-blur-sm hover:bg-white/20 transition-colors"
+                >
+                  <EyeIcon className="h-4 w-4" />
+                  View as Guest
+                </Link>
+                <Link
+                  href={`/venues/${id}/edit`}
+                  className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-medium text-gray-900 shadow-sm hover:bg-gray-100 transition-colors"
+                >
+                  <EditIcon className="h-4 w-4" />
+                  Edit Venue
+                </Link>
+              </div>
+            </div>
+
+            {/* Venue name + type */}
+            <div className="mb-8">
+              <div className="flex flex-wrap items-center gap-3">
+                <h1 className="text-3xl font-bold text-white md:text-4xl">
+                  {venue.name}
+                </h1>
+                {venue.venueType && (
+                  <span className="inline-flex items-center rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white backdrop-blur-sm">
+                    {venue.venueType}
+                  </span>
+                )}
+              </div>
+              {fullAddress && (
+                <p className="mt-2 flex items-center gap-1.5 text-sm text-white/70">
+                  <MapPinIcon className="h-4 w-4" />
+                  {fullAddress}
+                </p>
+              )}
+            </div>
+
+            {/* Stat subcards */}
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+              <StatSubcard
+                icon={CalendarIcon}
+                label={t("venueDetail.events") || "Events"}
+                value={stats?.eventCount ?? 0}
+              />
+              <StatSubcard
+                icon={UsersIcon}
+                label={t("venueDetail.attendees") || "Attendees"}
+                value={stats?.totalAttendees ?? 0}
+              />
+              <StatSubcard
+                icon={StarIcon}
+                label={t("venueDetail.reviewScore") || "Review Score"}
+                value={stats?.reviewScore !== null && stats?.reviewScore !== undefined ? stats.reviewScore.toFixed(1) : "N/A"}
+                suffix={stats?.reviewScore !== null && stats?.reviewScore !== undefined ? "/5" : undefined}
+              />
+              <StatSubcard
+                icon={HeartIcon}
+                label={t("venueDetail.followers") || "Followers"}
+                value={stats?.followerCount ?? 0}
+              />
             </div>
           </div>
         </div>
-      )}
 
-      <div className="mx-auto max-w-6xl space-y-6">
-        {/* Server Error */}
-        {serverError && (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-            {serverError}
-          </div>
-        )}
+        {/* ----------------------------------------------------------------- */}
+        {/* TWO-COLUMN LAYOUT                                                 */}
+        {/* ----------------------------------------------------------------- */}
+        <div className="grid gap-8 lg:grid-cols-3">
+          {/* Left column (2/3) */}
+          <div className="space-y-8 lg:col-span-2">
+            {/* Description card */}
+            <div className={`${cardClass} p-8`}>
+              <SectionHeader
+                icon={BuildingIcon}
+                eyebrow={t("venueDetail.about") || "About"}
+                title={t("venueDetail.description") || "Description"}
+              />
+              <p className="mt-6 whitespace-pre-line text-sm leading-relaxed text-gray-600">
+                {venue.description || organizer?.about || "No description available."}
+              </p>
+            </div>
 
-        {/* View Mode */}
-        {!isEditing && venue && (
-          <>
-            <section className="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-gradient-to-br from-slate-950 via-slate-900 to-teal-800 p-8 text-white shadow-xl shadow-slate-200">
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(255,255,255,0.18),_transparent_30%),radial-gradient(circle_at_bottom_left,_rgba(45,212,191,0.22),_transparent_34%)]" />
-              <div className="relative grid gap-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)]">
-                <div>
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/12 text-white backdrop-blur">
-                    <BuildingIcon className="h-6 w-6" />
-                  </div>
-                  <p className="mt-5 text-xs font-semibold uppercase tracking-[0.3em] text-teal-100/75">
-                    {t("adminVenue.profileEyebrow")}
-                  </p>
-                  <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
-                    {venue.name}
-                  </h1>
-                  <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-200">
-                    {t("adminVenue.profileDesc")}
-                  </p>
-
-                  <div className="mt-6 flex flex-wrap gap-3">
-                    <div className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-white/90 backdrop-blur">
-                      {venueTypeLabel ?? t("adminVenue.typeNotSpecified")}
-                    </div>
-                    <div className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-white/90 backdrop-blur">
-                      {locationSummary}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-                  <div className="rounded-3xl border border-white/12 bg-white/10 p-5 backdrop-blur">
-                    <div className="flex items-center gap-2 text-teal-100">
-                      <BuildingIcon className="h-4 w-4" />
-                      <p className="text-xs font-semibold uppercase tracking-[0.2em]">
-                        {t("createVenue.venueType")}
-                      </p>
-                    </div>
-                    <p className="mt-3 text-lg font-semibold text-white">
-                      {venueTypeLabel ?? t("common.notSet")}
-                    </p>
-                  </div>
-                  <div className="rounded-3xl border border-white/12 bg-white/10 p-5 backdrop-blur">
-                    <div className="flex items-center gap-2 text-teal-100">
-                      <MapPinIcon className="h-4 w-4" />
-                      <p className="text-xs font-semibold uppercase tracking-[0.2em]">
-                        {t("adminVenue.geoStatus")}
-                      </p>
-                    </div>
-                    <p className="mt-3 text-lg font-semibold text-white">
-                      {hasCoordinatePreview ? t("adminVenue.coordinatesSet") : t("adminVenue.mapPending")}
-                    </p>
-                  </div>
-                  <div className="rounded-3xl border border-white/12 bg-white/10 p-5 backdrop-blur sm:col-span-2 lg:col-span-1">
-                    <div className="flex items-center gap-2 text-teal-100">
-                      <CalendarIcon className="h-4 w-4" />
-                      <p className="text-xs font-semibold uppercase tracking-[0.2em]">
-                        {t("adminVenue.added")}
-                      </p>
-                    </div>
-                    <p className="mt-3 text-lg font-semibold text-white">
-                      {formattedCreatedAt}
-                    </p>
-                  </div>
-                </div>
+            {/* Overview card */}
+            <div className={`${cardClass} p-8`}>
+              <SectionHeader
+                icon={TagIcon}
+                eyebrow={t("venueDetail.overview") || "Overview"}
+                title={t("venueDetail.categoriesAndTags") || "Categories & Tags"}
+              />
+              <div className="mt-6 space-y-5">
+                {categoryTags.length > 0 && (
+                  <TagGroup label="Category" tags={categoryTags} />
+                )}
+                {partyTypeTags.length > 0 && (
+                  <TagGroup label="Party Types" tags={partyTypeTags} />
+                )}
+                {musicStyleTags.length > 0 && (
+                  <TagGroup label="Music Styles" tags={musicStyleTags} icon={MusicIcon} />
+                )}
+                {extraServiceTags.length > 0 && (
+                  <TagGroup label="Extra Services" tags={extraServiceTags} />
+                )}
+                {categoryTags.length === 0 &&
+                  partyTypeTags.length === 0 &&
+                  musicStyleTags.length === 0 &&
+                  extraServiceTags.length === 0 && (
+                    <p className="text-sm text-gray-400">No tags configured.</p>
+                  )}
               </div>
-            </section>
+            </div>
 
-            <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
-              <div className="space-y-6">
-                <Card className="rounded-[2rem] border border-gray-200/80 bg-gradient-to-br from-white via-white to-slate-50 shadow-lg shadow-gray-100">
-                  <SectionHeader
-                    icon={BuildingIcon}
-                    eyebrow={t("adminVenue.overviewEyebrow")}
-                    title={t("adminVenue.overviewTitle")}
-                    description={t("adminVenue.overviewDesc")}
-                  />
+            {/* Location card */}
+            <div className={`${cardClass} p-8`}>
+              <SectionHeader
+                icon={MapPinIcon}
+                eyebrow={t("venueDetail.location") || "Location"}
+                title={t("venueDetail.address") || "Address & Map"}
+              />
+              <div className="mt-6 space-y-4">
+                {venue.address && (
+                  <p className="text-sm text-gray-700">{venue.address}</p>
+                )}
+                {(venue.city || venue.region || venue.countryCode) && (
+                  <p className="text-sm text-gray-500">
+                    {[venue.city, venue.region, venue.countryCode]
+                      .filter(Boolean)
+                      .join(", ")}
+                    {venue.postalCode ? ` ${venue.postalCode}` : ""}
+                  </p>
+                )}
 
-                  <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                    <DetailBlock
-                      icon={BuildingIcon}
-                      label={t("createVenue.venueName")}
-                      value={venue.name}
-                    />
-                    <DetailBlock
-                      icon={SettingsIcon}
-                      label={t("createVenue.venueType")}
-                      value={venueTypeLabel ?? t("common.notSet")}
-                    />
-                    {venue.capacity && (
-                      <DetailBlock
-                        icon={BuildingIcon}
-                        label={t("createVenue.capacityLabel")}
-                        value={venue.capacity.toLocaleString()}
-                      />
-                    )}
-                    <DetailBlock
-                      icon={CalendarIcon}
-                      label={t("adminVenue.timezone")}
-                      value={venue.timezone ?? t("adminVenue.timezoneNotSet")}
-                    />
-                  </div>
-                </Card>
-
-                <Card className="rounded-[2rem] border border-gray-200/80 bg-gradient-to-br from-white via-white to-teal-50/50 shadow-lg shadow-gray-100">
-                  <SectionHeader
-                    icon={MapPinIcon}
-                    eyebrow={t("adminVenue.locationEyebrow")}
-                    title={t("adminVenue.locationTitle")}
-                    description={t("adminVenue.locationDesc")}
-                  />
-
-                  <div className="mt-6 grid gap-4">
-                    <DetailBlock
-                      icon={HomeIcon}
-                      label={t("adminVenue.streetAddress")}
-                      value={venue.address ?? t("adminVenue.noStreetAddress")}
-                    />
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <DetailBlock
-                        icon={MapPinIcon}
-                        label={t("adminVenue.area")}
-                        value={locationSummary}
-                      />
-                      <DetailBlock
-                        icon={MapPinIcon}
-                        label={t("adminVenue.coordinates")}
-                        value={hasCoordinatePreview ? `${lat}, ${lng}` : t("adminVenue.coordinatesNotSet")}
-                        hint={hasCoordinatePreview ? t("adminVenue.coordinatesHint") : undefined}
-                      />
-                    </div>
-                  </div>
-                </Card>
-              </div>
-
-              <div className="space-y-6">
-                <Card className="rounded-[2rem] border border-gray-200/80 bg-white shadow-lg shadow-gray-100">
-                  <SectionHeader
-                    icon={MapPinIcon}
-                    eyebrow={t("adminVenue.previewEyebrow")}
-                    title={t("adminVenue.mapView")}
-                    description={t("adminVenue.mapViewDesc")}
-                  />
-
-                  {lat && lng ? (
-                    <div className="mt-6 overflow-hidden rounded-[1.5rem] border border-gray-200 bg-white">
+                {venue.lat && venue.lng && (
+                  <>
+                    <div className="mt-4 overflow-hidden rounded-2xl border border-gray-200">
                       <iframe
-                        title={t("adminVenue.venueLocation")}
+                        title="Venue location"
                         width="100%"
-                        height="340"
+                        height="280"
                         style={{ border: 0 }}
                         loading="lazy"
                         referrerPolicy="no-referrer-when-downgrade"
-                        src={`https://www.google.com/maps/embed/v1/place?key=${process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY ?? ""}&q=${lat},${lng}&zoom=15`}
+                        src={`https://www.google.com/maps?q=${venue.lat},${venue.lng}&z=15&output=embed`}
                       />
                     </div>
-                  ) : (
-                    <div className="mt-6 rounded-[1.5rem] border border-dashed border-gray-300 bg-gray-50 p-10 text-center">
-                      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-900 text-white">
-                        <MapPinIcon className="h-5 w-5" />
-                      </div>
-                      <p className="mt-4 text-sm font-medium text-gray-900">
-                        {t("adminVenue.noPreview")}
-                      </p>
-                      <p className="mt-1 text-sm text-gray-500">
-                        {t("adminVenue.noPreviewHint")}
-                      </p>
-                    </div>
-                  )}
-                </Card>
+                    <a
+                      href={`https://www.google.com/maps/dir/?api=1&destination=${venue.lat},${venue.lng}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 rounded-xl bg-gray-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-gray-800 transition-colors"
+                    >
+                      <ExternalLinkIcon className="h-4 w-4" />
+                      Get Directions
+                    </a>
+                  </>
+                )}
 
-                <Card className="rounded-[2rem] border border-gray-200/80 bg-gradient-to-br from-slate-50 via-white to-white shadow-lg shadow-gray-100">
-                  <SectionHeader
-                    icon={CalendarIcon}
-                    eyebrow={t("adminVenue.metadataEyebrow")}
-                    title={t("adminVenue.systemInfo")}
-                    description={t("adminVenue.systemInfoDesc")}
-                  />
-
-                  <div className="mt-6 space-y-4">
-                    <DetailBlock
-                      icon={CalendarIcon}
-                      label={t("adminVenue.created")}
-                      value={formattedCreatedAt}
-                    />
-                    <DetailBlock
-                      icon={SettingsIcon}
-                      label={t("adminVenue.venueId")}
-                      value={venue.id}
-                      className="font-mono"
-                    />
-                  </div>
-                </Card>
+                {!venue.lat && !venue.lng && !venue.address && (
+                  <p className="text-sm text-gray-400">No location data available.</p>
+                )}
               </div>
             </div>
-          </>
-        )}
+          </div>
 
-        {/* Edit Mode */}
-        {isEditing && (
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            <section className="rounded-[2rem] border border-amber-200 bg-gradient-to-r from-amber-50 via-white to-white p-6 shadow-sm">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div className="flex items-start gap-4">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-950 text-white">
-                    <SettingsIcon className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-amber-700">
-                      {t("adminVenue.editingEyebrow")}
-                    </p>
-                    <h2 className="mt-1 text-2xl font-semibold text-gray-950">
-                      {t("adminVenue.editTitle")}
-                    </h2>
-                    <p className="mt-1 text-sm text-gray-600">
-                      {t("adminVenue.editDesc")}
-                    </p>
-                  </div>
-                </div>
-                <div className="rounded-2xl border border-amber-200 bg-white px-4 py-3 text-sm text-gray-600">
-                  {t("adminVenue.currentLocation")} <span className="font-medium text-gray-900">{locationSummary}</span>
+          {/* Right column (1/3) */}
+          <div className="space-y-8">
+            {/* Review card */}
+            <div className={`${cardClass} p-8`}>
+              <SectionHeader
+                icon={StarIcon}
+                eyebrow={t("venueDetail.reviews") || "Reviews"}
+                title={t("venueDetail.rating") || "Rating"}
+              />
+              <div className="mt-6 flex items-center gap-4">
+                <span className="text-5xl font-bold text-gray-900">
+                  {reviewData?.stats.average
+                    ? reviewData.stats.average.toFixed(1)
+                    : "N/A"}
+                </span>
+                <div>
+                  {reviewData?.stats.average ? (
+                    <StarRating score={reviewData.stats.average} />
+                  ) : null}
+                  <p className="mt-1 text-sm text-gray-500">
+                    {reviewData?.stats.count ?? 0}{" "}
+                    {(reviewData?.stats.count ?? 0) === 1 ? "review" : "reviews"}
+                  </p>
                 </div>
               </div>
-            </section>
 
-            <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(360px,1fr)]">
-              <Card className="rounded-[2rem] border border-gray-200/80 bg-gradient-to-br from-white via-white to-slate-50 shadow-lg shadow-gray-100">
-                <SectionHeader
-                  icon={BuildingIcon}
-                  eyebrow={t("adminVenue.profileSection")}
-                  title={t("adminVenue.profileSectionTitle")}
-                  description={t("adminVenue.profileSectionDesc")}
-                />
-                <div className="mt-6 space-y-4">
-                  <Input
-                    label={t("createVenue.venueName")}
-                    placeholder={t("createVenue.venueNamePlaceholder")}
-                    error={errors.name?.message}
-                    {...register("name")}
-                  />
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <Select
-                      label={t("createVenue.venueType")}
-                      options={[
-                        { value: "", label: t("createVenue.selectType") },
-                        { value: "club", label: t("createVenue.typeClub") },
-                        { value: "bar", label: t("createVenue.typeBar") },
-                        { value: "restaurant", label: t("createVenue.typeRestaurant") },
-                        { value: "concert_hall", label: t("createVenue.typeConcertHall") },
-                        { value: "outdoor", label: t("createVenue.typeOutdoor") },
-                        { value: "hotel", label: t("createVenue.typeHotel") },
-                        { value: "conference_center", label: t("createVenue.typeConference") },
-                        { value: "stadium", label: t("createVenue.typeStadium") },
-                        { value: "theater", label: t("createVenue.typeTheater") },
-                        { value: "other", label: t("createVenue.typeOther") },
-                      ]}
-                      error={errors.venue_type?.message}
-                      {...register("venue_type")}
-                    />
-                    <Input
-                      label={t("createVenue.capacityLabel")}
-                      placeholder={t("createVenue.capacityPlaceholder")}
-                      type="number"
-                      min="1"
-                      {...register("capacity")}
-                    />
-                  </div>
-                  <Select
-                    label={t("createVenue.timezoneLabel")}
-                    options={TIMEZONE_OPTIONS}
-                    error={errors.timezone?.message}
-                    {...register("timezone")}
-                  />
+              {/* Distribution bars */}
+              {reviewData && reviewData.stats.count > 0 && (
+                <div className="mt-6 space-y-2">
+                  {[5, 4, 3, 2, 1].map((star) => {
+                    const count = reviewData.stats.distribution[star] ?? 0;
+                    const pct =
+                      reviewData.stats.count > 0
+                        ? (count / reviewData.stats.count) * 100
+                        : 0;
+                    return (
+                      <div key={star} className="flex items-center gap-2 text-sm">
+                        <span className="w-4 text-right text-gray-500">{star}</span>
+                        <StarIcon className="h-3.5 w-3.5 text-yellow-400 fill-yellow-400" />
+                        <div className="flex-1 rounded-full bg-gray-100 h-2">
+                          <div
+                            className="h-2 rounded-full bg-yellow-400"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                        <span className="w-8 text-right text-gray-400">{count}</span>
+                      </div>
+                    );
+                  })}
                 </div>
-              </Card>
+              )}
+            </div>
 
-              <Card className="rounded-[2rem] border border-gray-200/80 bg-gradient-to-br from-white via-white to-teal-50/50 shadow-lg shadow-gray-100">
-                <SectionHeader
-                  icon={MapPinIcon}
-                  eyebrow={t("adminVenue.locationSection")}
-                  title={t("adminVenue.locationSectionTitle")}
-                  description={t("adminVenue.locationSectionDesc")}
-                />
-                <div className="mt-6 space-y-4">
-                  <PlacesAutocomplete
-                    label={t("adminVenue.searchNewLocation")}
-                    placeholder={t("createVenue.searchPlaceholder")}
-                    onPlaceSelect={handlePlaceSelect}
-                    defaultValue={venue?.address ?? ""}
-                  />
-
-                  {lat != null && lng != null && (
-                    <LocationMapPicker
-                      lat={lat}
-                      lng={lng}
-                      onLocationChange={(newLat, newLng) => {
-                        setValue("lat", newLat, { shouldDirty: true });
-                        setValue("lng", newLng, { shouldDirty: true });
-                      }}
-                    />
-                  )}
-
-                  <div className="rounded-3xl border border-gray-200 bg-white/80 p-5">
-                    <p className="mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">
-                      {t("adminVenue.locationDetails")}
-                    </p>
-                    <div className="space-y-4">
-                      <Input
-                        label={t("createVenue.addressLabel")}
-                        placeholder={t("createVenue.addressPlaceholder")}
-                        error={errors.address_line1?.message}
-                        {...register("address_line1")}
+            {/* Gallery carousel */}
+            <div className={`${cardClass} p-8`}>
+              <SectionHeader
+                icon={ImageIcon}
+                eyebrow={t("venueDetail.gallery") || "Gallery"}
+                title={t("venueDetail.photos") || "Photos"}
+              />
+              {gallery.length > 0 ? (
+                <div className="mt-6">
+                  <div className="relative overflow-hidden rounded-2xl">
+                    {gallery[galleryIndex]?.mediaType === "video" ? (
+                      <video
+                        src={gallery[galleryIndex].mediaUrl}
+                        className="aspect-[4/3] w-full object-cover"
+                        controls
                       />
-                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                        <Input
-                          label={t("createVenue.cityLabel")}
-                          placeholder={t("createVenue.cityPlaceholder")}
-                          error={errors.city?.message}
-                          {...register("city")}
-                        />
-                        <Input
-                          label={t("createVenue.regionLabel")}
-                          placeholder={t("createVenue.regionPlaceholder")}
-                          error={errors.region?.message}
-                          {...register("region")}
-                        />
-                      </div>
-                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                        <Input
-                          label={t("createVenue.countryLabel")}
-                          placeholder={t("createVenue.countryPlaceholder")}
-                          error={errors.country_code?.message}
-                          {...register("country_code")}
-                        />
-                        <Input
-                          label={t("createVenue.postalLabel")}
-                          placeholder={t("createVenue.postalPlaceholder")}
-                          error={errors.postal_code?.message}
-                          {...register("postal_code")}
-                        />
-                      </div>
-                    </div>
+                    ) : (
+                      <img
+                        src={gallery[galleryIndex]?.mediaUrl}
+                        alt={gallery[galleryIndex]?.caption ?? "Gallery image"}
+                        className="aspect-[4/3] w-full object-cover"
+                      />
+                    )}
+                    {gallery.length > 1 && (
+                      <>
+                        <button
+                          onClick={galleryPrev}
+                          className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/40 p-2 text-white hover:bg-black/60 transition-colors"
+                        >
+                          <ChevronLeftIcon className="h-5 w-5" />
+                        </button>
+                        <button
+                          onClick={galleryNext}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/40 p-2 text-white hover:bg-black/60 transition-colors"
+                        >
+                          <ChevronRightIcon className="h-5 w-5" />
+                        </button>
+                      </>
+                    )}
                   </div>
+                  {/* Dots indicator */}
+                  {gallery.length > 1 && (
+                    <div className="mt-3 flex justify-center gap-1.5">
+                      {gallery.map((_, i) => (
+                        <button
+                          key={i}
+                          onClick={() => setGalleryIndex(i)}
+                          className={`h-2 w-2 rounded-full transition-colors ${
+                            i === galleryIndex ? "bg-gray-900" : "bg-gray-300"
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  )}
+                  {/* Share button */}
+                  <button
+                    onClick={() => {
+                      void navigator.clipboard.writeText(window.location.href);
+                    }}
+                    className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    <ShareIcon className="h-4 w-4" />
+                    Share
+                  </button>
                 </div>
-              </Card>
+              ) : (
+                <p className="mt-6 text-sm text-gray-400">No gallery images.</p>
+              )}
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex justify-end gap-3">
-              <Button
-                variant="outline"
-                type="button"
-                onClick={handleCancelEdit}
-              >
-                {t("common.cancel")}
-              </Button>
-              <Button
-                variant="primary"
-                type="submit"
-                disabled={isPending || !isDirty}
-              >
-                {isPending ? t("common.saving") : t("editEvent.saveChanges")}
-              </Button>
+            {/* Social links card */}
+            <div className={`${cardClass} p-8`}>
+              <SectionHeader
+                icon={GlobeIcon}
+                eyebrow={t("venueDetail.social") || "Social"}
+                title={t("venueDetail.socialLinks") || "Social Links"}
+              />
+              {socialLinks.length > 0 ? (
+                <ul className="mt-6 space-y-3">
+                  {socialLinks.map((link) => (
+                    <li key={link.label}>
+                      <a
+                        href={link.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-3 rounded-xl border border-gray-100 bg-white px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+                      >
+                        <link.icon className="h-4 w-4 text-gray-400" />
+                        {link.label}
+                        <ExternalLinkIcon className="ml-auto h-3.5 w-3.5 text-gray-300" />
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-6 text-sm text-gray-400">No social links configured.</p>
+              )}
             </div>
-          </form>
+
+            {/* Achievements card */}
+            <div className={`${cardClass} p-8`}>
+              <SectionHeader
+                icon={TrophyIcon}
+                eyebrow={t("venueDetail.achievements") || "Achievements"}
+                title={t("venueDetail.achievementsTitle") || "Achievements"}
+              />
+              <p className="mt-6 text-sm text-gray-400">
+                Achievements coming soon
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* ----------------------------------------------------------------- */}
+        {/* EVENTS SECTIONS                                                   */}
+        {/* ----------------------------------------------------------------- */}
+        <div className="space-y-8">
+          <EventSection
+            icon={CalendarIcon}
+            eyebrow="Now"
+            title="Live Events"
+            events={events?.live ?? []}
+            emptyMessage="No live events right now."
+          />
+          <EventSection
+            icon={CalendarIcon}
+            eyebrow="Coming Up"
+            title="Upcoming Events"
+            events={events?.upcoming ?? []}
+            emptyMessage="No upcoming events."
+          />
+          <EventSection
+            icon={CalendarIcon}
+            eyebrow="History"
+            title="Past Events"
+            events={events?.past ?? []}
+            emptyMessage="No past events."
+          />
+        </div>
+
+        {/* ----------------------------------------------------------------- */}
+        {/* SIMILAR VENUES                                                    */}
+        {/* ----------------------------------------------------------------- */}
+        {similarVenues.length > 0 && (
+          <div className={`${cardClass} p-8`}>
+            <SectionHeader
+              icon={BuildingIcon}
+              eyebrow="Discover"
+              title="Similar Venues"
+              description={`Other venues in ${venue.city ?? "this area"}`}
+            />
+            <div className="mt-6 flex gap-4 overflow-x-auto pb-2 scrollbar-thin">
+              {similarVenues.map((sv) => (
+                <Link
+                  key={sv.id}
+                  href={`/venues/${sv.id}`}
+                  className="flex-shrink-0 w-56 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm hover:shadow-md transition-shadow"
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-100">
+                    <BuildingIcon className="h-5 w-5 text-gray-500" />
+                  </div>
+                  <h4 className="mt-3 text-sm font-semibold text-gray-900 truncate">
+                    {sv.name}
+                  </h4>
+                  <p className="mt-1 text-xs text-gray-500">
+                    {sv.city ?? ""}
+                    {sv.venue_type ? ` \u00B7 ${sv.venue_type}` : ""}
+                  </p>
+                  {sv.capacity && (
+                    <p className="mt-1 text-xs text-gray-400">
+                      Capacity: {sv.capacity}
+                    </p>
+                  )}
+                </Link>
+              ))}
+            </div>
+          </div>
         )}
       </div>
     </MainLayout>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Sub-components
+// ---------------------------------------------------------------------------
+
+function StatSubcard({
+  icon: Icon,
+  label,
+  value,
+  suffix,
+}: {
+  icon: IconComponent;
+  label: string;
+  value: string | number;
+  suffix?: string;
+}) {
+  return (
+    <div className="rounded-2xl bg-white/10 p-5 backdrop-blur-sm">
+      <div className="flex items-center gap-2 text-white/60">
+        <Icon className="h-4 w-4" />
+        <span className="text-xs font-semibold uppercase tracking-wider">
+          {label}
+        </span>
+      </div>
+      <p className="mt-2 text-2xl font-bold text-white">
+        {value}
+        {suffix && <span className="text-base font-normal text-white/60">{suffix}</span>}
+      </p>
+    </div>
+  );
+}
+
+function TagGroup({
+  label,
+  tags,
+  icon: Icon,
+}: {
+  label: string;
+  tags: TagItem[];
+  icon?: IconComponent;
+}) {
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-2">
+        {Icon && <Icon className="h-4 w-4 text-gray-400" />}
+        <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+          {label}
+        </p>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {tags.map((tag) => (
+          <Badge key={tag.id} variant="secondary" className="rounded-full">
+            {tag.label}
+          </Badge>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function EventSection({
+  icon: Icon,
+  eyebrow,
+  title,
+  events,
+  emptyMessage,
+}: {
+  icon: IconComponent;
+  eyebrow: string;
+  title: string;
+  events: VenueEventItem[];
+  emptyMessage: string;
+}) {
+  return (
+    <div className={`${cardClass} p-8`}>
+      <SectionHeader icon={Icon} eyebrow={eyebrow} title={title} />
+      {events.length > 0 ? (
+        <div className="mt-6 flex gap-4 overflow-x-auto pb-2 scrollbar-thin">
+          {events.map((event) => (
+            <Link
+              key={event.id}
+              href={`/events/${event.id}`}
+              className="flex-shrink-0 w-64 rounded-2xl border border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow overflow-hidden"
+            >
+              {event.hero_image_url ? (
+                <img
+                  src={event.hero_image_url}
+                  alt={event.title}
+                  className="aspect-[16/9] w-full object-cover"
+                />
+              ) : (
+                <div className="flex aspect-[16/9] w-full items-center justify-center bg-gray-100">
+                  <CalendarIcon className="h-8 w-8 text-gray-300" />
+                </div>
+              )}
+              <div className="p-4">
+                <h4 className="text-sm font-semibold text-gray-900 truncate">
+                  {event.title}
+                </h4>
+                <p className="mt-1 text-xs text-gray-500">
+                  {new Date(event.starts_at).toLocaleDateString(undefined, {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })}
+                </p>
+                <div className="mt-2 flex items-center gap-1 text-xs text-gray-400">
+                  <UsersIcon className="h-3.5 w-3.5" />
+                  {event.attendee_count} attendees
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-6 text-sm text-gray-400">{emptyMessage}</p>
+      )}
+    </div>
   );
 }

@@ -16,6 +16,35 @@ const isPublicRoute = createRouteMatcher([
 const isOnboardingRoute = createRouteMatcher(["/onboarding(.*)"]);
 const isApiRoute = createRouteMatcher(["/api(.*)"]);
 
+/** Routes a DJ is allowed to access. */
+const isDjAllowedRoute = createRouteMatcher([
+  "/music(.*)",
+  "/settings(.*)",
+  "/help(.*)",
+  "/api(.*)",
+  "/onboarding(.*)",
+]);
+
+/** Routes an Entrance Manager is allowed to access. */
+const isEntranceManagerAllowedRoute = createRouteMatcher([
+  "/orders(.*)",
+  "/attendees(.*)",
+  "/settings(.*)",
+  "/help(.*)",
+  "/api(.*)",
+  "/onboarding(.*)",
+]);
+
+/** Routes a Finance Manager is allowed to access. */
+const isFinanceManagerAllowedRoute = createRouteMatcher([
+  "/finance(.*)",
+  "/analytics(.*)",
+  "/settings(.*)",
+  "/help(.*)",
+  "/api(.*)",
+  "/onboarding(.*)",
+]);
+
 const hasClerkConfig = Boolean(
   process.env.CLERK_SECRET_KEY && process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
 );
@@ -23,12 +52,16 @@ const hasClerkConfig = Boolean(
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_DATABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-async function checkOnboardingNeeded(userId: string): Promise<boolean> {
-  if (!supabaseUrl || !supabaseServiceKey) return false;
-
-  const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+function getSupabaseAdmin() {
+  if (!supabaseUrl || !supabaseServiceKey) return null;
+  return createClient(supabaseUrl, supabaseServiceKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
+}
+
+async function checkOnboardingNeeded(userId: string): Promise<boolean> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return false;
 
   const { data, error } = await supabase
     .from("organizers")
@@ -42,9 +75,44 @@ async function checkOnboardingNeeded(userId: string): Promise<boolean> {
     return false;
   }
 
-  // No organizer yet (provisioning hasn't run) or city is null → needs onboarding
   if (!data) return true;
   return !data.city;
+}
+
+type MiddlewareRole = "admin" | "dj" | "entrance_manager" | "finance_manager";
+
+async function getUserRole(userId: string): Promise<MiddlewareRole> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return "admin";
+
+  const { data, error } = await supabase
+    .from("organizer_members")
+    .select("role")
+    .eq("user_id", userId)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[middleware] role check failed:", error.message);
+    return "admin";
+  }
+
+  if (!data) {
+    // No member row — check if organizer owner (backwards compat)
+    const { data: orgData } = await supabase
+      .from("organizers")
+      .select("id")
+      .eq("owner_user_id", userId)
+      .limit(1)
+      .maybeSingle();
+
+    return orgData ? "admin" : "dj";
+  }
+
+  const validRoles: MiddlewareRole[] = ["admin", "dj", "entrance_manager", "finance_manager"];
+  return validRoles.includes(data.role as MiddlewareRole)
+    ? (data.role as MiddlewareRole)
+    : "admin";
 }
 
 const protectedMiddleware = clerkMiddleware(async (auth, req) => {
@@ -56,16 +124,32 @@ const protectedMiddleware = clerkMiddleware(async (auth, req) => {
     unauthenticatedUrl: new URL("/login", req.url).toString(),
   });
 
-  // Skip onboarding check for API routes and the onboarding page itself
+  // Skip checks for API routes and the onboarding page itself
   if (isApiRoute(req) || isOnboardingRoute(req)) {
     return NextResponse.next();
   }
 
-  // Check if user needs onboarding
+  // Check if user needs onboarding (only for organizer owners)
   if (userId) {
-    const needsOnboarding = await checkOnboardingNeeded(userId);
-    if (needsOnboarding) {
-      return NextResponse.redirect(new URL("/onboarding", req.url));
+    const role = await getUserRole(userId);
+
+    // Owners may need onboarding
+    if (role === "admin") {
+      const needsOnboarding = await checkOnboardingNeeded(userId);
+      if (needsOnboarding) {
+        return NextResponse.redirect(new URL("/onboarding", req.url));
+      }
+    }
+
+    // Role-based access control — block non-allowed routes
+    if (role === "dj" && !isDjAllowedRoute(req)) {
+      return NextResponse.redirect(new URL("/music", req.url));
+    }
+    if (role === "entrance_manager" && !isEntranceManagerAllowedRoute(req)) {
+      return NextResponse.redirect(new URL("/orders", req.url));
+    }
+    if (role === "finance_manager" && !isFinanceManagerAllowedRoute(req)) {
+      return NextResponse.redirect(new URL("/finance", req.url));
     }
   }
 

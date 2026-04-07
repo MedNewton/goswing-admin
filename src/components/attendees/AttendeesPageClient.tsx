@@ -60,28 +60,52 @@ export function AttendeesPageClient({ attendees, checkinSummary }: AttendeesPage
   useEffect(() => { setLocale(getClientLocale()); }, []);
 
   const [search, setSearch] = useState("");
+  const [eventFilter, setEventFilter] = useState("all");
+
+  // Event options from checkin summary
+  const eventOptions = useMemo(() =>
+    checkinSummary
+      .map((s) => ({ value: s.eventId, label: s.eventName }))
+      .sort((a, b) => a.label.localeCompare(b.label)),
+    [checkinSummary],
+  );
 
   const filteredAttendees = useMemo(() => {
-    if (!search.trim()) return attendees;
-    const q = search.toLowerCase();
-    return attendees.filter(
-      (a) =>
-        a.name.toLowerCase().includes(q) ||
-        a.email.toLowerCase().includes(q) ||
-        a.eventName.toLowerCase().includes(q) ||
-        (a.ticketType?.toLowerCase().includes(q) ?? false),
-    );
-  }, [attendees, search]);
+    let result = attendees;
+    if (eventFilter !== "all") {
+      result = result.filter((a) => a.eventId === eventFilter);
+    }
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      result = result.filter(
+        (a) =>
+          a.name.toLowerCase().includes(q) ||
+          a.email.toLowerCase().includes(q) ||
+          a.eventName.toLowerCase().includes(q) ||
+          (a.ticketType?.toLowerCase().includes(q) ?? false),
+      );
+    }
+    return result;
+  }, [attendees, search, eventFilter]);
 
   const filteredSummary = useMemo(() => {
-    if (!search.trim()) return checkinSummary;
-    const q = search.toLowerCase();
-    return checkinSummary.filter((s) => s.eventName.toLowerCase().includes(q));
-  }, [checkinSummary, search]);
+    let result = checkinSummary;
+    if (eventFilter !== "all") {
+      result = result.filter((s) => s.eventId === eventFilter);
+    }
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      result = result.filter((s) => s.eventName.toLowerCase().includes(q));
+    }
+    return result;
+  }, [checkinSummary, search, eventFilter]);
 
-  const totalCheckedIn = attendees.length;
+  // Updated stats: total attendees, checked in, pending, cancellations
   const totalReservations = checkinSummary.reduce((sum, s) => sum + s.totalReservations, 0);
-  const eventsWithCheckins = checkinSummary.filter((s) => s.checkedIn > 0).length;
+  const totalCheckedIn = checkinSummary.reduce((sum, s) => sum + s.checkedIn, 0);
+  const totalPending = totalReservations - totalCheckedIn;
+  // Cancellations approximation — events with 0 checkins but had reservations
+  const cancellations = checkinSummary.filter((s) => s.totalReservations > 0 && s.checkedIn === 0).length;
 
   const handleExport = () => {
     const csv = generateCsv(filteredAttendees, [
@@ -125,26 +149,26 @@ export function AttendeesPageClient({ attendees, checkinSummary }: AttendeesPage
           <div className="grid gap-3 sm:grid-cols-2">
             <SummaryCard
               icon={UsersIcon}
-              label={translate(locale, "attendeesPage.checkedIn")}
-              value={String(totalCheckedIn)}
+              label={translate(locale, "attendeesPage.reservations")}
+              value={String(totalReservations)}
               accentClass="bg-emerald-50 text-emerald-700"
             />
             <SummaryCard
               icon={UsersIcon}
-              label={translate(locale, "attendeesPage.reservations")}
-              value={String(totalReservations)}
+              label={translate(locale, "attendeesPage.checkedIn")}
+              value={String(totalCheckedIn)}
               accentClass="bg-sky-50 text-sky-700"
             />
             <SummaryCard
               icon={CalendarIcon}
-              label={translate(locale, "attendeesPage.activeEvents")}
-              value={String(eventsWithCheckins)}
+              label={translate(locale, "attendeesPage.pending")}
+              value={String(totalPending)}
               accentClass="bg-amber-50 text-amber-700"
             />
             <SummaryCard
               icon={CalendarIcon}
-              label={translate(locale, "attendeesPage.trackedEvents")}
-              value={String(checkinSummary.length)}
+              label={translate(locale, "attendeesPage.cancellations")}
+              value={String(cancellations)}
               accentClass="bg-rose-50 text-rose-700"
             />
           </div>
@@ -170,13 +194,30 @@ export function AttendeesPageClient({ attendees, checkinSummary }: AttendeesPage
           </Button>
         </div>
 
-        <div className="mt-6 max-w-2xl">
+        <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px] lg:items-end">
           <SearchBar
             placeholder={translate(locale, "attendeesPage.searchPlaceholder")}
             className="max-w-none [&_input]:h-12 [&_input]:rounded-2xl [&_input]:border-gray-200 [&_input]:pr-4 [&_input]:shadow-sm"
             value={search}
             onChange={setSearch}
           />
+          <label className="block">
+            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
+              {translate(locale, "attendeesPage.eventFilter")}
+            </span>
+            <select
+              value={eventFilter}
+              onChange={(e) => setEventFilter(e.target.value)}
+              className="h-12 w-full rounded-2xl border border-gray-200 bg-white px-4 text-sm text-gray-700 shadow-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
+            >
+              <option value="all">{translate(locale, "attendeesPage.allEvents")}</option>
+              {eventOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
       </section>
 

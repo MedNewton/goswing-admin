@@ -25,6 +25,9 @@ const createVenueSchema = z.object({
   timezone: z.string().optional().or(z.literal("")),
   capacity: z.coerce.number().int().positive().optional().or(z.literal("").transform(() => undefined)),
   organizer_id: z.string().uuid().optional().or(z.literal("")),
+  description: z.string().optional().or(z.literal("")),
+  free_access: z.boolean().optional(),
+  free_for_ladies: z.boolean().optional(),
 });
 
 const updateVenueSchema = z.object({
@@ -40,6 +43,9 @@ const updateVenueSchema = z.object({
   timezone: z.string().optional().or(z.literal("")).nullable(),
   capacity: z.coerce.number().int().positive().optional().nullable(),
   organizer_id: z.string().uuid().optional().or(z.literal("")).nullable(),
+  description: z.string().optional().or(z.literal("")).nullable(),
+  free_access: z.boolean().optional().nullable(),
+  free_for_ladies: z.boolean().optional().nullable(),
 });
 
 export type CreateVenueInput = z.infer<typeof createVenueSchema>;
@@ -93,6 +99,9 @@ export async function createVenueAction(
       timezone: normalizeOptionalText(data.timezone),
       capacity: typeof data.capacity === "number" ? data.capacity : null,
       organizer_id: normalizeOptionalText(data.organizer_id),
+      description: normalizeOptionalText(data.description),
+      free_access: data.free_access ?? false,
+      free_for_ladies: data.free_for_ladies ?? false,
     });
 
     revalidatePath("/venues");
@@ -135,6 +144,9 @@ export async function updateVenueAction(
       timezone: normalizeOptionalText(data.timezone),
       capacity: data.capacity ?? null,
       organizer_id: normalizeOptionalText(data.organizer_id),
+      description: normalizeOptionalText(data.description),
+      free_access: data.free_access ?? undefined,
+      free_for_ladies: data.free_for_ladies ?? undefined,
     });
 
     revalidatePath("/venues");

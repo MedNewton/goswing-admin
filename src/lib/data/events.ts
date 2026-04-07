@@ -21,7 +21,7 @@ export async function getEvents() {
       *,
       venues ( name, city ),
       organizers ( name ),
-      event_tags ( tags ( label ) )
+      event_tags ( tags ( label, type ) )
     `)
     .eq("created_by_user_id", userId)
     .order("starts_at", { ascending: false });
@@ -96,10 +96,10 @@ export async function getEvent(id: string) {
     .from("events")
     .select(`
       *,
-      venues ( id, name, city, address_line1, region, country_code, timezone, venue_type, lat, lng ),
+      venues ( id, name, city, address_line1, region, country_code, timezone, venue_type, lat, lng, capacity ),
       organizers ( id, name, logo_url, tagline, about, cover_image_url, established_year, is_verified, city, country_code, phone, email, website_url, instagram_handle, facebook_handle, specialties, cancellation_policy, refund_policy ),
       event_tags ( tags ( id, label, slug, type ) ),
-      ticket_types ( id, name, description, price_cents, currency, benefits, capacity, sales_start_at, sales_end_at )
+      ticket_types ( id, name, description, price_cents, currency, benefits, capacity, sales_start_at, sales_end_at, is_free, free_for_ladies )
     `)
     .eq("id", id)
     .eq("created_by_user_id", userId)
@@ -118,6 +118,8 @@ export async function getEvent(id: string) {
       capacity: number | null;
       sales_start_at: string | null;
       sales_end_at: string | null;
+      is_free: boolean;
+      free_for_ladies: boolean;
     }>,
     organizer: (data as Record<string, unknown>).organizers as {
       id: string;
@@ -150,6 +152,7 @@ export async function getEvent(id: string) {
       venue_type: string | null;
       lat: number | null;
       lng: number | null;
+      capacity: number | null;
     } | null,
   };
 }

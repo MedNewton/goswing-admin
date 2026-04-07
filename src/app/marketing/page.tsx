@@ -5,6 +5,7 @@ import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@
 import { Badge } from "@/components/ui/Badge";
 import { ChartIcon, EyeIcon } from "@/components/icons";
 import { getLocale, t } from "@/lib/i18n";
+import { checkAdminAccess } from "@/lib/auth/requireAdmin";
 
 const campaigns = [
   {
@@ -61,6 +62,9 @@ const quickActions = [
 ];
 
 export default async function MarketingPage() {
+  const denied = await checkAdminAccess();
+  if (denied) return denied;
+
   const locale = await getLocale();
 
   const stats = [

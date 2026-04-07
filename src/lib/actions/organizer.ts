@@ -10,6 +10,11 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 // Zod Schema
 // ---------------------------------------------------------------------------
 
+const customPolicySchema = z.object({
+  title: z.string().min(1).max(200),
+  description: z.string().min(1).max(2000),
+});
+
 const onboardingSchema = z.object({
   // Personal / organizer info
   name: z.string().min(1, "Organization name is required").max(100),
@@ -25,10 +30,14 @@ const onboardingSchema = z.object({
   tiktok_handle: z.string().max(100).optional().or(z.literal("")),
   logo_url: z.string().optional().or(z.literal("")),
   cover_image_url: z.string().optional().or(z.literal("")),
+  custom_policies: z.array(customPolicySchema).optional().default([]),
 
   // Venue info
   venue_name: z.string().min(1, "Venue name is required").max(200),
   venue_type: z.string().optional().or(z.literal("")),
+  venue_description: z.string().max(5000).optional().or(z.literal("")),
+  venue_free_access: z.boolean().optional().default(false),
+  venue_free_for_ladies: z.boolean().optional().default(false),
   venue_address: z.string().optional().or(z.literal("")),
   venue_city: z.string().optional().or(z.literal("")),
   venue_region: z.string().optional().or(z.literal("")),
@@ -102,6 +111,7 @@ export async function completeOnboardingAction(
     tiktok_handle: emptyStringToNull(data.tiktok_handle),
     logo_url: emptyStringToNull(data.logo_url),
     cover_image_url: emptyStringToNull(data.cover_image_url),
+    custom_policies: data.custom_policies ?? [],
   }).eq("id", organizerId);
 
   if (updateError) {
@@ -124,6 +134,9 @@ export async function completeOnboardingAction(
     const { error: venueError } = await insertInto(sb, "venues", {
       name: data.venue_name.trim(),
       organizer_id: organizerId,
+      description: emptyStringToNull(data.venue_description),
+      free_access: data.venue_free_access ?? false,
+      free_for_ladies: data.venue_free_for_ladies ?? false,
       address_line1: emptyStringToNull(data.venue_address),
       city: emptyStringToNull(data.venue_city) ?? data.city,
       region: emptyStringToNull(data.venue_region),
@@ -144,6 +157,9 @@ export async function completeOnboardingAction(
     // Update existing venue
     const { error: venueUpdateError } = await updateTable(sb, "venues", {
       name: data.venue_name.trim(),
+      description: emptyStringToNull(data.venue_description),
+      free_access: data.venue_free_access ?? false,
+      free_for_ladies: data.venue_free_for_ladies ?? false,
       address_line1: emptyStringToNull(data.venue_address),
       city: emptyStringToNull(data.venue_city) ?? data.city,
       region: emptyStringToNull(data.venue_region),
@@ -232,7 +248,7 @@ export async function fetchOrganizerForOnboarding() {
 
   const { data, error } = await sb
     .from("organizers")
-    .select("id, name, tagline, about, city, country_code, email, phone, website_url, instagram_handle, facebook_handle, tiktok_handle, logo_url, cover_image_url")
+    .select("id, name, tagline, about, city, country_code, email, phone, website_url, instagram_handle, facebook_handle, tiktok_handle, logo_url, cover_image_url, custom_policies")
     .eq("owner_user_id", userId)
     .limit(1)
     .single();
@@ -256,12 +272,13 @@ export async function fetchOrganizerForOnboarding() {
     tiktok_handle: string | null;
     logo_url: string | null;
     cover_image_url: string | null;
+    custom_policies: Array<{ title: string; description: string }>;
   };
 
   // Also fetch the existing venue for this organizer (if any)
   const { data: venue } = await sb
     .from("venues")
-    .select("id, name, venue_type, address_line1, city, region, country_code, postal_code, capacity, lat, lng")
+    .select("id, name, venue_type, description, free_access, free_for_ladies, address_line1, city, region, country_code, postal_code, capacity, lat, lng")
     .eq("organizer_id", organizer.id)
     .limit(1)
     .maybeSingle();
@@ -272,6 +289,9 @@ export async function fetchOrganizerForOnboarding() {
       id: string;
       name: string;
       venue_type: string | null;
+      description: string | null;
+      free_access: boolean;
+      free_for_ladies: boolean;
       address_line1: string | null;
       city: string | null;
       region: string | null;

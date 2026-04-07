@@ -72,33 +72,53 @@ export async function provisionUser(input: ProvisionUserInput): Promise<Provisio
 
   if (existingOrganizers && existingOrganizers.length > 0) {
     const organizer = existingOrganizers[0] as unknown as { id: string; city: string | null };
+
+    // Ensure owner has a member row (idempotent)
+    await upsertInto(
+      supabase,
+      "organizer_members",
+      { organizer_id: organizer.id, user_id: input.userId, role: "admin" },
+      { onConflict: "organizer_id,user_id" },
+    );
+
     return { needsOnboarding: !organizer.city };
   }
 
   const organizerName = normalizeOrganizerName(displayName, input.userId);
-  const { error: insertOrganizerError } = await insertInto(supabase, "organizers", {
+  const { data: newOrg, error: insertOrganizerError } = await insertInto(supabase, "organizers", {
     owner_user_id: input.userId,
     name: organizerName,
-  });
+  }).select("id").single();
 
-  if (!insertOrganizerError) {
+  if (!insertOrganizerError && newOrg) {
+    // Insert owner as admin member
+    await insertInto(supabase, "organizer_members", {
+      organizer_id: (newOrg as { id: string }).id,
+      user_id: input.userId,
+      role: "admin",
+    });
     return { needsOnboarding: true };
   }
 
   // Retry once with a stronger unique suffix when the generated name collides.
-  if (insertOrganizerError.code === "23505") {
+  if (insertOrganizerError?.code === "23505") {
     const fallbackName = `${organizerName}-${Date.now().toString().slice(-4)}`;
-    const { error: retryInsertError } = await insertInto(supabase, "organizers", {
+    const { data: retryOrg, error: retryInsertError } = await insertInto(supabase, "organizers", {
       owner_user_id: input.userId,
       name: fallbackName,
-    });
+    }).select("id").single();
 
-    if (!retryInsertError) {
+    if (!retryInsertError && retryOrg) {
+      await insertInto(supabase, "organizer_members", {
+        organizer_id: (retryOrg as { id: string }).id,
+        user_id: input.userId,
+        role: "admin",
+      });
       return { needsOnboarding: true };
     }
 
     throw new Error(
-      `Failed to provision organizer after retry: ${retryInsertError.message}`,
+      `Failed to provision organizer after retry: ${retryInsertError?.message}`,
     );
   }
 

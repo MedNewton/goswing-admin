@@ -66,7 +66,6 @@ const eventPolicySchema = z.object({
 const editEventFormSchema = z.object({
   title: z.string().min(1, "Event title is required"),
   description: z.string().optional(),
-  category: z.string().optional(),
   heroImageUrl: z.string().optional().or(z.literal("")),
   eventDate: z.string().min(1, "Event date is required"),
   startTime: z.string().min(1, "Start time is required"),
@@ -77,7 +76,6 @@ const editEventFormSchema = z.object({
   currency: z.string(),
   tagIds: z.array(z.string()).optional(),
   publishEvent: z.boolean(),
-  waitlistEnabled: z.boolean().optional(),
   approvalMode: z.enum(["auto", "manual"]).optional(),
   sharingEnabled: z.boolean().optional(),
   policies: z.array(eventPolicySchema).optional(),
@@ -143,6 +141,86 @@ function SummaryCard({
 }
 
 // ---------------------------------------------------------------------------
+// Tag Multi-Select
+// ---------------------------------------------------------------------------
+
+function TagMultiSelect({
+  label,
+  tags,
+  selectedIds,
+  onToggle,
+  placeholder,
+  emptyMessage,
+  pillColor,
+}: {
+  label: string;
+  tags: Array<{ id: string; label: string }>;
+  selectedIds: string[];
+  onToggle: (id: string) => void;
+  placeholder: string;
+  emptyMessage: string;
+  pillColor: string;
+}) {
+  const pillColors: Record<string, string> = {
+    teal: "bg-teal-900 text-teal-100",
+    violet: "bg-violet-900 text-violet-100",
+    gray: "bg-gray-900 text-white",
+  };
+  const cls = pillColors[pillColor] ?? "bg-gray-900 text-white";
+
+  if (tags.length === 0) {
+    return (
+      <div>
+        <label className="mb-1.5 block text-sm font-medium text-gray-700">{label}</label>
+        <p className="text-sm text-gray-400">{emptyMessage}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <label className="mb-1.5 block text-sm font-medium text-gray-700">{label}</label>
+      {selectedIds.length > 0 && (
+        <div className="mb-2 flex flex-wrap gap-2">
+          {selectedIds.map((tagId) => {
+            const tag = tags.find((t) => t.id === tagId);
+            if (!tag) return null;
+            return (
+              <span
+                key={tagId}
+                className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium ${cls}`}
+              >
+                {tag.label}
+                <button type="button" onClick={() => onToggle(tagId)} className="ml-0.5 hover:opacity-70">
+                  &times;
+                </button>
+              </span>
+            );
+          })}
+        </div>
+      )}
+      <select
+        className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 shadow-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
+        value=""
+        onChange={(e) => {
+          const val = e.target.value;
+          if (val) onToggle(val);
+        }}
+      >
+        <option value="">{placeholder}</option>
+        {tags
+          .filter((t) => !selectedIds.includes(t.id))
+          .map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.label}
+            </option>
+          ))}
+      </select>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Page Component
 // ---------------------------------------------------------------------------
 
@@ -161,7 +239,9 @@ export default function EditEventPage({
   const [venuesLoading, setVenuesLoading] = useState(true);
   const [tags, setTags] = useState<Array<{ id: string; label: string; type: string }>>([]);
   const [tagsLoading, setTagsLoading] = useState(true);
-  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [selectedPartyTypeIds, setSelectedPartyTypeIds] = useState<string[]>([]);
+  const [selectedMusicStyleIds, setSelectedMusicStyleIds] = useState<string[]>([]);
+  const [selectedExtraServiceIds, setSelectedExtraServiceIds] = useState<string[]>([]);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
@@ -182,14 +262,13 @@ export default function EditEventPage({
     defaultValues: {
       title: "",
       description: "",
-      category: "",
       eventDate: "",
       startTime: "",
       endDate: "",
       endTime: "",
       venueId: "",
       ticketTiers: [{ name: "Standard", price: 0, description: "", capacity: "" as unknown as undefined }],
-      currency: "USD",
+      currency: "MAD",
       publishEvent: false,
       policies: [],
       contactEmail: "",
@@ -211,7 +290,6 @@ export default function EditEventPage({
   const publishEvent = watch("publishEvent");
   const eventDate = watch("eventDate");
   const titleValue = watch("title");
-  const categoryValue = watch("category");
   const venueIdValue = watch("venueId");
   const ticketTiers = watch("ticketTiers");
 
@@ -232,7 +310,6 @@ export default function EditEventPage({
         const formValues: EditEventFormValues = {
           title: eventData.title,
           description: eventData.description,
-          category: eventData.category,
           heroImageUrl: eventData.heroImageUrl,
           eventDate: startsAtDate ? startsAtDate.toISOString().slice(0, 10) : "",
           startTime: startsAtDate ? startsAtDate.toTimeString().slice(0, 5) : "",
@@ -253,7 +330,6 @@ export default function EditEventPage({
           currency: eventData.currency,
           tagIds: eventData.tagIds,
           publishEvent: eventData.status === "published",
-          waitlistEnabled: eventData.waitlistEnabled ?? false,
           approvalMode: (eventData.approvalMode as "auto" | "manual") ?? "auto",
           sharingEnabled: eventData.sharingEnabled ?? true,
           policies: eventData.policies ?? [],
@@ -262,7 +338,21 @@ export default function EditEventPage({
         };
 
         reset(formValues);
-        setSelectedTagIds(eventData.tagIds ?? []);
+
+        // Split existing tags by type
+        const partyIds: string[] = [];
+        const musicIds: string[] = [];
+        const serviceIds: string[] = [];
+        for (const tagId of eventData.tagIds ?? []) {
+          const tag = tagData.find((t) => t.id === tagId);
+          if (!tag) continue;
+          if (tag.type === "party_type") partyIds.push(tagId);
+          else if (tag.type === "music_style") musicIds.push(tagId);
+          else if (tag.type === "extra_service") serviceIds.push(tagId);
+        }
+        setSelectedPartyTypeIds(partyIds);
+        setSelectedMusicStyleIds(musicIds);
+        setSelectedExtraServiceIds(serviceIds);
 
         if (eventData.heroImageUrl) {
           setImagePreview(eventData.heroImageUrl);
@@ -278,6 +368,19 @@ export default function EditEventPage({
         setTagsLoading(false);
       });
   }, [eventId, reset]);
+
+  // Split tags by type
+  const partyTypeTags = tags.filter((t) => t.type === "party_type");
+  const musicStyleTags = tags.filter((t) => t.type === "music_style");
+  const extraServiceTags = tags.filter((t) => t.type === "extra_service");
+
+  const toggleTag = (id: string, selected: string[], setter: (ids: string[]) => void) => {
+    if (selected.includes(id)) {
+      setter(selected.filter((s) => s !== id));
+    } else {
+      setter([...selected, id]);
+    }
+  };
 
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -317,12 +420,12 @@ export default function EditEventPage({
 
   const onSubmit = (data: EditEventFormValues) => {
     setServerError(null);
+    const allTagIds = [...selectedPartyTypeIds, ...selectedMusicStyleIds, ...selectedExtraServiceIds];
     startTransition(async () => {
       try {
         const result: UpdateEventResult = await updateEventAction(eventId, {
           ...data,
-          tagIds: selectedTagIds,
-          waitlistEnabled: data.waitlistEnabled ?? false,
+          tagIds: allTagIds,
           approvalMode: data.approvalMode ?? "auto",
           sharingEnabled: data.sharingEnabled ?? true,
           policies: data.policies ?? [],
@@ -392,7 +495,6 @@ export default function EditEventPage({
       : selectedVenue.name
     : translate(locale, "editEvent.venueNotSelected");
   const scheduleLabel = eventDate || translate(locale, "editEvent.dateNotSet");
-  const categoryDisplay = categoryValue?.trim() ? categoryValue : undefined;
 
   if (loading) {
     return (
@@ -455,13 +557,10 @@ export default function EditEventPage({
               </p>
               <div className="mt-6 flex flex-wrap gap-3">
                 <div className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-white/90 backdrop-blur">
-                  {categoryDisplay ?? translate(locale, "editEvent.categoryNotSelected")}
-                </div>
-                <div className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-white/90 backdrop-blur">
                   {publishEvent ? translate(locale, "editEvent.published") : translate(locale, "editEvent.draft")}
                 </div>
                 <div className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-white/90 backdrop-blur">
-                  {selectedTagIds.length} {translate(locale, "editEvent.tagsSelected")}
+                  {selectedPartyTypeIds.length + selectedMusicStyleIds.length + selectedExtraServiceIds.length} {translate(locale, "editEvent.tagsSelected")}
                 </div>
               </div>
             </div>
@@ -481,14 +580,14 @@ export default function EditEventPage({
               />
               <SummaryCard
                 icon={DollarIcon}
-                label={translate(locale, "editEvent.currency")}
-                value={watch("currency")}
+                label={translate(locale, "editEvent.ticketTier")}
+                value={`${ticketTiers.length}`}
                 accentClass="bg-amber-50 text-amber-700"
               />
               <SummaryCard
                 icon={StarIcon}
-                label={translate(locale, "editEvent.ticketTier")}
-                value={`${ticketTiers.length}`}
+                label={translate(locale, "adminEvent.status")}
+                value={publishEvent ? translate(locale, "editEvent.published") : translate(locale, "editEvent.draft")}
                 accentClass="bg-rose-50 text-rose-700"
               />
             </div>
@@ -506,78 +605,44 @@ export default function EditEventPage({
             <div className="mt-6 space-y-4">
               <Input label={translate(locale, "editEvent.eventTitle")} placeholder="e.g., Summer Jazz Night" error={errors.title?.message} {...register("title")} />
               <Textarea label={translate(locale, "editEvent.description")} placeholder={translate(locale, "editEvent.descriptionPlaceholder")} rows={5} error={errors.description?.message} {...register("description")} />
-              <Select
-                label={translate(locale, "editEvent.category")}
-                options={[
-                  { value: "", label: translate(locale, "editEvent.selectCategory") },
-                  { value: "music", label: "Music" },
-                  { value: "food", label: "Food & Drink" },
-                  { value: "business", label: "Business" },
-                  { value: "sports", label: "Sports" },
-                  { value: "other", label: "Other" },
-                ]}
-                error={errors.category?.message}
-                {...register("category")}
-              />
 
+              {/* Party Types */}
               <div className="rounded-3xl border border-gray-200 bg-white/80 p-5">
-                <label className="mb-2 block text-sm font-medium text-gray-700">
-                  {translate(locale, "editEvent.tags")}
-                </label>
-                {tagsLoading ? (
-                  <p className="text-sm text-gray-400">{translate(locale, "editEvent.loadingTags")}</p>
-                ) : tags.length === 0 ? (
-                  <p className="text-sm text-gray-400">{translate(locale, "editEvent.noTagsAvailable")}</p>
-                ) : (
-                  <>
-                    {selectedTagIds.length > 0 && (
-                      <div className="mb-3 flex flex-wrap gap-2">
-                        {selectedTagIds.map((tagId) => {
-                          const tag = tags.find((t) => t.id === tagId);
-                          if (!tag) return null;
-                          return (
-                            <span
-                              key={tagId}
-                              className="inline-flex items-center gap-1 rounded-full bg-gray-900 px-3 py-1.5 text-xs font-medium text-white"
-                            >
-                              {tag.label}
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setSelectedTagIds((prev) =>
-                                    prev.filter((currentId) => currentId !== tagId)
-                                  )
-                                }
-                                className="ml-0.5 hover:text-gray-300"
-                              >
-                                &times;
-                              </button>
-                            </span>
-                          );
-                        })}
-                      </div>
-                    )}
-                    <select
-                      className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 shadow-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
-                      value=""
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        if (val && !selectedTagIds.includes(val)) {
-                          setSelectedTagIds((prev) => [...prev, val]);
-                        }
-                      }}
-                    >
-                      <option value="">{translate(locale, "editEvent.addTag")}</option>
-                      {tags
-                        .filter((t) => !selectedTagIds.includes(t.id))
-                        .map((t) => (
-                          <option key={t.id} value={t.id}>
-                            {t.label}
-                          </option>
-                        ))}
-                    </select>
-                  </>
-                )}
+                <TagMultiSelect
+                  label={translate(locale, "createEvent.partyTypesLabel")}
+                  tags={partyTypeTags}
+                  selectedIds={selectedPartyTypeIds}
+                  onToggle={(id) => toggleTag(id, selectedPartyTypeIds, setSelectedPartyTypeIds)}
+                  placeholder={translate(locale, "createEvent.addPartyType")}
+                  emptyMessage={translate(locale, "createEvent.noPartyTypes")}
+                  pillColor="teal"
+                />
+              </div>
+
+              {/* Music Styles */}
+              <div className="rounded-3xl border border-gray-200 bg-white/80 p-5">
+                <TagMultiSelect
+                  label={translate(locale, "createEvent.musicStylesLabel")}
+                  tags={musicStyleTags}
+                  selectedIds={selectedMusicStyleIds}
+                  onToggle={(id) => toggleTag(id, selectedMusicStyleIds, setSelectedMusicStyleIds)}
+                  placeholder={translate(locale, "createEvent.addMusicStyle")}
+                  emptyMessage={translate(locale, "createEvent.noMusicStyles")}
+                  pillColor="violet"
+                />
+              </div>
+
+              {/* Extra Services */}
+              <div className="rounded-3xl border border-gray-200 bg-white/80 p-5">
+                <TagMultiSelect
+                  label={translate(locale, "createEvent.extraServicesLabel")}
+                  tags={extraServiceTags}
+                  selectedIds={selectedExtraServiceIds}
+                  onToggle={(id) => toggleTag(id, selectedExtraServiceIds, setSelectedExtraServiceIds)}
+                  placeholder={translate(locale, "createEvent.addExtraService")}
+                  emptyMessage={translate(locale, "createEvent.noExtraServices")}
+                  pillColor="gray"
+                />
               </div>
             </div>
           </Card>
@@ -660,16 +725,11 @@ export default function EditEventPage({
             />
             <div className="mt-6 space-y-4">
               <Select label={translate(locale, "editEvent.venue")} options={venueOptions} error={errors.venueId?.message} {...register("venueId")} />
-              <div className="rounded-2xl border border-gray-200 bg-white/80 px-4 py-3 text-sm text-gray-600">
-                {translate(locale, "editEvent.dontSeeVenue")}{" "}
-                <Link href="/venues/create" className="font-medium text-gray-900 underline hover:text-gray-700">
-                  {translate(locale, "editEvent.createNewVenue")}
-                </Link>
-              </div>
             </div>
           </Card>
         </div>
 
+        {/* Pricing — currency removed */}
         <Card className="rounded-[2rem] border border-gray-200/80 bg-gradient-to-br from-white via-white to-amber-50/50 shadow-lg shadow-gray-100">
           <SectionHeader
             icon={DollarIcon}
@@ -678,69 +738,61 @@ export default function EditEventPage({
             description={translate(locale, "editEvent.pricingDesc")}
           />
           <div className="mt-6">
-            <div className="max-w-xs">
-              <Select
-                label={translate(locale, "editEvent.currency")}
-                options={[
-                  { value: "USD", label: "USD ($)" },
-                  { value: "EUR", label: "EUR (€)" },
-                  { value: "GBP", label: "GBP (£)" },
-                  { value: "MAD", label: "MAD (د.م.)" },
-                ]}
-                error={errors.currency?.message}
-                {...register("currency")}
-              />
-            </div>
-
             {errors.ticketTiers?.message && (
-              <p className="mt-4 text-sm text-red-600">{errors.ticketTiers.message}</p>
+              <p className="mb-4 text-sm text-red-600">{errors.ticketTiers.message}</p>
             )}
 
-            <div className="mt-6 space-y-4">
-              {fields.map((field, index) => (
-                <div key={field.id} className="rounded-[1.5rem] border border-gray-200 bg-white p-5 shadow-sm">
-                  <div className="mb-4 flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">
-                        {translate(locale, "editEvent.ticketTier")}
-                      </p>
-                      <h3 className="mt-1 font-semibold text-gray-900">{translate(locale, "editEvent.tier")} {index + 1}</h3>
+            <div className="space-y-4">
+              {fields.map((field, index) => {
+                const isFreeTicket = watch(`ticketTiers.${index}.is_free`);
+                return (
+                  <div key={field.id} className="rounded-[1.5rem] border border-gray-200 bg-white p-5 shadow-sm">
+                    <div className="mb-4 flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">
+                          {translate(locale, "editEvent.ticketTier")}
+                        </p>
+                        <h3 className="mt-1 font-semibold text-gray-900">{translate(locale, "editEvent.tier")} {index + 1}</h3>
+                      </div>
+                      {fields.length > 1 && (
+                        <Button variant="ghost" size="sm" type="button" onClick={() => remove(index)}>
+                          {translate(locale, "editEvent.remove")}
+                        </Button>
+                      )}
                     </div>
-                    {fields.length > 1 && (
-                      <Button variant="ghost" size="sm" type="button" onClick={() => remove(index)}>
-                        {translate(locale, "editEvent.remove")}
-                      </Button>
-                    )}
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <input type="hidden" {...register(`ticketTiers.${index}.id`)} />
+                      <Input label={translate(locale, "editEvent.ticketName")} placeholder="e.g., General Admission" error={fieldError(`ticketTiers.${index}.name`)} {...register(`ticketTiers.${index}.name`)} />
+                      {/* Hide price when is_free */}
+                      {!isFreeTicket && (
+                        <Input label={translate(locale, "editEvent.price")} placeholder="0.00" type="number" step="0.01" min="0" error={fieldError(`ticketTiers.${index}.price`)} {...register(`ticketTiers.${index}.price`)} />
+                      )}
+                    </div>
+                    <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <Input label={translate(locale, "editEvent.descriptionOptional")} placeholder={translate(locale, "editEvent.whatsIncluded")} {...register(`ticketTiers.${index}.description`)} />
+                      <Input label={translate(locale, "editEvent.capacityOptional")} placeholder="e.g., 100" type="number" min="1" {...register(`ticketTiers.${index}.capacity`)} />
+                    </div>
+                    <div className="mt-4 flex flex-wrap gap-6">
+                      <label className="flex items-center gap-2 text-sm text-gray-700">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                          {...register(`ticketTiers.${index}.is_free`)}
+                        />
+                        {translate(locale, "editEvent.freeTicket")}
+                      </label>
+                      <label className="flex items-center gap-2 text-sm text-gray-700">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                          {...register(`ticketTiers.${index}.free_for_ladies`)}
+                        />
+                        {translate(locale, "editEvent.freeForLadies")}
+                      </label>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <input type="hidden" {...register(`ticketTiers.${index}.id`)} />
-                    <Input label={translate(locale, "editEvent.ticketName")} placeholder="e.g., General Admission" error={fieldError(`ticketTiers.${index}.name`)} {...register(`ticketTiers.${index}.name`)} />
-                    <Input label={translate(locale, "editEvent.price")} placeholder="0.00" type="number" step="0.01" min="0" error={fieldError(`ticketTiers.${index}.price`)} {...register(`ticketTiers.${index}.price`)} />
-                  </div>
-                  <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <Input label={translate(locale, "editEvent.descriptionOptional")} placeholder={translate(locale, "editEvent.whatsIncluded")} {...register(`ticketTiers.${index}.description`)} />
-                    <Input label={translate(locale, "editEvent.capacityOptional")} placeholder="e.g., 100" type="number" min="1" {...register(`ticketTiers.${index}.capacity`)} />
-                  </div>
-                  <div className="mt-4 flex flex-wrap gap-6">
-                    <label className="flex items-center gap-2 text-sm text-gray-700">
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
-                        {...register(`ticketTiers.${index}.is_free`)}
-                      />
-                      {translate(locale, "editEvent.freeTicket")}
-                    </label>
-                    <label className="flex items-center gap-2 text-sm text-gray-700">
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
-                        {...register(`ticketTiers.${index}.free_for_ladies`)}
-                      />
-                      {translate(locale, "editEvent.freeForLadies")}
-                    </label>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
               <Button
                 variant="outline"
                 size="sm"
@@ -754,6 +806,7 @@ export default function EditEventPage({
         </Card>
 
         <div className="grid gap-6 xl:grid-cols-2">
+          {/* Settings — waitlist removed, publish toggle → dropdown */}
           <Card className="rounded-[2rem] border border-gray-200/80 bg-gradient-to-br from-white via-white to-slate-50 shadow-lg shadow-gray-100">
             <SectionHeader
               icon={SettingsIcon}
@@ -762,16 +815,19 @@ export default function EditEventPage({
               description={translate(locale, "editEvent.settingsDesc")}
             />
             <div className="mt-6 space-y-4">
+              {/* Status dropdown */}
               <div className="rounded-3xl border border-gray-200 bg-white/80 p-5">
-                <Toggle label={translate(locale, "editEvent.publishEvent")} checked={publishEvent} onChange={(checked) => setValue("publishEvent", checked)} />
-              </div>
-              <div className="rounded-3xl border border-gray-200 bg-white/80 p-5">
-                <Toggle
-                  label={translate(locale, "editEvent.enableWaitlist")}
-                  checked={watch("waitlistEnabled") ?? false}
-                  onChange={(checked) => setValue("waitlistEnabled", checked)}
-                />
-                <p className="mt-1 text-xs text-gray-500">{translate(locale, "editEvent.waitlistHint")}</p>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                  {translate(locale, "createEvent.eventStatus")}
+                </label>
+                <select
+                  value={publishEvent ? "published" : "draft"}
+                  onChange={(e) => setValue("publishEvent", e.target.value === "published")}
+                  className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 shadow-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
+                >
+                  <option value="draft">{translate(locale, "createEvent.statusDraft")}</option>
+                  <option value="published">{translate(locale, "createEvent.statusPublished")}</option>
+                </select>
               </div>
               <div className="rounded-3xl border border-gray-200 bg-white/80 p-5">
                 <Toggle

@@ -2,10 +2,14 @@ import { MainLayout } from "@/components/layout/MainLayout";
 import { getOrders } from "@/lib/data/orders";
 import { OrdersPageClient } from "@/components/orders/OrdersPageClient";
 import { getLocale, t } from "@/lib/i18n";
+import { checkRoleAccess } from "@/lib/auth/requireAdmin";
 
 export const dynamic = "force-dynamic";
 
 export default async function OrdersPage() {
+  const denied = await checkRoleAccess(["admin", "entrance_manager"]);
+  if (denied) return denied;
+
   const locale = await getLocale();
   let orders: Awaited<ReturnType<typeof getOrders>> = [];
 

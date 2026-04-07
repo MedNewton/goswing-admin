@@ -2,8 +2,11 @@ export { getEvents, getEvent, getEventOverview, createEvent, updateEvent, delete
 export { getOrders } from "./orders";
 export { getAttendees, getCheckinSummary } from "./attendees";
 export { getReviews, getReviewsWithStats } from "./reviews";
+export { getVenueReviews, getVenueReviewsWithStats } from "./venueReviews";
 export { getTransactions, getFinanceOverview } from "./finance";
 export { getSongSuggestions } from "./music";
 export { getOverview } from "./overview";
 export { getTagsByType, getOrganizerTags, setOrganizerTags } from "./tags";
 export { getOrganizerGallery, addOrganizerGalleryItem, removeOrganizerGalleryItem, getEventGallery, addEventGalleryItem, removeEventGalleryItem } from "./gallery";
+export { getPayouts, getUpcomingPayouts } from "./payouts";
+export { getPaymentMethods, getPaymentMethodsByType } from "./paymentMethods";

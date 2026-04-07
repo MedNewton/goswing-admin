@@ -1,3 +1,4 @@
+import { checkAdminAccess } from "@/lib/auth/requireAdmin";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
@@ -44,6 +45,9 @@ function SummaryCard({
 }
 
 export default async function Home() {
+  const denied = await checkAdminAccess();
+  if (denied) return denied;
+
   const locale = await getLocale();
   let overviewStats = { totalEvents: 0, totalAttendees: 0, totalTickets: 0, avgRating: 0, totalRevenueFormatted: "$0.00" };
   let recentEvents: Awaited<ReturnType<typeof getOverview>>["recentEvents"] = [];

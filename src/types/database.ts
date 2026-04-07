@@ -42,6 +42,10 @@ export interface Database {
       organizer_tags: TableDef<OrganizerTagRow, OrganizerTagInsert, OrganizerTagUpdate>;
       event_gallery: TableDef<EventGalleryRow, EventGalleryInsert, EventGalleryUpdate>;
       organizer_gallery: TableDef<OrganizerGalleryRow, OrganizerGalleryInsert, OrganizerGalleryUpdate>;
+      venue_reviews: TableDef<VenueReviewRow, VenueReviewInsert, VenueReviewUpdate>;
+      payouts: TableDef<PayoutRow, PayoutInsert, PayoutUpdate>;
+      organizer_payment_methods: TableDef<OrganizerPaymentMethodRow, OrganizerPaymentMethodInsert, OrganizerPaymentMethodUpdate>;
+      organizer_members: TableDef<OrganizerMemberRow, OrganizerMemberInsert, OrganizerMemberUpdate>;
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -130,6 +134,7 @@ export interface OrganizerRow {
   pinterest_handle: string | null;
   snapchat_handle: string | null;
   google_business_url: string | null;
+  custom_policies: OrganizerPolicy[];
 }
 export interface OrganizerInsert {
   name: string;
@@ -157,6 +162,7 @@ export interface OrganizerInsert {
   pinterest_handle?: string | null;
   snapchat_handle?: string | null;
   google_business_url?: string | null;
+  custom_policies?: OrganizerPolicy[];
 }
 export interface OrganizerUpdate {
   name?: string;
@@ -183,6 +189,13 @@ export interface OrganizerUpdate {
   pinterest_handle?: string | null;
   snapchat_handle?: string | null;
   google_business_url?: string | null;
+  custom_policies?: OrganizerPolicy[];
+}
+
+/** A single custom policy entry stored in the organizers.custom_policies JSONB column. */
+export interface OrganizerPolicy {
+  title: string;
+  description: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -204,6 +217,9 @@ export interface VenueRow {
   postal_code: string | null;
   capacity: number | null;
   organizer_id: string | null;
+  description: string | null;
+  free_access: boolean;
+  free_for_ladies: boolean;
 }
 export interface VenueInsert {
   name: string;
@@ -219,6 +235,9 @@ export interface VenueInsert {
   postal_code?: string | null;
   capacity?: number | null;
   organizer_id?: string | null;
+  description?: string | null;
+  free_access?: boolean;
+  free_for_ladies?: boolean;
 }
 export interface VenueUpdate {
   name?: string;
@@ -233,6 +252,9 @@ export interface VenueUpdate {
   postal_code?: string | null;
   capacity?: number | null;
   organizer_id?: string | null;
+  description?: string | null;
+  free_access?: boolean;
+  free_for_ladies?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -645,6 +667,9 @@ export interface EventReviewRow {
   clerk_user_id: string;
   rating: number;
   comment: string | null;
+  admin_liked: boolean;
+  admin_reply: string | null;
+  admin_reply_at: Timestamp | null;
   created_at: Timestamp;
   updated_at: Timestamp;
 }
@@ -654,10 +679,16 @@ export interface EventReviewInsert {
   clerk_user_id?: string;
   reservation_id?: string | null;
   comment?: string | null;
+  admin_liked?: boolean;
+  admin_reply?: string | null;
+  admin_reply_at?: Timestamp | null;
 }
 export interface EventReviewUpdate {
   rating?: number;
   comment?: string | null;
+  admin_liked?: boolean;
+  admin_reply?: string | null;
+  admin_reply_at?: Timestamp | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -798,6 +829,134 @@ export interface OrganizerGalleryUpdate {
   media_type?: string;
   caption?: string | null;
   sort_order?: number | null;
+}
+
+// ---------------------------------------------------------------------------
+// venue_reviews
+// ---------------------------------------------------------------------------
+export interface VenueReviewRow {
+  id: string;
+  venue_id: string;
+  clerk_user_id: string;
+  rating: number;
+  comment: string | null;
+  admin_liked: boolean;
+  admin_reply: string | null;
+  admin_reply_at: Timestamp | null;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+}
+export interface VenueReviewInsert {
+  venue_id: string;
+  rating: number;
+  clerk_user_id?: string;
+  comment?: string | null;
+  admin_liked?: boolean;
+  admin_reply?: string | null;
+  admin_reply_at?: Timestamp | null;
+}
+export interface VenueReviewUpdate {
+  rating?: number;
+  comment?: string | null;
+  admin_liked?: boolean;
+  admin_reply?: string | null;
+  admin_reply_at?: Timestamp | null;
+}
+
+// ---------------------------------------------------------------------------
+// payouts
+// ---------------------------------------------------------------------------
+export interface PayoutRow {
+  id: string;
+  organizer_id: string;
+  amount_cents: number;
+  currency: string;
+  status: "pending" | "processing" | "completed" | "failed";
+  scheduled_at: Timestamp | null;
+  completed_at: Timestamp | null;
+  provider: string;
+  provider_payout_id: string | null;
+  period_start: Timestamp | null;
+  period_end: Timestamp | null;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+}
+export interface PayoutInsert {
+  organizer_id: string;
+  amount_cents: number;
+  currency?: string;
+  status?: string;
+  scheduled_at?: Timestamp | null;
+  completed_at?: Timestamp | null;
+  provider?: string;
+  provider_payout_id?: string | null;
+  period_start?: Timestamp | null;
+  period_end?: Timestamp | null;
+}
+export interface PayoutUpdate {
+  amount_cents?: number;
+  currency?: string;
+  status?: string;
+  scheduled_at?: Timestamp | null;
+  completed_at?: Timestamp | null;
+  provider_payout_id?: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// organizer_payment_methods
+// ---------------------------------------------------------------------------
+export interface OrganizerPaymentMethodRow {
+  id: string;
+  organizer_id: string;
+  method_type: "payment" | "withdrawal";
+  provider: string;
+  provider_account_id: string | null;
+  label: string | null;
+  is_default: boolean;
+  details: Json;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+}
+export interface OrganizerPaymentMethodInsert {
+  organizer_id: string;
+  method_type: "payment" | "withdrawal";
+  provider?: string;
+  provider_account_id?: string | null;
+  label?: string | null;
+  is_default?: boolean;
+  details?: Json;
+}
+export interface OrganizerPaymentMethodUpdate {
+  method_type?: "payment" | "withdrawal";
+  provider?: string;
+  provider_account_id?: string | null;
+  label?: string | null;
+  is_default?: boolean;
+  details?: Json;
+}
+
+// ---------------------------------------------------------------------------
+// organizer_members
+// ---------------------------------------------------------------------------
+export type OrganizerRole = "admin" | "dj" | "entrance_manager" | "finance_manager";
+
+export interface OrganizerMemberRow {
+  id: string;
+  organizer_id: string;
+  user_id: string;
+  role: OrganizerRole;
+  invited_by: string | null;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+}
+export interface OrganizerMemberInsert {
+  organizer_id: string;
+  user_id: string;
+  role?: OrganizerRole;
+  invited_by?: string | null;
+}
+export interface OrganizerMemberUpdate {
+  role?: OrganizerRole;
 }
 
 // ---------------------------------------------------------------------------

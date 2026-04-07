@@ -1,9 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import Link from "next/link";
 import { SearchBar } from "@/components/ui/SearchBar";
-import { Button } from "@/components/ui/Button";
 import { MapPinIcon } from "@/components/icons";
 import { VenueCard } from "@/components/venues/VenueCard";
 import type { Venue } from "@/types";
@@ -55,9 +53,6 @@ export function VenuesPageClient({ venues }: VenuesPageClientProps) {
           <p className="mb-6 max-w-sm text-sm text-gray-500">
             {translate(locale, "venuesPage.noVenuesDesc")}
           </p>
-          <Link href="/venues/create">
-            <Button variant="primary" size="sm">{translate(locale, "venuesPage.createFirst")}</Button>
-          </Link>
         </div>
       ) : filtered.length === 0 ? (
         <p className="py-12 text-center text-gray-500">{translate(locale, "venuesPage.noMatch")}</p>

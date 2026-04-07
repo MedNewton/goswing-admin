@@ -112,7 +112,7 @@ export async function getPublishedEvent(id: string) {
     .select(
       `*,
       venues ( id, name, city, address_line1, region, country_code, timezone, venue_type, lat, lng ),
-      organizers ( id, name, logo_url, tagline, about, cover_image_url, city, country_code, phone, email, website_url, instagram_handle, facebook_handle ),
+      organizers ( id, name, logo_url, tagline, about, cover_image_url, city, country_code, phone, email, website_url, instagram_handle, facebook_handle, specialties ),
       event_tags ( tags ( id, label, slug, type ) ),
       ticket_types ( id, name, description, price_cents, currency, capacity )`,
     )
@@ -146,6 +146,7 @@ export async function getPublishedEvent(id: string) {
       website_url: string | null;
       instagram_handle: string | null;
       facebook_handle: string | null;
+      specialties: string[] | null;
     } | null,
     venue: (data as Record<string, unknown>).venues as {
       id: string;
@@ -334,4 +335,107 @@ export async function getEventsAtVenue(venueId: string): Promise<Event[]> {
 
   if (error) throw error;
   return mapEvents((data ?? []) as EventQueryRow[]);
+}
+
+// ---------------------------------------------------------------------------
+// Events by organizer (for "More from this organizer" carousel)
+// ---------------------------------------------------------------------------
+
+export async function getEventsByOrganizer(
+  organizerId: string,
+  excludeEventId?: string,
+  limit = 6,
+): Promise<Event[]> {
+  const sb = createSupabaseAdminClient();
+
+  let query = sb
+    .from("events")
+    .select(
+      `*, venues ( name, city ), organizers ( name ), event_tags ( tags ( label, type ) )`,
+    )
+    .eq("status", "published")
+    .eq("organizer_id", organizerId)
+    .order("starts_at", { ascending: true })
+    .limit(limit);
+
+  if (excludeEventId) {
+    query = query.neq("id", excludeEventId);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return mapEvents((data ?? []) as EventQueryRow[]);
+}
+
+// ---------------------------------------------------------------------------
+// Similar events (same city or party type, excluding current)
+// ---------------------------------------------------------------------------
+
+export async function getSimilarEvents(
+  eventId: string,
+  venueCity: string | null,
+  limit = 6,
+): Promise<Event[]> {
+  const sb = createSupabaseAdminClient();
+
+  let query = sb
+    .from("events")
+    .select(
+      `*, venues ( name, city ), organizers ( name ), event_tags ( tags ( label, type ) )`,
+    )
+    .eq("status", "published")
+    .neq("id", eventId)
+    .gte("starts_at", new Date().toISOString())
+    .order("starts_at", { ascending: true })
+    .limit(limit);
+
+  // If we have a city, filter by it
+  if (venueCity) {
+    query = query.eq("venues.city", venueCity);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return mapEvents((data ?? []) as EventQueryRow[]);
+}
+
+// ---------------------------------------------------------------------------
+// Public venue with organizer + reviews (for guest venue view)
+// ---------------------------------------------------------------------------
+
+export async function getPublishedVenueDetail(id: string) {
+  const sb = createSupabaseAdminClient();
+
+  const { data, error } = await sb
+    .from("venues")
+    .select(
+      `*,
+      organizers ( id, name, logo_url, tagline, about, cover_image_url, city, country_code, phone, email, website_url, instagram_handle, facebook_handle, tiktok_handle, snapchat_handle, specialties )`,
+    )
+    .eq("id", id)
+    .single();
+
+  if (error) return null;
+
+  const venue = mapVenue(data as VenueRow);
+  const organizer = (data as Record<string, unknown>).organizers as {
+    id: string;
+    name: string;
+    logo_url: string | null;
+    tagline: string | null;
+    about: string | null;
+    cover_image_url: string | null;
+    city: string | null;
+    country_code: string | null;
+    phone: string | null;
+    email: string | null;
+    website_url: string | null;
+    instagram_handle: string | null;
+    facebook_handle: string | null;
+    tiktok_handle: string | null;
+    snapchat_handle: string | null;
+    specialties: string[] | null;
+  } | null;
+
+  return { venue, organizer };
 }

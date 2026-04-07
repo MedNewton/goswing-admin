@@ -36,3 +36,31 @@ export async function getOrders(filters?: {
   if (error) throw error;
   return mapOrders((data ?? []) as OrderQueryRow[]);
 }
+
+/** Fetch a single order by ID with full details. */
+export async function getOrderDetail(orderId: string) {
+  const sb = await createSupabaseServerClient();
+
+  const { data, error } = await sb
+    .from("reservations")
+    .select(`
+      *,
+      events ( title ),
+      reservation_items ( id, ticket_type_name_snapshot, quantity, unit_price_cents, currency, line_total_cents, benefits_snapshot )
+    `)
+    .eq("id", orderId)
+    .single();
+
+  if (error) throw error;
+  return data as OrderQueryRow & {
+    reservation_items: Array<{
+      id: string;
+      ticket_type_name_snapshot: string;
+      quantity: number;
+      unit_price_cents: number;
+      currency: string;
+      line_total_cents: number;
+      benefits_snapshot: unknown[];
+    }>;
+  };
+}

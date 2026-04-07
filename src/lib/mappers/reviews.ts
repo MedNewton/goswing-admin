@@ -19,7 +19,10 @@ export function mapReview(row: ReviewQueryRow): Review {
     rating: row.rating,
     comment: row.comment ?? "",
     date: formatDate(row.created_at),
-    helpful: 0, // no DB column for this yet
+    helpful: 0,
+    adminLiked: row.admin_liked ?? false,
+    adminReply: row.admin_reply ?? undefined,
+    adminReplyAt: row.admin_reply_at ? formatDate(row.admin_reply_at) : undefined,
   };
 }
 
