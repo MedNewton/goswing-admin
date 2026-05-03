@@ -61,11 +61,6 @@ export function EventActions({ eventId }: { eventId: string }) {
           >
             {translate(locale, "common.delete")}
           </Button>
-          <Link href={`/events/${eventId}/overview`}>
-            <Button variant="outline" size="sm">
-              {translate(locale, "eventActions.overview")}
-            </Button>
-          </Link>
           <Link href={`/events/${eventId}/edit`}>
             <Button variant="outline" size="sm">
               {translate(locale, "eventActions.editEvent")}

@@ -139,7 +139,7 @@ export function EventCard({ event }: EventCardProps) {
         {/* Dual Action Icons — chevron → overview */}
         <div className="flex items-center justify-end gap-2 border-t border-gray-100 pt-4">
           <Link
-            href={`/events/${event.id}/overview`}
+            href={`/events/${event.id}`}
             className="rounded-full p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
             title={translate(locale, "eventCard.viewEvent")}
           >

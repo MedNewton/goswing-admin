@@ -29,6 +29,7 @@ import {
   type CreateEventResult,
 } from "@/lib/actions/events";
 import { fetchVenuesForSelect } from "@/lib/actions/venues";
+import { TagMultiSelect } from "@/components/events/TagMultiSelect";
 import Image from "next/image";
 import type { ComponentType, SVGProps } from "react";
 import { getClientLocale, translate } from "@/lib/i18n/client";
@@ -141,93 +142,6 @@ function SectionHeader({
           <p className="mt-1 text-sm text-gray-500">{description}</p>
         )}
       </div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Tag Multi-Select Component
-// ---------------------------------------------------------------------------
-
-function TagMultiSelect({
-  label,
-  tags,
-  selectedIds,
-  onToggle,
-  placeholder,
-  emptyMessage,
-  loading,
-  loadingMessage,
-  pillColor,
-}: {
-  label: string;
-  tags: Array<{ id: string; label: string }>;
-  selectedIds: string[];
-  onToggle: (id: string) => void;
-  placeholder: string;
-  emptyMessage: string;
-  loading: boolean;
-  loadingMessage: string;
-  pillColor: string;
-}) {
-  const pillColors: Record<string, string> = {
-    teal: "bg-teal-900 text-teal-100",
-    violet: "bg-violet-900 text-violet-100",
-    gray: "bg-gray-900 text-white",
-  };
-  const cls = pillColors[pillColor] ?? "bg-gray-900 text-white";
-
-  return (
-    <div>
-      <label className="mb-1.5 block text-sm font-medium text-gray-700">{label}</label>
-      {loading ? (
-        <p className="text-sm text-gray-400">{loadingMessage}</p>
-      ) : tags.length === 0 ? (
-        <p className="text-sm text-gray-400">{emptyMessage}</p>
-      ) : (
-        <>
-          {selectedIds.length > 0 && (
-            <div className="mb-2 flex flex-wrap gap-2">
-              {selectedIds.map((tagId) => {
-                const tag = tags.find((t) => t.id === tagId);
-                if (!tag) return null;
-                return (
-                  <span
-                    key={tagId}
-                    className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ${cls}`}
-                  >
-                    {tag.label}
-                    <button
-                      type="button"
-                      onClick={() => onToggle(tagId)}
-                      className="ml-0.5 hover:opacity-70"
-                    >
-                      &times;
-                    </button>
-                  </span>
-                );
-              })}
-            </div>
-          )}
-          <select
-            className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-500"
-            value=""
-            onChange={(e) => {
-              const val = e.target.value;
-              if (val) onToggle(val);
-            }}
-          >
-            <option value="">{placeholder}</option>
-            {tags
-              .filter((t) => !selectedIds.includes(t.id))
-              .map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.label}
-                </option>
-              ))}
-          </select>
-        </>
-      )}
     </div>
   );
 }
@@ -564,40 +478,58 @@ export default function CreateEventPage() {
             {/* Party Types */}
             <TagMultiSelect
               label={translate(locale, "createEvent.partyTypesLabel")}
+              type="party_type"
               tags={partyTypeTags}
               selectedIds={selectedPartyTypeIds}
               onToggle={(id) => toggleTag(id, selectedPartyTypeIds, setSelectedPartyTypeIds)}
+              onTagCreated={(tag) => {
+                setTags((prev) => (prev.some((t) => t.id === tag.id) ? prev : [...prev, { ...tag, type: "party_type" }]));
+                setSelectedPartyTypeIds((prev) => (prev.includes(tag.id) ? prev : [...prev, tag.id]));
+              }}
               placeholder={translate(locale, "createEvent.addPartyType")}
               emptyMessage={translate(locale, "createEvent.noPartyTypes")}
               loading={tagsLoading}
               loadingMessage={translate(locale, "createEvent.loadingTags")}
               pillColor="teal"
+              locale={locale}
             />
 
             {/* Music Styles */}
             <TagMultiSelect
               label={translate(locale, "createEvent.musicStylesLabel")}
+              type="music_style"
               tags={musicStyleTags}
               selectedIds={selectedMusicStyleIds}
               onToggle={(id) => toggleTag(id, selectedMusicStyleIds, setSelectedMusicStyleIds)}
+              onTagCreated={(tag) => {
+                setTags((prev) => (prev.some((t) => t.id === tag.id) ? prev : [...prev, { ...tag, type: "music_style" }]));
+                setSelectedMusicStyleIds((prev) => (prev.includes(tag.id) ? prev : [...prev, tag.id]));
+              }}
               placeholder={translate(locale, "createEvent.addMusicStyle")}
               emptyMessage={translate(locale, "createEvent.noMusicStyles")}
               loading={tagsLoading}
               loadingMessage={translate(locale, "createEvent.loadingTags")}
               pillColor="violet"
+              locale={locale}
             />
 
             {/* Extra Services */}
             <TagMultiSelect
               label={translate(locale, "createEvent.extraServicesLabel")}
+              type="extra_service"
               tags={extraServiceTags}
               selectedIds={selectedExtraServiceIds}
               onToggle={(id) => toggleTag(id, selectedExtraServiceIds, setSelectedExtraServiceIds)}
+              onTagCreated={(tag) => {
+                setTags((prev) => (prev.some((t) => t.id === tag.id) ? prev : [...prev, { ...tag, type: "extra_service" }]));
+                setSelectedExtraServiceIds((prev) => (prev.includes(tag.id) ? prev : [...prev, tag.id]));
+              }}
               placeholder={translate(locale, "createEvent.addExtraService")}
               emptyMessage={translate(locale, "createEvent.noExtraServices")}
               loading={tagsLoading}
               loadingMessage={translate(locale, "createEvent.loadingTags")}
               pillColor="gray"
+              locale={locale}
             />
           </div>
         </div>

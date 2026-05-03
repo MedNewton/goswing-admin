@@ -10,6 +10,7 @@ import {
   PhoneIcon,
   SettingsIcon,
   StarIcon,
+  UsersIcon,
 } from "@/components/icons";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
@@ -35,10 +36,13 @@ import {
   deleteEventAction,
   uploadEventImageAction,
   fetchEventForEdit,
+  fetchOrganizerContact,
   fetchTagsForSelect,
   type UpdateEventResult,
 } from "@/lib/actions/events";
 import { fetchVenuesForSelect } from "@/lib/actions/venues";
+import { TagMultiSelect } from "@/components/events/TagMultiSelect";
+import { formatMoney } from "@/lib/utils/format";
 import Link from "next/link";
 import Image from "next/image";
 import { getClientLocale, translate } from "@/lib/i18n/client";
@@ -141,86 +145,6 @@ function SummaryCard({
 }
 
 // ---------------------------------------------------------------------------
-// Tag Multi-Select
-// ---------------------------------------------------------------------------
-
-function TagMultiSelect({
-  label,
-  tags,
-  selectedIds,
-  onToggle,
-  placeholder,
-  emptyMessage,
-  pillColor,
-}: {
-  label: string;
-  tags: Array<{ id: string; label: string }>;
-  selectedIds: string[];
-  onToggle: (id: string) => void;
-  placeholder: string;
-  emptyMessage: string;
-  pillColor: string;
-}) {
-  const pillColors: Record<string, string> = {
-    teal: "bg-teal-900 text-teal-100",
-    violet: "bg-violet-900 text-violet-100",
-    gray: "bg-gray-900 text-white",
-  };
-  const cls = pillColors[pillColor] ?? "bg-gray-900 text-white";
-
-  if (tags.length === 0) {
-    return (
-      <div>
-        <label className="mb-1.5 block text-sm font-medium text-gray-700">{label}</label>
-        <p className="text-sm text-gray-400">{emptyMessage}</p>
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      <label className="mb-1.5 block text-sm font-medium text-gray-700">{label}</label>
-      {selectedIds.length > 0 && (
-        <div className="mb-2 flex flex-wrap gap-2">
-          {selectedIds.map((tagId) => {
-            const tag = tags.find((t) => t.id === tagId);
-            if (!tag) return null;
-            return (
-              <span
-                key={tagId}
-                className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium ${cls}`}
-              >
-                {tag.label}
-                <button type="button" onClick={() => onToggle(tagId)} className="ml-0.5 hover:opacity-70">
-                  &times;
-                </button>
-              </span>
-            );
-          })}
-        </div>
-      )}
-      <select
-        className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 shadow-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
-        value=""
-        onChange={(e) => {
-          const val = e.target.value;
-          if (val) onToggle(val);
-        }}
-      >
-        <option value="">{placeholder}</option>
-        {tags
-          .filter((t) => !selectedIds.includes(t.id))
-          .map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.label}
-            </option>
-          ))}
-      </select>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Page Component
 // ---------------------------------------------------------------------------
 
@@ -289,9 +213,12 @@ export default function EditEventPage({
 
   const publishEvent = watch("publishEvent");
   const eventDate = watch("eventDate");
+  const startTime = watch("startTime");
+  const endDate = watch("endDate");
+  const endTime = watch("endTime");
   const titleValue = watch("title");
-  const venueIdValue = watch("venueId");
   const ticketTiers = watch("ticketTiers");
+  const currency = watch("currency");
 
   // Fetch event data, venues, and tags on mount
   useEffect(() => {
@@ -299,8 +226,9 @@ export default function EditEventPage({
       fetchEventForEdit(eventId),
       fetchVenuesForSelect(),
       fetchTagsForSelect(),
+      fetchOrganizerContact().catch(() => ({ email: "", phone: "" })),
     ])
-      .then(([eventData, venueData, tagData]) => {
+      .then(([eventData, venueData, tagData, organizerContact]) => {
         setVenues(venueData);
         setTags(tagData);
 
@@ -333,8 +261,8 @@ export default function EditEventPage({
           approvalMode: (eventData.approvalMode as "auto" | "manual") ?? "auto",
           sharingEnabled: eventData.sharingEnabled ?? true,
           policies: eventData.policies ?? [],
-          contactEmail: "",
-          contactPhone: "",
+          contactEmail: organizerContact.email ?? "",
+          contactPhone: organizerContact.phone ?? "",
         };
 
         reset(formValues);
@@ -488,13 +416,43 @@ export default function EditEventPage({
 
   const todayStr = new Date().toISOString().split("T")[0];
   const minEndDate = eventDate || todayStr;
-  const selectedVenue = venues.find((venue) => venue.id === venueIdValue);
-  const selectedVenueLabel = selectedVenue
-    ? selectedVenue.city
-      ? `${selectedVenue.name} - ${selectedVenue.city}`
-      : selectedVenue.name
-    : translate(locale, "editEvent.venueNotSelected");
-  const scheduleLabel = eventDate || translate(locale, "editEvent.dateNotSet");
+
+  // Compute "is event completed" from the form-state end date/time, falling
+  // back to start date/time if the event has no end. Reflects what the user
+  // is currently editing.
+  const computedEnd =
+    endDate && endTime
+      ? new Date(`${endDate}T${endTime}`)
+      : eventDate && endTime
+        ? new Date(`${eventDate}T${endTime}`)
+        : eventDate && startTime
+          ? new Date(`${eventDate}T${startTime}`)
+          : null;
+  const isEventCompleted = computedEnd !== null && computedEnd.getTime() < Date.now();
+
+  const scheduleLabel = isEventCompleted
+    ? translate(locale, "adminEvent.complete")
+    : eventDate || translate(locale, "editEvent.dateNotSet");
+
+  const statusLabel = publishEvent
+    ? translate(locale, "editEvent.published")
+    : translate(locale, "editEvent.draft");
+
+  const totalCapacity = ticketTiers.reduce((sum, t) => {
+    const cap = typeof t.capacity === "number" ? t.capacity : 0;
+    return sum + cap;
+  }, 0);
+  const totalCapacityLabel = totalCapacity > 0 ? totalCapacity.toLocaleString() : "—";
+
+  const paidPrices = ticketTiers
+    .filter((t) => !t.is_free && typeof t.price === "number" && t.price > 0)
+    .map((t) => t.price as number);
+  const startingPriceLabel =
+    ticketTiers.length === 0
+      ? "—"
+      : paidPrices.length === 0
+        ? translate(locale, "adminEvent.free")
+        : formatMoney(Math.min(...paidPrices) * 100, currency || "MAD");
 
   if (loading) {
     return (
@@ -573,22 +531,22 @@ export default function EditEventPage({
                 accentClass="bg-sky-50 text-sky-700"
               />
               <SummaryCard
-                icon={MapPinIcon}
-                label={translate(locale, "editEvent.venue")}
-                value={selectedVenueLabel}
+                icon={StarIcon}
+                label={translate(locale, "editEvent.statusLabel")}
+                value={statusLabel}
+                accentClass="bg-rose-50 text-rose-700"
+              />
+              <SummaryCard
+                icon={UsersIcon}
+                label={translate(locale, "editEvent.totalCapacity")}
+                value={totalCapacityLabel}
                 accentClass="bg-emerald-50 text-emerald-700"
               />
               <SummaryCard
                 icon={DollarIcon}
-                label={translate(locale, "editEvent.ticketTier")}
-                value={`${ticketTiers.length}`}
+                label={translate(locale, "editEvent.startingPrice")}
+                value={startingPriceLabel}
                 accentClass="bg-amber-50 text-amber-700"
-              />
-              <SummaryCard
-                icon={StarIcon}
-                label={translate(locale, "adminEvent.status")}
-                value={publishEvent ? translate(locale, "editEvent.published") : translate(locale, "editEvent.draft")}
-                accentClass="bg-rose-50 text-rose-700"
               />
             </div>
           </div>
@@ -610,12 +568,20 @@ export default function EditEventPage({
               <div className="rounded-3xl border border-gray-200 bg-white/80 p-5">
                 <TagMultiSelect
                   label={translate(locale, "createEvent.partyTypesLabel")}
+                  type="party_type"
                   tags={partyTypeTags}
                   selectedIds={selectedPartyTypeIds}
                   onToggle={(id) => toggleTag(id, selectedPartyTypeIds, setSelectedPartyTypeIds)}
+                  onTagCreated={(tag) => {
+                    setTags((prev) => (prev.some((t) => t.id === tag.id) ? prev : [...prev, { ...tag, type: "party_type" }]));
+                    setSelectedPartyTypeIds((prev) => (prev.includes(tag.id) ? prev : [...prev, tag.id]));
+                  }}
                   placeholder={translate(locale, "createEvent.addPartyType")}
                   emptyMessage={translate(locale, "createEvent.noPartyTypes")}
+                  loading={false}
+                  loadingMessage={translate(locale, "createEvent.loadingTags")}
                   pillColor="teal"
+                  locale={locale}
                 />
               </div>
 
@@ -623,12 +589,20 @@ export default function EditEventPage({
               <div className="rounded-3xl border border-gray-200 bg-white/80 p-5">
                 <TagMultiSelect
                   label={translate(locale, "createEvent.musicStylesLabel")}
+                  type="music_style"
                   tags={musicStyleTags}
                   selectedIds={selectedMusicStyleIds}
                   onToggle={(id) => toggleTag(id, selectedMusicStyleIds, setSelectedMusicStyleIds)}
+                  onTagCreated={(tag) => {
+                    setTags((prev) => (prev.some((t) => t.id === tag.id) ? prev : [...prev, { ...tag, type: "music_style" }]));
+                    setSelectedMusicStyleIds((prev) => (prev.includes(tag.id) ? prev : [...prev, tag.id]));
+                  }}
                   placeholder={translate(locale, "createEvent.addMusicStyle")}
                   emptyMessage={translate(locale, "createEvent.noMusicStyles")}
+                  loading={false}
+                  loadingMessage={translate(locale, "createEvent.loadingTags")}
                   pillColor="violet"
+                  locale={locale}
                 />
               </div>
 
@@ -636,12 +610,20 @@ export default function EditEventPage({
               <div className="rounded-3xl border border-gray-200 bg-white/80 p-5">
                 <TagMultiSelect
                   label={translate(locale, "createEvent.extraServicesLabel")}
+                  type="extra_service"
                   tags={extraServiceTags}
                   selectedIds={selectedExtraServiceIds}
                   onToggle={(id) => toggleTag(id, selectedExtraServiceIds, setSelectedExtraServiceIds)}
+                  onTagCreated={(tag) => {
+                    setTags((prev) => (prev.some((t) => t.id === tag.id) ? prev : [...prev, { ...tag, type: "extra_service" }]));
+                    setSelectedExtraServiceIds((prev) => (prev.includes(tag.id) ? prev : [...prev, tag.id]));
+                  }}
                   placeholder={translate(locale, "createEvent.addExtraService")}
                   emptyMessage={translate(locale, "createEvent.noExtraServices")}
+                  loading={false}
+                  loadingMessage={translate(locale, "createEvent.loadingTags")}
                   pillColor="gray"
+                  locale={locale}
                 />
               </div>
             </div>

@@ -3,10 +3,13 @@ import { Footer } from "@/components/layout/Footer";
 import {
   BuildingIcon,
   CalendarIcon,
+  ChevronRightIcon,
   DollarIcon,
+  EyeIcon,
   GlobeIcon,
   MailIcon,
   MapPinIcon,
+  MusicIcon,
   PhoneIcon,
   SettingsIcon,
   StarIcon,
@@ -14,15 +17,20 @@ import {
 } from "@/components/icons";
 import { Badge } from "@/components/ui/Badge";
 import { Avatar } from "@/components/ui/Avatar";
+import { Button } from "@/components/ui/Button";
 import { EventActions } from "@/components/events/EventActions";
-import { getEvent } from "@/lib/data/events";
+import { getEvent, getEventOverview } from "@/lib/data/events";
 import { getEventGallery } from "@/lib/data/gallery";
 import { getReviews } from "@/lib/data/reviews";
+import { getOrders } from "@/lib/data/orders";
+import { getSongSuggestions } from "@/lib/data/music";
+import { getAttendees } from "@/lib/data/attendees";
 import { formatPrice, formatDate, formatTime, formatDateTime } from "@/lib/utils/format";
 import { getLocale, t } from "@/lib/i18n";
 import { checkAdminAccess } from "@/lib/auth/requireAdmin";
 import { notFound } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 import type { ComponentType, ReactNode, SVGProps } from "react";
 import type { GalleryItem, Review } from "@/types";
 
@@ -55,6 +63,39 @@ function SectionHeader({
           <p className="mt-1 text-sm text-gray-500">{description}</p>
         )}
       </div>
+    </div>
+  );
+}
+
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+  tone,
+}: {
+  icon: IconComponent;
+  label: string;
+  value: string;
+  tone: "emerald" | "sky" | "amber" | "purple" | "rose" | "blue";
+}) {
+  const tones = {
+    emerald: "bg-emerald-50 text-emerald-700",
+    sky: "bg-sky-50 text-sky-700",
+    amber: "bg-amber-50 text-amber-700",
+    purple: "bg-purple-50 text-purple-700",
+    rose: "bg-rose-50 text-rose-700",
+    blue: "bg-blue-50 text-blue-700",
+  };
+
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+      <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1 ${tones[tone]}`}>
+        <Icon className="h-4 w-4" />
+        <span className="text-xs font-semibold uppercase tracking-[0.18em]">
+          {label}
+        </span>
+      </div>
+      <p className="mt-3 text-2xl font-semibold text-gray-950">{value}</p>
     </div>
   );
 }
@@ -150,12 +191,14 @@ export default async function EventDetailsPage({
   const locale = await getLocale();
 
   let eventData: Awaited<ReturnType<typeof getEvent>> | null = null;
+  let overview: Awaited<ReturnType<typeof getEventOverview>> | null = null;
   let gallery: GalleryItem[] = [];
   let reviews: Review[] = [];
 
   try {
-    [eventData, gallery, reviews] = await Promise.all([
+    [eventData, overview, gallery, reviews] = await Promise.all([
       getEvent(id),
+      getEventOverview(id),
       getEventGallery(id),
       getReviews({ eventId: id }),
     ]);
@@ -163,7 +206,18 @@ export default async function EventDetailsPage({
     notFound();
   }
 
-  if (!eventData) notFound();
+  if (!eventData || !overview) notFound();
+
+  const [orders, songs, checkins] = await Promise.all([
+    getOrders({ eventId: id }).catch(() => []),
+    getSongSuggestions({ eventId: id }).catch(() => []),
+    getAttendees({ eventId: id }).catch(() => []),
+  ]);
+
+  const totalTicketRevenue = overview.ticketSalesBreakdown.reduce(
+    (sum, tier) => sum + tier.revenue,
+    0,
+  );
 
   const { event, ticketTypes, organizer, venue } = eventData;
 
@@ -200,14 +254,21 @@ export default async function EventDetailsPage({
   return (
     <>
       <MainLayout>
-        <div className="mb-6 flex items-center justify-between">
+        <div className="mb-6 flex items-center justify-between gap-3">
           <h1 className="text-2xl font-semibold text-gray-900">{t(locale, "adminEvent.pageTitle")}</h1>
-          <EventActions eventId={id} />
+          <div className="flex items-center gap-2">
+            <Link href={`/events/${id}/guest`}>
+              <Button variant="outline" size="sm">
+                <EyeIcon className="mr-1.5 h-4 w-4" />
+                {t(locale, "eventOverview.viewAsGuest")}
+              </Button>
+            </Link>
+            <EventActions eventId={id} />
+          </div>
         </div>
-        <div className="mx-auto max-w-7xl">
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-            {/* Main Content */}
-            <div className="lg:col-span-2">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 xl:grid-cols-4">
+          {/* Main Content */}
+          <div className="lg:col-span-2 xl:col-span-3">
               <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-xl shadow-gray-200">
                 <div className="relative h-[420px] overflow-hidden">
                   <Image
@@ -291,6 +352,34 @@ export default async function EventDetailsPage({
                   )}
                 </div>
               </section>
+
+              {/* Quick stats from overview */}
+              <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+                <StatCard
+                  icon={CalendarIcon}
+                  label={t(locale, "eventOverview.reservations")}
+                  value={overview.reservationsCount.toLocaleString()}
+                  tone="blue"
+                />
+                <StatCard
+                  icon={MusicIcon}
+                  label={t(locale, "eventOverview.songs")}
+                  value={overview.songSuggestionsCount.toLocaleString()}
+                  tone="purple"
+                />
+                <StatCard
+                  icon={UsersIcon}
+                  label={t(locale, "eventOverview.checkedIn")}
+                  value={overview.checkedInCount.toLocaleString()}
+                  tone="emerald"
+                />
+                <StatCard
+                  icon={StarIcon}
+                  label={t(locale, "eventOverview.rating")}
+                  value={overview.reviewScore != null ? `${overview.reviewScore.toFixed(1)} / 5` : "—"}
+                  tone="amber"
+                />
+              </div>
 
               <div className="mt-6 rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100">
                 <SectionHeader
@@ -386,6 +475,162 @@ export default async function EventDetailsPage({
                 )}
               </div>
 
+              {/* Recent Orders */}
+              <div className="mt-6 rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    {t(locale, "eventOverview.recentOrders")}
+                  </h2>
+                  <Link
+                    href={`/orders?eventId=${id}`}
+                    className="inline-flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-gray-900"
+                  >
+                    {t(locale, "common.viewAll")}
+                    <ChevronRightIcon className="h-4 w-4" />
+                  </Link>
+                </div>
+                {orders.length === 0 ? (
+                  <p className="mt-4 text-sm text-gray-500">
+                    {t(locale, "eventOverview.noOrders")}
+                  </p>
+                ) : (
+                  <div className="mt-4 space-y-2">
+                    {orders.slice(0, 5).map((order) => (
+                      <div
+                        key={order.id}
+                        className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50 px-4 py-3"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-medium text-gray-900">
+                            {order.customerName}
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            {order.offerType}
+                            {order.itemCount && order.itemCount > 1
+                              ? ` +${order.itemCount - 1}`
+                              : ""}
+                          </p>
+                        </div>
+                        <div className="ml-4 flex items-center gap-3">
+                          <Badge
+                            variant={
+                              order.status === "confirmed"
+                                ? "confirmed"
+                                : order.status === "checkedIn"
+                                  ? "checkedIn"
+                                  : order.status === "cancelled"
+                                    ? "cancelled"
+                                    : "pending"
+                            }
+                          >
+                            {order.status}
+                          </Badge>
+                          <span className="text-sm font-semibold text-gray-900">
+                            {order.amountFormatted}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Recent Songs */}
+              <div className="mt-6 rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    {t(locale, "eventOverview.recentSongs")}
+                  </h2>
+                  <Link
+                    href={`/music?eventId=${id}`}
+                    className="inline-flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-gray-900"
+                  >
+                    {t(locale, "common.viewAll")}
+                    <ChevronRightIcon className="h-4 w-4" />
+                  </Link>
+                </div>
+                {songs.length === 0 ? (
+                  <p className="mt-4 text-sm text-gray-500">
+                    {t(locale, "eventOverview.noSongs")}
+                  </p>
+                ) : (
+                  <div className="mt-4 space-y-2">
+                    {songs.slice(0, 5).map((song) => (
+                      <div
+                        key={song.id}
+                        className="flex items-center gap-3 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3"
+                      >
+                        {song.artworkUrl ? (
+                          <Image
+                            src={song.artworkUrl}
+                            alt={song.title}
+                            width={40}
+                            height={40}
+                            className="rounded-lg"
+                          />
+                        ) : (
+                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-100">
+                            <MusicIcon className="h-5 w-5 text-purple-600" />
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-medium text-gray-900">
+                            {song.title}
+                          </p>
+                          <p className="truncate text-sm text-gray-500">
+                            {song.artist}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Recent Check-ins */}
+              <div className="mt-6 rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    {t(locale, "eventOverview.recentCheckins")}
+                  </h2>
+                  <Link
+                    href={`/attendees?eventId=${id}`}
+                    className="inline-flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-gray-900"
+                  >
+                    {t(locale, "common.viewAll")}
+                    <ChevronRightIcon className="h-4 w-4" />
+                  </Link>
+                </div>
+                {checkins.length === 0 ? (
+                  <p className="mt-4 text-sm text-gray-500">
+                    {t(locale, "eventOverview.noCheckins")}
+                  </p>
+                ) : (
+                  <div className="mt-4 space-y-2">
+                    {checkins.slice(0, 5).map((attendee) => (
+                      <div
+                        key={attendee.id}
+                        className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50 px-4 py-3"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-medium text-gray-900">
+                            {attendee.name}
+                          </p>
+                          <p className="truncate text-sm text-gray-500">
+                            {attendee.ticketType ?? attendee.email}
+                          </p>
+                        </div>
+                        {attendee.checkInTime && (
+                          <span className="ml-4 text-xs text-gray-400">
+                            {formatDateTime(attendee.checkInTime)}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {/* Event Gallery */}
               {gallery.length > 0 && (
                 <div className="mt-6 rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100">
@@ -421,12 +666,21 @@ export default async function EventDetailsPage({
               {/* Reviews */}
               {reviews.length > 0 && (
                 <div className="mt-6 rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100">
-                  <SectionHeader
-                    icon={StarIcon}
-                    eyebrow={t(locale, "adminEvent.feedbackEyebrow")}
-                    title={t(locale, "adminEvent.reviews")}
-                    description={`${reviews.length} ${reviews.length !== 1 ? t(locale, "adminEvent.reviews") : t(locale, "adminEvent.review")}`}
-                  />
+                  <div className="flex items-start justify-between gap-3">
+                    <SectionHeader
+                      icon={StarIcon}
+                      eyebrow={t(locale, "adminEvent.feedbackEyebrow")}
+                      title={t(locale, "adminEvent.reviews")}
+                      description={`${reviews.length} ${reviews.length !== 1 ? t(locale, "adminEvent.reviews") : t(locale, "adminEvent.review")}`}
+                    />
+                    <Link
+                      href={`/reviews?eventId=${id}`}
+                      className="inline-flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-gray-900"
+                    >
+                      {t(locale, "common.viewAll")}
+                      <ChevronRightIcon className="h-4 w-4" />
+                    </Link>
+                  </div>
                   <div className="mt-6 space-y-4">
                     {reviews.slice(0, 5).map((review) => (
                       <div
@@ -661,6 +915,114 @@ export default async function EventDetailsPage({
 
             {/* Sidebar */}
             <div className="space-y-6">
+              {/* Total Tickets Sold */}
+              <div className="rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100">
+                <div className="flex items-center gap-2 text-sky-700">
+                  <CalendarIcon className="h-5 w-5" />
+                  <h3 className="text-sm font-semibold uppercase tracking-[0.18em]">
+                    {t(locale, "eventOverview.ticketsSold")}
+                  </h3>
+                </div>
+                <p className="mt-3 text-3xl font-semibold text-gray-950">
+                  {overview.totalTicketsSold.toLocaleString()}
+                </p>
+              </div>
+
+              {/* Total Revenue */}
+              <div className="rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100">
+                <div className="flex items-center gap-2 text-amber-700">
+                  <DollarIcon className="h-5 w-5" />
+                  <h3 className="text-sm font-semibold uppercase tracking-[0.18em]">
+                    {t(locale, "eventOverview.totalRevenue")}
+                  </h3>
+                </div>
+                <p className="mt-3 text-3xl font-semibold text-gray-950">
+                  {overview.totalRevenueFormatted}
+                </p>
+                <p className="mt-1 text-sm text-gray-500">
+                  {t(locale, "eventOverview.fromTickets")}{" "}
+                  {overview.totalTicketsSold}{" "}
+                  {t(locale, "eventOverview.tickets")}
+                </p>
+              </div>
+
+              {/* Revenue per Ticket Type */}
+              <div className="rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100">
+                <h3 className="mb-4 text-sm font-semibold uppercase tracking-[0.18em] text-gray-700">
+                  {t(locale, "eventOverview.revenuePerType")}
+                </h3>
+                {overview.ticketSalesBreakdown.length === 0 ? (
+                  <p className="text-sm text-gray-500">
+                    {t(locale, "eventOverview.noTicketSales")}
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {overview.ticketSalesBreakdown.map((tier) => {
+                      const pct = totalTicketRevenue > 0 ? (tier.revenue / totalTicketRevenue) * 100 : 0;
+                      return (
+                        <div key={tier.ticketTypeName}>
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="font-medium text-gray-900">{tier.ticketTypeName}</span>
+                            <span className="font-semibold text-gray-900">{tier.revenueFormatted}</span>
+                          </div>
+                          <div className="mt-1 flex items-center gap-2">
+                            <div className="h-2 flex-1 overflow-hidden rounded-full bg-gray-100">
+                              <div
+                                className="h-full rounded-full bg-sky-500 transition-all"
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                            <span className="w-10 text-right text-xs text-gray-500">{pct.toFixed(0)}%</span>
+                          </div>
+                          <p className="mt-0.5 text-xs text-gray-500">
+                            {tier.ticketsSold} {t(locale, "eventOverview.sold")}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Performance Metrics */}
+              <div className="rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100">
+                <h3 className="mb-4 text-sm font-semibold uppercase tracking-[0.18em] text-gray-700">
+                  {t(locale, "eventOverview.performanceMetrics")}
+                </h3>
+                <div className="space-y-4">
+                  <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+                      {t(locale, "eventOverview.conversionRate")}
+                    </p>
+                    <p className="mt-1 text-xl font-semibold text-gray-900">
+                      {overview.conversionRate != null ? `${overview.conversionRate.toFixed(1)}%` : "N/A"}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+                      {t(locale, "eventOverview.cancellationRate")}
+                    </p>
+                    <p className="mt-1 text-xl font-semibold text-gray-900">
+                      {overview.cancellationRate != null ? `${overview.cancellationRate.toFixed(1)}%` : "N/A"}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+                      {t(locale, "eventOverview.reviews")}
+                    </p>
+                    <p className="mt-1 text-xl font-semibold text-gray-900">
+                      {overview.reviewCount}{" "}
+                      {overview.reviewCount !== 1 ? t(locale, "eventOverview.reviews") : t(locale, "eventOverview.review")}
+                      {overview.reviewScore != null && (
+                        <span className="ml-2 text-sm font-normal text-gray-500">
+                          ({t(locale, "eventOverview.avg")} {overview.reviewScore.toFixed(1)} / 5)
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               {/* Ticket Types */}
               {ticketTypes && ticketTypes.length > 0 && (
                 <div className="rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100">
@@ -838,7 +1200,6 @@ export default async function EventDetailsPage({
                   </div>
                 </div>
               )}
-            </div>
           </div>
         </div>
       </MainLayout>

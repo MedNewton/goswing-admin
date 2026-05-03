@@ -533,6 +533,86 @@ export async function fetchTagsForSelect() {
 }
 
 // ---------------------------------------------------------------------------
+// Custom Tag Creation
+// ---------------------------------------------------------------------------
+
+const CUSTOM_TAG_TYPES = ["party_type", "music_style", "extra_service"] as const;
+const customTagSchema = z.object({
+  type: z.enum(CUSTOM_TAG_TYPES),
+  label: z.string().trim().min(1, "Label is required").max(80, "Label is too long"),
+});
+
+export type CreateCustomTagResult =
+  | { success: true; tag: { id: string; label: string; slug: string; type: string } }
+  | { success: false; error: string };
+
+function slugify(label: string): string {
+  return label
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60);
+}
+
+/** Create or reuse a tag for the given (type, label). Idempotent on slug. */
+export async function createCustomTagAction(input: {
+  type: string;
+  label: string;
+}): Promise<CreateCustomTagResult> {
+  // Auth — only signed-in users may extend the tag vocabulary.
+  await getCurrentUserId();
+
+  const parsed = customTagSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.errors[0]?.message ?? "Invalid input" };
+  }
+
+  const { type, label } = parsed.data;
+  const slug = slugify(label);
+  if (!slug) {
+    return { success: false, error: "Label must contain at least one alphanumeric character" };
+  }
+
+  const sb = createSupabaseAdminClient();
+
+  // Find-or-create on (type, slug)
+  const { data: existing } = await sb
+    .from("tags")
+    .select("id, label, slug, type")
+    .eq("type", type)
+    .eq("slug", slug)
+    .limit(1)
+    .maybeSingle();
+
+  if (existing) {
+    return {
+      success: true,
+      tag: existing as { id: string; label: string; slug: string; type: string },
+    };
+  }
+
+  const { data: inserted, error: insertError } = await insertInto(sb, "tags", {
+    type,
+    slug,
+    label,
+  })
+    .select("id, label, slug, type")
+    .single();
+
+  if (insertError || !inserted) {
+    console.error("[createCustomTagAction] insert error:", insertError?.message);
+    return { success: false, error: insertError?.message ?? "Failed to create tag" };
+  }
+
+  return {
+    success: true,
+    tag: inserted as { id: string; label: string; slug: string; type: string },
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Image Upload
 // ---------------------------------------------------------------------------
 
