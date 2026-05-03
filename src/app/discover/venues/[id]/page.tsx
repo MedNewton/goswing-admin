@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import { getPublishedVenue, getEventsAtVenue } from "@/lib/data/discover";
+import { getOrganizerGallery } from "@/lib/data/gallery";
 import { DiscoverEventCard } from "@/components/discover/DiscoverEventCard";
+import { PublicMediaGallery } from "@/components/discover/PublicMediaGallery";
 import { MapPinIcon, BuildingIcon, CalendarIcon, UsersIcon, SearchIcon } from "@/components/icons";
 import Link from "next/link";
 import type { ComponentType, ReactNode, SVGProps } from "react";
@@ -110,6 +112,9 @@ export default async function PublicVenueDetailPage({
   if (!venue) notFound();
 
   const locale = await getLocale();
+  const gallery = venue.organizerId
+    ? await getOrganizerGallery(venue.organizerId).catch(() => [])
+    : [];
 
   const fullAddress = [venue.address, venue.city, venue.region, venue.countryCode]
     .filter(Boolean)
@@ -217,6 +222,17 @@ export default async function PublicVenueDetailPage({
               )}
             </div>
           </div>
+
+          {/* Gallery */}
+          {gallery.length > 0 && (
+            <div className="mt-6">
+              <PublicMediaGallery
+                items={gallery}
+                eyebrow={t(locale, "createEvent.galleryEyebrow")}
+                title={t(locale, "venueDetail.gallery")}
+              />
+            </div>
+          )}
 
           {/* Upcoming Events */}
           <div className="mt-6 rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100">

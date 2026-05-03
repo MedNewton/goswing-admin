@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import type { ComponentType, ReactNode, SVGProps } from "react";
 import { getPublishedEvent } from "@/lib/data/discover";
+import { getEventGallery } from "@/lib/data/gallery";
 import {
   BuildingIcon,
   CalendarIcon,
@@ -12,6 +13,7 @@ import {
 } from "@/components/icons";
 import { formatMoney, formatDateTime, formatDate, formatTime } from "@/lib/utils/format";
 import { getLocale, t } from "@/lib/i18n";
+import { PublicMediaGallery } from "@/components/discover/PublicMediaGallery";
 
 type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
 
@@ -106,6 +108,7 @@ export async function PublicEventDetail({
 
   const { event, ticketTypes, organizer, venue } = data;
   const locale = await getLocale();
+  const gallery = await getEventGallery(eventId).catch(() => []);
 
   const venueAddress = venue
     ? [venue.address_line1, venue.city, venue.region, venue.country_code]
@@ -246,6 +249,17 @@ export async function PublicEventDetail({
               </div>
             )}
           </div>
+
+          {/* Gallery */}
+          {gallery.length > 0 && (
+            <div className="mt-6">
+              <PublicMediaGallery
+                items={gallery}
+                eyebrow={t(locale, "createEvent.galleryEyebrow")}
+                title={t(locale, "eventGuest.gallery")}
+              />
+            </div>
+          )}
 
           {/* Policies */}
           {event.policies && Array.isArray(event.policies) && event.policies.length > 0 && (
