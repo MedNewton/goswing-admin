@@ -15,7 +15,7 @@ export async function getVenues() {
 
   const { data, error } = await sb
     .from("venues")
-    .select("*")
+    .select("*, organizers ( cover_image_url )")
     .eq("created_by_user_id", userId)
     .order("created_at", { ascending: false });
 
@@ -30,7 +30,7 @@ export async function getVenue(id: string) {
 
   const { data, error } = await sb
     .from("venues")
-    .select("*")
+    .select("*, organizers ( cover_image_url )")
     .eq("id", id)
     .eq("created_by_user_id", userId)
     .single();

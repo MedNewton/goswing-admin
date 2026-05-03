@@ -175,7 +175,7 @@ const fr: Record<string, string> = {
   "venueGuest.noUpcomingEvents": "Aucun événement à venir.",
   "venueGuest.similarVenues": "Établissements similaires",
   "venueGuest.noSimilarVenues": "Aucun établissement similaire.",
-  "venueGuest.freeAccess": "Accès gratuit",
+  "venueGuest.freeAccess": "Entrée gratuite",
   "venueGuest.freeForLadies": "Gratuit pour les femmes",
 
   // ── Venue detail (public) ──
@@ -686,6 +686,7 @@ const fr: Record<string, string> = {
   "eventOverview.title": "Aperçu de l'événement",
   "eventOverview.viewAsGuest": "Voir en tant qu'invité",
   "eventGuest.previewBanner": "Aperçu · Vous voyez cet événement comme un invité.",
+  "venueGuest.previewBanner": "Aperçu · Vous voyez ce lieu comme un invité.",
   "eventOverview.editEvent": "Modifier",
   "eventOverview.reservations": "Réservations",
   "eventOverview.checkedIn": "Enregistrés",
@@ -1254,7 +1255,7 @@ const fr: Record<string, string> = {
   "onboarding.postalPlaceholder": "ex. 75001",
   "onboarding.venueDescLabel": "Description (optionnel)",
   "onboarding.venueDescPlaceholder": "Décrivez votre lieu — ambiance, caractéristiques, ce qui le rend spécial...",
-  "onboarding.freeAccess": "Accès gratuit",
+  "onboarding.freeAccess": "Entrée gratuite",
   "onboarding.freeForLadies": "Gratuit pour les femmes",
   "onboarding.policiesEyebrow": "Règlement",
   "onboarding.policiesTitle": "Règles personnalisées",

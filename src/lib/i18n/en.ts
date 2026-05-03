@@ -175,7 +175,7 @@ const en = {
   "venueGuest.noUpcomingEvents": "No upcoming events.",
   "venueGuest.similarVenues": "Similar Venues",
   "venueGuest.noSimilarVenues": "No similar venues.",
-  "venueGuest.freeAccess": "Free Access",
+  "venueGuest.freeAccess": "Free Entry",
   "venueGuest.freeForLadies": "Free for Ladies",
 
   // ── Venue detail (public) ──
@@ -686,6 +686,7 @@ const en = {
   "eventOverview.title": "Event Overview",
   "eventOverview.viewAsGuest": "View as Guest",
   "eventGuest.previewBanner": "Preview · You're viewing this event as a guest would see it.",
+  "venueGuest.previewBanner": "Preview · You're viewing this venue as a guest would see it.",
   "eventOverview.editEvent": "Edit Event",
   "eventOverview.reservations": "Reservations",
   "eventOverview.checkedIn": "Checked In",
@@ -1254,7 +1255,7 @@ const en = {
   "onboarding.postalPlaceholder": "e.g., 75001",
   "onboarding.venueDescLabel": "Description (optional)",
   "onboarding.venueDescPlaceholder": "Describe your venue — ambiance, features, what makes it special...",
-  "onboarding.freeAccess": "Free access",
+  "onboarding.freeAccess": "Free entry",
   "onboarding.freeForLadies": "Free for ladies",
   "onboarding.policiesEyebrow": "Policies",
   "onboarding.policiesTitle": "Custom Policies",

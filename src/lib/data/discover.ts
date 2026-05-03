@@ -182,7 +182,7 @@ export async function getPublishedVenues(
 
   let query = sb
     .from("venues")
-    .select("*")
+    .select("*, organizers ( cover_image_url )")
     .order("name", { ascending: true });
 
   if (filters?.venueType) {
@@ -208,7 +208,7 @@ export async function getPublishedVenue(id: string) {
 
   const { data, error } = await sb
     .from("venues")
-    .select("*")
+    .select("*, organizers ( cover_image_url )")
     .eq("id", id)
     .single();
 
@@ -397,6 +397,27 @@ export async function getSimilarEvents(
   const { data, error } = await query;
   if (error) throw error;
   return mapEvents((data ?? []) as EventQueryRow[]);
+}
+
+/** Find published venues in the same city, excluding the current one. */
+export async function getSimilarPublishedVenues(
+  venueId: string,
+  city: string | null,
+  limit = 6,
+): Promise<Venue[]> {
+  if (!city) return [];
+
+  const sb = createSupabaseAdminClient();
+
+  const { data, error } = await sb
+    .from("venues")
+    .select("*, organizers ( cover_image_url )")
+    .ilike("city", city)
+    .neq("id", venueId)
+    .limit(limit);
+
+  if (error) return [];
+  return mapVenues((data ?? []) as VenueRow[]);
 }
 
 // ---------------------------------------------------------------------------

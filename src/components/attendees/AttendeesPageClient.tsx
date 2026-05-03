@@ -223,16 +223,31 @@ export function AttendeesPageClient({ attendees, checkinSummary }: AttendeesPage
 
       <Card className="rounded-[2rem] border border-gray-200 bg-white shadow-lg shadow-gray-100">
         <div className="border-b border-gray-100 px-6 py-5">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gray-950 text-white">
-              <CalendarIcon className="h-5 w-5" />
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gray-950 text-white">
+                <CalendarIcon className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">
+                  {translate(locale, "attendeesPage.eventSummary")}
+                </p>
+                <h2 className="mt-1 text-2xl font-semibold text-gray-950">{translate(locale, "attendeesPage.checkInsByEvent")}</h2>
+              </div>
             </div>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">
-                {translate(locale, "attendeesPage.eventSummary")}
-              </p>
-              <h2 className="mt-1 text-2xl font-semibold text-gray-950">{translate(locale, "attendeesPage.checkInsByEvent")}</h2>
-            </div>
+            <select
+              value={eventFilter}
+              onChange={(e) => setEventFilter(e.target.value)}
+              aria-label={translate(locale, "attendeesPage.eventFilter")}
+              className="h-11 w-full rounded-2xl border border-gray-200 bg-white px-4 text-sm text-gray-700 shadow-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 sm:w-64"
+            >
+              <option value="all">{translate(locale, "attendeesPage.allEvents")}</option>
+              {eventOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
         {filteredSummary.length === 0 ? (

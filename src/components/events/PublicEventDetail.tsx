@@ -2,8 +2,9 @@ import { notFound } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import type { ComponentType, ReactNode, SVGProps } from "react";
-import { getPublishedEvent } from "@/lib/data/discover";
+import { getPublishedEvent, getSimilarEvents } from "@/lib/data/discover";
 import { getEventGallery } from "@/lib/data/gallery";
+import { DiscoverEventCard } from "@/components/discover/DiscoverEventCard";
 import {
   BuildingIcon,
   CalendarIcon,
@@ -109,6 +110,7 @@ export async function PublicEventDetail({
   const { event, ticketTypes, organizer, venue } = data;
   const locale = await getLocale();
   const gallery = await getEventGallery(eventId).catch(() => []);
+  const similarEvents = await getSimilarEvents(eventId, venue?.city ?? null).catch(() => []);
 
   const venueAddress = venue
     ? [venue.address_line1, venue.city, venue.region, venue.country_code]
@@ -327,6 +329,22 @@ export async function PublicEventDetail({
                   </p>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Similar Events */}
+          {similarEvents.length > 0 && (
+            <div className="mt-6 rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100">
+              <SectionHeader
+                icon={CalendarIcon}
+                eyebrow={t(locale, "eventGuest.similarEvents")}
+                title={t(locale, "eventGuest.similarEvents")}
+              />
+              <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {similarEvents.slice(0, 4).map((ev) => (
+                  <DiscoverEventCard key={ev.id} event={ev} locale={locale} />
+                ))}
+              </div>
             </div>
           )}
         </div>

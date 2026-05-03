@@ -3,12 +3,14 @@
 import { MainLayout } from "@/components/layout/MainLayout";
 import {
   BuildingIcon,
+  DollarIcon,
   ImageIcon,
   ShieldIcon,
   MapPinIcon,
   GlobeIcon,
   EyeIcon,
   PlusIcon,
+  UsersIcon,
 } from "@/components/icons";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
@@ -136,6 +138,32 @@ function SectionHeader({
           <p className="mt-1 text-sm text-gray-500">{description}</p>
         )}
       </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Summary Card (used in the gradient hero)
+// ---------------------------------------------------------------------------
+
+function SummaryCard({
+  icon: Icon,
+  label,
+  value,
+  accentClass,
+}: {
+  icon: IconComponent;
+  label: string;
+  value: string;
+  accentClass: string;
+}) {
+  return (
+    <div className="rounded-3xl border border-white/12 bg-white/10 p-5 backdrop-blur">
+      <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1 ${accentClass}`}>
+        <Icon className="h-4 w-4" />
+        <span className="text-xs font-semibold uppercase tracking-[0.18em]">{label}</span>
+      </div>
+      <p className="mt-4 text-lg font-semibold text-white">{value}</p>
     </div>
   );
 }
@@ -330,6 +358,12 @@ export default function EditVenuePage({
   const freeAccess = watch("free_access");
   const lat = watch("lat");
   const lng = watch("lng");
+  const venueName = watch("name");
+  const venueCity = watch("city");
+  const venueRegion = watch("region");
+  const venueCountryCode = watch("country_code");
+  const venueCapacity = watch("capacity");
+  const venueFreeForLadies = watch("free_for_ladies");
 
   // Track whether tags/gallery/cover/policies have been changed (not tracked by RHF)
   const [extraDirty, setExtraDirty] = useState(false);
@@ -787,6 +821,22 @@ export default function EditVenuePage({
   // Render
   // ---------------------------------------------------------------------------
 
+  const locationLabel = [venueCity, venueRegion, venueCountryCode]
+    .filter(Boolean)
+    .join(", ") || "Location not set";
+  const venueTypeLabel =
+    categoryTags.find((t) => t.id === selectedCategory)?.label ?? "Type not set";
+  const capacityLabel =
+    typeof venueCapacity === "number" && venueCapacity > 0
+      ? venueCapacity.toLocaleString()
+      : "—";
+  const freeEntryLabel = freeAccess
+    ? venueFreeForLadies
+      ? "Ladies only"
+      : "Everyone"
+    : "No";
+  const tagsCount = selectedTagIds.size;
+
   return (
     <MainLayout>
       {/* Top bar */}
@@ -838,6 +888,61 @@ export default function EditVenuePage({
             {successMessage}
           </div>
         )}
+
+        {/* ================================================================= */}
+        {/* Editor Hero — gradient summary                                     */}
+        {/* ================================================================= */}
+        <section className="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-gradient-to-br from-slate-950 via-slate-900 to-teal-800 p-8 text-white shadow-xl shadow-slate-200">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(255,255,255,0.18),_transparent_30%),radial-gradient(circle_at_bottom_left,_rgba(45,212,191,0.22),_transparent_34%)]" />
+          <div className="relative grid gap-8 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-teal-100/75">
+                Venue Editor
+              </p>
+              <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
+                {venueName || "Untitled venue"}
+              </h1>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-200">
+                Update the venue details, branding, and policies that guests see.
+              </p>
+              <div className="mt-6 flex flex-wrap gap-3">
+                <div className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-white/90 backdrop-blur">
+                  {tagsCount} {tagsCount === 1 ? "tag" : "tags"} selected
+                </div>
+                <div className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-white/90 backdrop-blur">
+                  {freeAccess ? "Free entry" : "Paid entry"}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-2">
+              <SummaryCard
+                icon={MapPinIcon}
+                label="Location"
+                value={locationLabel}
+                accentClass="bg-emerald-50 text-emerald-700"
+              />
+              <SummaryCard
+                icon={BuildingIcon}
+                label="Type"
+                value={venueTypeLabel}
+                accentClass="bg-sky-50 text-sky-700"
+              />
+              <SummaryCard
+                icon={UsersIcon}
+                label="Capacity"
+                value={capacityLabel}
+                accentClass="bg-amber-50 text-amber-700"
+              />
+              <SummaryCard
+                icon={DollarIcon}
+                label="Free Entry"
+                value={freeEntryLabel}
+                accentClass="bg-rose-50 text-rose-700"
+              />
+            </div>
+          </div>
+        </section>
 
         {/* ================================================================= */}
         {/* 1. Cover Image Card                                               */}
@@ -1113,7 +1218,7 @@ export default function EditVenuePage({
                   className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
                   {...register("free_access")}
                 />
-                <span className="text-sm font-medium text-gray-700">Free Access</span>
+                <span className="text-sm font-medium text-gray-700">Free Entry</span>
               </label>
               {freeAccess && (
                 <div className="ml-7 space-y-2">

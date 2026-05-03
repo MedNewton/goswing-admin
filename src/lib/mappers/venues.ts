@@ -1,7 +1,13 @@
 import type { VenueRow } from "@/types/database";
 import type { Venue } from "@/types";
 
+// Optional joined organizer columns surfaced via Supabase select("*, organizers(...)")
+type VenueRowWithOrganizer = VenueRow & {
+  organizers?: { cover_image_url: string | null } | null;
+};
+
 export function mapVenue(row: VenueRow): Venue {
+  const organizer = (row as VenueRowWithOrganizer).organizers;
   return {
     id: row.id,
     name: row.name,
@@ -20,6 +26,7 @@ export function mapVenue(row: VenueRow): Venue {
     description: row.description,
     freeAccess: row.free_access,
     freeForLadies: row.free_for_ladies,
+    coverImageUrl: organizer?.cover_image_url ?? null,
   };
 }
 

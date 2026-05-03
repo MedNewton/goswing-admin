@@ -1,6 +1,7 @@
 import Link from "next/link";
+import Image from "next/image";
 import type { Venue } from "@/types";
-import { MapPinIcon, UsersIcon } from "@/components/icons";
+import { BuildingIcon, MapPinIcon, UsersIcon } from "@/components/icons";
 import { t, type Locale } from "@/lib/i18n";
 
 const ACCENT_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
@@ -36,6 +37,23 @@ export function DiscoverVenueCard({ venue, locale }: { venue: Venue; locale: Loc
       href={`/discover/venues/${venue.id}`}
       className="group relative block overflow-hidden rounded-2xl border border-gray-100 bg-white transition-all hover:-translate-y-1 hover:shadow-lg"
     >
+      <div className="relative h-32 overflow-hidden bg-gradient-to-br from-slate-900 to-slate-700">
+        {venue.coverImageUrl ? (
+          <>
+            <Image
+              src={venue.coverImageUrl}
+              alt={venue.name}
+              fill
+              className="object-cover transition-transform group-hover:scale-105"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+          </>
+        ) : (
+          <div className="flex h-full items-center justify-center text-white/30">
+            <BuildingIcon className="h-10 w-10" />
+          </div>
+        )}
+      </div>
       <div className={`h-1.5 ${accent.dot}`} />
 
       <div className="p-5">

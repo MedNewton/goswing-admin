@@ -12,7 +12,6 @@ import {
   HeartIcon,
   LinkIcon,
   TagIcon,
-  TrophyIcon,
   ExternalLinkIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -288,7 +287,7 @@ export default function VenueDetailPage({
 
   return (
     <MainLayout>
-      <div className="mx-auto max-w-7xl space-y-8 px-4 py-8 sm:px-6 lg:px-8">
+      <div className="space-y-8 py-2">
         {/* ----------------------------------------------------------------- */}
         {/* HEADER                                                            */}
         {/* ----------------------------------------------------------------- */}
@@ -326,7 +325,9 @@ export default function VenueDetailPage({
               </Link>
               <div className="flex items-center gap-3">
                 <Link
-                  href={`/discover/venues/${id}`}
+                  href={`/venues/${id}/guest`}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium text-white backdrop-blur-sm hover:bg-white/20 transition-colors"
                 >
                   <EyeIcon className="h-4 w-4" />
@@ -390,270 +391,252 @@ export default function VenueDetailPage({
         </div>
 
         {/* ----------------------------------------------------------------- */}
-        {/* TWO-COLUMN LAYOUT                                                 */}
+        {/* ROW 1 — three medium cards                                        */}
         {/* ----------------------------------------------------------------- */}
-        <div className="grid gap-8 lg:grid-cols-3">
-          {/* Left column (2/3) */}
-          <div className="space-y-8 lg:col-span-2">
-            {/* Description card */}
-            <div className={`${cardClass} p-8`}>
-              <SectionHeader
-                icon={BuildingIcon}
-                eyebrow={t("venueDetail.about") || "About"}
-                title={t("venueDetail.description") || "Description"}
-              />
-              <p className="mt-6 whitespace-pre-line text-sm leading-relaxed text-gray-600">
-                {venue.description ?? organizer?.about ?? "No description available."}
-              </p>
-            </div>
+        <div className="grid items-start gap-8 lg:grid-cols-3">
+          {/* Description */}
+          <div className={`${cardClass} p-8`}>
+            <SectionHeader
+              icon={BuildingIcon}
+              eyebrow={t("venueDetail.about") || "About"}
+              title={t("venueDetail.description") || "Description"}
+            />
+            <p className="mt-6 whitespace-pre-line text-sm leading-relaxed text-gray-600">
+              {venue.description ?? organizer?.about ?? "No description available."}
+            </p>
+          </div>
 
-            {/* Overview card */}
-            <div className={`${cardClass} p-8`}>
-              <SectionHeader
-                icon={TagIcon}
-                eyebrow={t("venueDetail.overview") || "Overview"}
-                title={t("venueDetail.categoriesAndTags") || "Categories & Tags"}
-              />
-              <div className="mt-6 space-y-5">
-                {categoryTags.length > 0 && (
-                  <TagGroup label="Category" tags={categoryTags} />
+          {/* Categories & Tags */}
+          <div className={`${cardClass} p-8`}>
+            <SectionHeader
+              icon={TagIcon}
+              eyebrow={t("venueDetail.overview") || "Overview"}
+              title={t("venueDetail.categoriesAndTags") || "Categories & Tags"}
+            />
+            <div className="mt-6 space-y-5">
+              {categoryTags.length > 0 && (
+                <TagGroup label="Category" tags={categoryTags} />
+              )}
+              {partyTypeTags.length > 0 && (
+                <TagGroup label="Party Types" tags={partyTypeTags} />
+              )}
+              {musicStyleTags.length > 0 && (
+                <TagGroup label="Music Styles" tags={musicStyleTags} icon={MusicIcon} />
+              )}
+              {extraServiceTags.length > 0 && (
+                <TagGroup label="Extra Services" tags={extraServiceTags} />
+              )}
+              {categoryTags.length === 0 &&
+                partyTypeTags.length === 0 &&
+                musicStyleTags.length === 0 &&
+                extraServiceTags.length === 0 && (
+                  <p className="text-sm text-gray-400">No tags configured.</p>
                 )}
-                {partyTypeTags.length > 0 && (
-                  <TagGroup label="Party Types" tags={partyTypeTags} />
-                )}
-                {musicStyleTags.length > 0 && (
-                  <TagGroup label="Music Styles" tags={musicStyleTags} icon={MusicIcon} />
-                )}
-                {extraServiceTags.length > 0 && (
-                  <TagGroup label="Extra Services" tags={extraServiceTags} />
-                )}
-                {categoryTags.length === 0 &&
-                  partyTypeTags.length === 0 &&
-                  musicStyleTags.length === 0 &&
-                  extraServiceTags.length === 0 && (
-                    <p className="text-sm text-gray-400">No tags configured.</p>
-                  )}
-              </div>
-            </div>
-
-            {/* Location card */}
-            <div className={`${cardClass} p-8`}>
-              <SectionHeader
-                icon={MapPinIcon}
-                eyebrow={t("venueDetail.location") || "Location"}
-                title={t("venueDetail.address") || "Address & Map"}
-              />
-              <div className="mt-6 space-y-4">
-                {venue.address && (
-                  <p className="text-sm text-gray-700">{venue.address}</p>
-                )}
-                {(venue.city ?? venue.region ?? venue.countryCode) && (
-                  <p className="text-sm text-gray-500">
-                    {[venue.city, venue.region, venue.countryCode]
-                      .filter(Boolean)
-                      .join(", ")}
-                    {venue.postalCode ? ` ${venue.postalCode}` : ""}
-                  </p>
-                )}
-
-                {venue.lat && venue.lng && (
-                  <>
-                    <div className="mt-4 overflow-hidden rounded-2xl border border-gray-200">
-                      <iframe
-                        title="Venue location"
-                        width="100%"
-                        height="280"
-                        style={{ border: 0 }}
-                        loading="lazy"
-                        referrerPolicy="no-referrer-when-downgrade"
-                        src={`https://www.google.com/maps?q=${venue.lat},${venue.lng}&z=15&output=embed`}
-                      />
-                    </div>
-                    <a
-                      href={`https://www.google.com/maps/dir/?api=1&destination=${venue.lat},${venue.lng}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 rounded-xl bg-gray-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-gray-800 transition-colors"
-                    >
-                      <ExternalLinkIcon className="h-4 w-4" />
-                      Get Directions
-                    </a>
-                  </>
-                )}
-
-                {!venue.lat && !venue.lng && !venue.address && (
-                  <p className="text-sm text-gray-400">No location data available.</p>
-                )}
-              </div>
             </div>
           </div>
 
-          {/* Right column (1/3) */}
-          <div className="space-y-8">
-            {/* Review card */}
-            <div className={`${cardClass} p-8`}>
-              <SectionHeader
-                icon={StarIcon}
-                eyebrow={t("venueDetail.reviews") || "Reviews"}
-                title={t("venueDetail.rating") || "Rating"}
-              />
-              <div className="mt-6 flex items-center gap-4">
-                <span className="text-5xl font-bold text-gray-900">
-                  {reviewData?.stats.average
-                    ? reviewData.stats.average.toFixed(1)
-                    : "N/A"}
-                </span>
-                <div>
-                  {reviewData?.stats.average ? (
-                    <StarRating score={reviewData.stats.average} />
-                  ) : null}
-                  <p className="mt-1 text-sm text-gray-500">
-                    {reviewData?.stats.count ?? 0}{" "}
-                    {(reviewData?.stats.count ?? 0) === 1 ? "review" : "reviews"}
-                  </p>
-                </div>
+          {/* Reviews */}
+          <div className={`${cardClass} p-8`}>
+            <SectionHeader
+              icon={StarIcon}
+              eyebrow={t("venueDetail.reviews") || "Reviews"}
+              title={t("venueDetail.rating") || "Rating"}
+            />
+            <div className="mt-6 flex items-center gap-4">
+              <span className="text-5xl font-bold text-gray-900">
+                {reviewData?.stats.average
+                  ? reviewData.stats.average.toFixed(1)
+                  : "N/A"}
+              </span>
+              <div>
+                {reviewData?.stats.average ? (
+                  <StarRating score={reviewData.stats.average} />
+                ) : null}
+                <p className="mt-1 text-sm text-gray-500">
+                  {reviewData?.stats.count ?? 0}{" "}
+                  {(reviewData?.stats.count ?? 0) === 1 ? "review" : "reviews"}
+                </p>
               </div>
-
-              {/* Distribution bars */}
-              {reviewData && reviewData.stats.count > 0 && (
-                <div className="mt-6 space-y-2">
-                  {[5, 4, 3, 2, 1].map((star) => {
-                    const count = reviewData.stats.distribution[star] ?? 0;
-                    const pct =
-                      reviewData.stats.count > 0
-                        ? (count / reviewData.stats.count) * 100
-                        : 0;
-                    return (
-                      <div key={star} className="flex items-center gap-2 text-sm">
-                        <span className="w-4 text-right text-gray-500">{star}</span>
-                        <StarIcon className="h-3.5 w-3.5 text-yellow-400 fill-yellow-400" />
-                        <div className="flex-1 rounded-full bg-gray-100 h-2">
-                          <div
-                            className="h-2 rounded-full bg-yellow-400"
-                            style={{ width: `${pct}%` }}
-                          />
-                        </div>
-                        <span className="w-8 text-right text-gray-400">{count}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
             </div>
 
-            {/* Gallery carousel */}
-            <div className={`${cardClass} p-8`}>
-              <SectionHeader
-                icon={ImageIcon}
-                eyebrow={t("venueDetail.gallery") || "Gallery"}
-                title={t("venueDetail.photos") || "Photos"}
-              />
-              {gallery.length > 0 ? (
-                <div className="mt-6">
-                  <div className="relative overflow-hidden rounded-2xl">
-                    {gallery[galleryIndex]?.mediaType === "video" ? (
-                      <video
-                        src={gallery[galleryIndex].mediaUrl}
-                        className="aspect-[4/3] w-full object-cover"
-                        controls
-                      />
-                    ) : (
-                      /* eslint-disable-next-line @next/next/no-img-element */
-                      <img
-                        src={gallery[galleryIndex]?.mediaUrl}
-                        alt={gallery[galleryIndex]?.caption ?? "Gallery image"}
-                        className="aspect-[4/3] w-full object-cover"
-                      />
-                    )}
-                    {gallery.length > 1 && (
-                      <>
-                        <button
-                          onClick={galleryPrev}
-                          className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/40 p-2 text-white hover:bg-black/60 transition-colors"
-                        >
-                          <ChevronLeftIcon className="h-5 w-5" />
-                        </button>
-                        <button
-                          onClick={galleryNext}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/40 p-2 text-white hover:bg-black/60 transition-colors"
-                        >
-                          <ChevronRightIcon className="h-5 w-5" />
-                        </button>
-                      </>
-                    )}
-                  </div>
-                  {/* Dots indicator */}
-                  {gallery.length > 1 && (
-                    <div className="mt-3 flex justify-center gap-1.5">
-                      {gallery.map((_, i) => (
-                        <button
-                          key={i}
-                          onClick={() => setGalleryIndex(i)}
-                          className={`h-2 w-2 rounded-full transition-colors ${
-                            i === galleryIndex ? "bg-gray-900" : "bg-gray-300"
-                          }`}
+            {reviewData && reviewData.stats.count > 0 && (
+              <div className="mt-6 space-y-2">
+                {[5, 4, 3, 2, 1].map((star) => {
+                  const count = reviewData.stats.distribution[star] ?? 0;
+                  const pct =
+                    reviewData.stats.count > 0
+                      ? (count / reviewData.stats.count) * 100
+                      : 0;
+                  return (
+                    <div key={star} className="flex items-center gap-2 text-sm">
+                      <span className="w-4 text-right text-gray-500">{star}</span>
+                      <StarIcon className="h-3.5 w-3.5 text-yellow-400 fill-yellow-400" />
+                      <div className="flex-1 rounded-full bg-gray-100 h-2">
+                        <div
+                          className="h-2 rounded-full bg-yellow-400"
+                          style={{ width: `${pct}%` }}
                         />
-                      ))}
+                      </div>
+                      <span className="w-8 text-right text-gray-400">{count}</span>
                     </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ----------------------------------------------------------------- */}
+        {/* ROW 2 — two tall visual cards (Gallery + Location)                */}
+        {/* ----------------------------------------------------------------- */}
+        <div className="grid items-start gap-8 lg:grid-cols-2">
+          {/* Gallery */}
+          <div className={`${cardClass} p-8`}>
+            <SectionHeader
+              icon={ImageIcon}
+              eyebrow={t("venueDetail.gallery") || "Gallery"}
+              title={t("venueDetail.photos") || "Photos"}
+            />
+            {gallery.length > 0 ? (
+              <div className="mt-6">
+                <div className="relative overflow-hidden rounded-2xl">
+                  {gallery[galleryIndex]?.mediaType === "video" ? (
+                    <video
+                      src={gallery[galleryIndex].mediaUrl}
+                      className="aspect-[16/9] w-full object-cover"
+                      controls
+                    />
+                  ) : (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={gallery[galleryIndex]?.mediaUrl}
+                      alt={gallery[galleryIndex]?.caption ?? "Gallery image"}
+                      className="aspect-[16/9] w-full object-cover"
+                    />
                   )}
-                  {/* Share button */}
-                  <button
-                    onClick={() => {
-                      void navigator.clipboard.writeText(window.location.href);
-                    }}
-                    className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-                  >
-                    <ShareIcon className="h-4 w-4" />
-                    Share
-                  </button>
-                </div>
-              ) : (
-                <p className="mt-6 text-sm text-gray-400">No gallery images.</p>
-              )}
-            </div>
-
-            {/* Social links card */}
-            <div className={`${cardClass} p-8`}>
-              <SectionHeader
-                icon={GlobeIcon}
-                eyebrow={t("venueDetail.social") || "Social"}
-                title={t("venueDetail.socialLinks") || "Social Links"}
-              />
-              {socialLinks.length > 0 ? (
-                <ul className="mt-6 space-y-3">
-                  {socialLinks.map((link) => (
-                    <li key={link.label}>
-                      <a
-                        href={link.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-3 rounded-xl border border-gray-100 bg-white px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+                  {gallery.length > 1 && (
+                    <>
+                      <button
+                        onClick={galleryPrev}
+                        className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/40 p-2 text-white hover:bg-black/60 transition-colors"
                       >
-                        <link.icon className="h-4 w-4 text-gray-400" />
-                        {link.label}
-                        <ExternalLinkIcon className="ml-auto h-3.5 w-3.5 text-gray-300" />
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="mt-6 text-sm text-gray-400">No social links configured.</p>
-              )}
-            </div>
+                        <ChevronLeftIcon className="h-5 w-5" />
+                      </button>
+                      <button
+                        onClick={galleryNext}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/40 p-2 text-white hover:bg-black/60 transition-colors"
+                      >
+                        <ChevronRightIcon className="h-5 w-5" />
+                      </button>
+                    </>
+                  )}
+                </div>
+                {gallery.length > 1 && (
+                  <div className="mt-3 flex justify-center gap-1.5">
+                    {gallery.map((_, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setGalleryIndex(i)}
+                        className={`h-2 w-2 rounded-full transition-colors ${
+                          i === galleryIndex ? "bg-gray-900" : "bg-gray-300"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                )}
+                <button
+                  onClick={() => {
+                    void navigator.clipboard.writeText(window.location.href);
+                  }}
+                  className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  <ShareIcon className="h-4 w-4" />
+                  Share
+                </button>
+              </div>
+            ) : (
+              <p className="mt-6 text-sm text-gray-400">No gallery images.</p>
+            )}
+          </div>
 
-            {/* Achievements card */}
-            <div className={`${cardClass} p-8`}>
-              <SectionHeader
-                icon={TrophyIcon}
-                eyebrow={t("venueDetail.achievements") || "Achievements"}
-                title={t("venueDetail.achievementsTitle") || "Achievements"}
-              />
-              <p className="mt-6 text-sm text-gray-400">
-                Achievements coming soon
-              </p>
+          {/* Location */}
+          <div className={`${cardClass} p-8`}>
+            <SectionHeader
+              icon={MapPinIcon}
+              eyebrow={t("venueDetail.location") || "Location"}
+              title={t("venueDetail.address") || "Address & Map"}
+            />
+            <div className="mt-6 space-y-4">
+              {venue.address && (
+                <p className="text-sm text-gray-700">{venue.address}</p>
+              )}
+              {(venue.city ?? venue.region ?? venue.countryCode) && (
+                <p className="text-sm text-gray-500">
+                  {[venue.city, venue.region, venue.countryCode]
+                    .filter(Boolean)
+                    .join(", ")}
+                  {venue.postalCode ? ` ${venue.postalCode}` : ""}
+                </p>
+              )}
+
+              {venue.lat && venue.lng && (
+                <>
+                  <div className="mt-4 overflow-hidden rounded-2xl border border-gray-200">
+                    <iframe
+                      title="Venue location"
+                      width="100%"
+                      height="280"
+                      style={{ border: 0 }}
+                      loading="lazy"
+                      referrerPolicy="no-referrer-when-downgrade"
+                      src={`https://www.google.com/maps?q=${venue.lat},${venue.lng}&z=15&output=embed`}
+                    />
+                  </div>
+                  <a
+                    href={`https://www.google.com/maps/dir/?api=1&destination=${venue.lat},${venue.lng}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 rounded-xl bg-gray-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-gray-800 transition-colors"
+                  >
+                    <ExternalLinkIcon className="h-4 w-4" />
+                    Get Directions
+                  </a>
+                </>
+              )}
+
+              {!venue.lat && !venue.lng && !venue.address && (
+                <p className="text-sm text-gray-400">No location data available.</p>
+              )}
             </div>
           </div>
         </div>
+
+        {/* ----------------------------------------------------------------- */}
+        {/* ROW 3 — Social links (horizontal pill row, full width)            */}
+        {/* ----------------------------------------------------------------- */}
+        {socialLinks.length > 0 && (
+          <div className={`${cardClass} p-6`}>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="mr-2 flex items-center gap-2 text-sm font-semibold text-gray-700">
+                <GlobeIcon className="h-4 w-4 text-gray-400" />
+                {t("venueDetail.socialLinks") || "Social Links"}
+              </div>
+              {socialLinks.map((link) => (
+                <a
+                  key={link.label}
+                  href={link.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+                >
+                  <link.icon className="h-4 w-4 text-gray-400" />
+                  {link.label}
+                  <ExternalLinkIcon className="h-3.5 w-3.5 text-gray-300" />
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* ----------------------------------------------------------------- */}
         {/* EVENTS SECTIONS                                                   */}

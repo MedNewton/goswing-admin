@@ -78,6 +78,7 @@ export interface Venue {
   description: string | null;
   freeAccess: boolean;
   freeForLadies: boolean;
+  coverImageUrl: string | null;
 }
 
 // ---------------------------------------------------------------------------

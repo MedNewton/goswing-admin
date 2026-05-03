@@ -10,6 +10,7 @@ import {
 import { Badge } from "@/components/ui/Badge";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import Image from "next/image";
 
 interface VenueCardProps {
   venue: Venue;
@@ -36,6 +37,17 @@ export function VenueCard({ venue, onEdit, onDelete }: VenueCardProps) {
       onClick={handleCardClick}
     >
       <div className="relative overflow-hidden bg-gradient-to-br from-slate-950 via-slate-800 to-teal-700 p-5">
+        {venue.coverImageUrl && (
+          <Image
+            src={venue.coverImageUrl}
+            alt={venue.name}
+            fill
+            className="absolute inset-0 object-cover"
+          />
+        )}
+        {venue.coverImageUrl && (
+          <div className="absolute inset-0 bg-gradient-to-br from-slate-950/85 via-slate-900/70 to-teal-800/70" />
+        )}
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(255,255,255,0.18),_transparent_34%),radial-gradient(circle_at_bottom_left,_rgba(45,212,191,0.28),_transparent_36%)]" />
         <div className="relative flex items-start justify-between gap-3">
           <div className="min-w-0">
