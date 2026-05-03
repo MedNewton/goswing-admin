@@ -42,8 +42,8 @@ import {
 } from "@/lib/actions/events";
 import { fetchVenuesForSelect } from "@/lib/actions/venues";
 import { TagMultiSelect } from "@/components/events/TagMultiSelect";
+import { MediaGalleryUploader, type GalleryItem } from "@/components/events/MediaGalleryUploader";
 import { formatMoney } from "@/lib/utils/format";
-import Link from "next/link";
 import Image from "next/image";
 import { getClientLocale, translate } from "@/lib/i18n/client";
 import type { Locale } from "@/lib/i18n";
@@ -171,6 +171,7 @@ export default function EditEventPage({
   const [imageError, setImageError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [galleryItems, setGalleryItems] = useState<GalleryItem[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const {
@@ -285,6 +286,16 @@ export default function EditEventPage({
         if (eventData.heroImageUrl) {
           setImagePreview(eventData.heroImageUrl);
         }
+
+        if (eventData.galleryItems) {
+          setGalleryItems(
+            eventData.galleryItems.map((g) => ({
+              url: g.url,
+              mediaType: g.mediaType,
+              caption: g.caption,
+            })),
+          );
+        }
       })
       .catch((err) => {
         console.error("Failed to load event:", err);
@@ -363,6 +374,7 @@ export default function EditEventPage({
             is_free: t.is_free ?? false,
             free_for_ladies: t.free_for_ladies ?? false,
           })),
+          galleryItems,
         });
 
         if (result.success) {
@@ -446,7 +458,7 @@ export default function EditEventPage({
 
   const paidPrices = ticketTiers
     .filter((t) => !t.is_free && typeof t.price === "number" && t.price > 0)
-    .map((t) => t.price as number);
+    .map((t) => t.price);
   const startingPriceLabel =
     ticketTiers.length === 0
       ? "—"
@@ -681,6 +693,22 @@ export default function EditEventPage({
             </div>
           </Card>
         </div>
+
+        <Card className="rounded-[2rem] border border-gray-200/80 bg-white shadow-lg shadow-gray-100">
+          <SectionHeader
+            icon={StarIcon}
+            eyebrow={translate(locale, "createEvent.galleryEyebrow")}
+            title={translate(locale, "createEvent.galleryTitle")}
+            description={translate(locale, "createEvent.galleryDesc")}
+          />
+          <div className="mt-6">
+            <MediaGalleryUploader
+              items={galleryItems}
+              onChange={setGalleryItems}
+              locale={locale}
+            />
+          </div>
+        </Card>
 
         <div className="grid gap-6 xl:grid-cols-2">
           <Card className="rounded-[2rem] border border-gray-200/80 bg-gradient-to-br from-white via-white to-slate-50 shadow-lg shadow-gray-100">

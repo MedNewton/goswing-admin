@@ -30,6 +30,7 @@ import {
 } from "@/lib/actions/events";
 import { fetchVenuesForSelect } from "@/lib/actions/venues";
 import { TagMultiSelect } from "@/components/events/TagMultiSelect";
+import { MediaGalleryUploader, type GalleryItem } from "@/components/events/MediaGalleryUploader";
 import Image from "next/image";
 import type { ComponentType, SVGProps } from "react";
 import { getClientLocale, translate } from "@/lib/i18n/client";
@@ -165,6 +166,7 @@ export default function CreateEventPage() {
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [galleryItems, setGalleryItems] = useState<GalleryItem[]>([]);
   const [locale, setLocale] = useState<Locale>("fr");
 
   useEffect(() => {
@@ -294,6 +296,7 @@ export default function CreateEventPage() {
             is_free: t.is_free ?? false,
             free_for_ladies: t.free_for_ladies ?? false,
           })),
+          galleryItems,
         });
 
         if (result.success) {
@@ -449,6 +452,23 @@ export default function CreateEventPage() {
                 {translate(locale, "createEvent.uploadSize")}
               </p>
             </div>
+          </div>
+        </div>
+
+        {/* Event Gallery (images + videos) */}
+        <div className="rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100 sm:p-8">
+          <SectionHeader
+            icon={EyeIcon}
+            eyebrow={translate(locale, "createEvent.galleryEyebrow")}
+            title={translate(locale, "createEvent.galleryTitle")}
+            description={translate(locale, "createEvent.galleryDesc")}
+          />
+          <div className="mt-6">
+            <MediaGalleryUploader
+              items={galleryItems}
+              onChange={setGalleryItems}
+              locale={locale}
+            />
           </div>
         </div>
 

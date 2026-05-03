@@ -28,6 +28,12 @@ const eventPolicySchema = z.object({
   description: z.string().min(1),
 });
 
+const galleryItemSchema = z.object({
+  url: z.string().url("Invalid media URL"),
+  mediaType: z.enum(["image", "video"]),
+  caption: z.string().max(500).optional().or(z.literal("")),
+});
+
 const createEventSchema = z.object({
   // Event details
   title: z.string().min(1, "Event title is required"),
@@ -57,6 +63,9 @@ const createEventSchema = z.object({
   approvalMode: z.enum(["auto", "manual"]).default("auto"),
   sharingEnabled: z.boolean().default(true),
   policies: z.array(eventPolicySchema).optional(),
+
+  // Gallery (images + videos)
+  galleryItems: z.array(galleryItemSchema).optional().default([]),
 
   // Contact
   contactEmail: z.string().email().optional().or(z.literal("")),
@@ -198,6 +207,28 @@ export async function createEventAction(
       data.tagIds,
     );
 
+    // Insert gallery rows (images + videos)
+    if (data.galleryItems && data.galleryItems.length > 0) {
+      const sb = createSupabaseAdminClient();
+      const rows = data.galleryItems.map((item, idx) => ({
+        event_id: eventId,
+        media_url: item.url,
+        media_type: item.mediaType,
+        caption: item.caption ? item.caption : null,
+        sort_order: idx,
+      }));
+      const { error: galleryError } = await insertInto(sb, "event_gallery", rows);
+      if (galleryError) {
+        console.error("createEventAction gallery insert error:", galleryError.message);
+        // Event is already created — surface a partial success error so
+        // the user can retry the gallery via the edit page.
+        return {
+          success: false,
+          error: `Event created but failed to save gallery: ${galleryError.message}`,
+        };
+      }
+    }
+
     return { success: true, eventId };
   } catch (err) {
     console.error("createEventAction error:", err);
@@ -226,6 +257,7 @@ const updateEventSchema = z.object({
   approvalMode: z.enum(["auto", "manual"]).default("auto"),
   sharingEnabled: z.boolean().default(true),
   policies: z.array(eventPolicySchema).optional(),
+  galleryItems: z.array(galleryItemSchema).optional().default([]),
   contactEmail: z.string().email().optional().or(z.literal("")),
   contactPhone: z.string().optional(),
 });
@@ -412,6 +444,29 @@ export async function updateEventAction(
       if (insertTagsError) throw insertTagsError;
     }
 
+    // Replace gallery items (delete-then-insert).
+    const { error: deleteGalleryError } = await sb
+      .from("event_gallery")
+      .delete()
+      .eq("event_id", eventId);
+    if (deleteGalleryError) throw deleteGalleryError;
+
+    if (data.galleryItems && data.galleryItems.length > 0) {
+      const galleryRows = data.galleryItems.map((item, idx) => ({
+        event_id: eventId,
+        media_url: item.url,
+        media_type: item.mediaType,
+        caption: item.caption ? item.caption : null,
+        sort_order: idx,
+      }));
+      const { error: insertGalleryError } = await insertInto(
+        sb,
+        "event_gallery",
+        galleryRows,
+      );
+      if (insertGalleryError) throw insertGalleryError;
+    }
+
     return { success: true };
   } catch (err) {
     console.error("updateEventAction error:", err);
@@ -454,7 +509,8 @@ export async function fetchEventForEdit(eventId: string) {
       *,
       venues ( name, city ),
       ticket_types ( id, name, description, price_cents, currency, capacity, is_free, free_for_ladies ),
-      event_tags ( tags ( id, label, slug, type ) )
+      event_tags ( tags ( id, label, slug, type ) ),
+      event_gallery ( id, media_url, media_type, caption, sort_order )
     `)
     .eq("id", eventId)
     .eq("created_by_user_id", userId)
@@ -479,6 +535,22 @@ export async function fetchEventForEdit(eventId: string) {
   }>;
   const tagIds = eventTags.map((et) => et.tags.id);
 
+  const galleryRows = (row.event_gallery ?? []) as Array<{
+    id: string;
+    media_url: string;
+    media_type: string;
+    caption: string | null;
+    sort_order: number | null;
+  }>;
+  const galleryItems = galleryRows
+    .slice()
+    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+    .map((g) => ({
+      url: g.media_url,
+      mediaType: g.media_type === "video" ? ("video" as const) : ("image" as const),
+      caption: g.caption ?? "",
+    }));
+
   return {
     id: row.id as string,
     title: row.title as string,
@@ -494,6 +566,7 @@ export async function fetchEventForEdit(eventId: string) {
     approvalMode: (row.approval_mode as string) ?? "auto",
     sharingEnabled: (row.sharing_enabled as boolean) ?? true,
     policies: (row.policies as Array<{ title: string; description: string }>) ?? [],
+    galleryItems,
   };
 }
 
@@ -675,6 +748,78 @@ export async function uploadEventImageAction(
   } catch (err) {
     console.error("uploadEventImageAction error:", err);
     const message = err instanceof Error ? err.message : "Failed to upload image";
+    return { success: false, error: message };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Media Upload (gallery — images + videos)
+// ---------------------------------------------------------------------------
+
+export type UploadMediaResult =
+  | { success: true; url: string; mediaType: "image" | "video" }
+  | { success: false; error: string };
+
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"] as const;
+const ALLOWED_VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime"] as const;
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5 MB
+const MAX_VIDEO_SIZE = 50 * 1024 * 1024; // 50 MB
+
+export async function uploadEventMediaAction(
+  formData: FormData,
+): Promise<UploadMediaResult> {
+  try {
+    const file = formData.get("file") as File | null;
+    if (!file) {
+      return { success: false, error: "No file provided" };
+    }
+
+    const isImage = (ALLOWED_IMAGE_TYPES as readonly string[]).includes(file.type);
+    const isVideo = (ALLOWED_VIDEO_TYPES as readonly string[]).includes(file.type);
+    if (!isImage && !isVideo) {
+      return {
+        success: false,
+        error: "Invalid file type. Use JPEG, PNG, WebP, GIF, MP4, WebM, or MOV.",
+      };
+    }
+
+    const maxSize = isVideo ? MAX_VIDEO_SIZE : MAX_IMAGE_SIZE;
+    if (file.size > maxSize) {
+      const limitMb = maxSize / (1024 * 1024);
+      return { success: false, error: `File too large. Maximum size is ${limitMb}MB.` };
+    }
+
+    const sb = createSupabaseAdminClient();
+
+    const ext = file.name.split(".").pop() ?? (isVideo ? "mp4" : "jpg");
+    const fileName = `${crypto.randomUUID()}.${ext}`;
+    const filePath = `event-gallery/${fileName}`;
+
+    const arrayBuffer = await file.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
+
+    const { error: uploadError } = await sb.storage
+      .from("event-images")
+      .upload(filePath, uint8Array, {
+        contentType: file.type,
+        upsert: false,
+      });
+
+    if (uploadError) {
+      console.error("Media upload error:", uploadError);
+      return { success: false, error: `Upload failed: ${uploadError.message}` };
+    }
+
+    const { data: urlData } = sb.storage.from("event-images").getPublicUrl(filePath);
+
+    return {
+      success: true,
+      url: urlData.publicUrl,
+      mediaType: isVideo ? "video" : "image",
+    };
+  } catch (err) {
+    console.error("uploadEventMediaAction error:", err);
+    const message = err instanceof Error ? err.message : "Failed to upload media";
     return { success: false, error: message };
   }
 }
