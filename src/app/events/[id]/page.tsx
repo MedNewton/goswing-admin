@@ -257,7 +257,7 @@ export default async function EventDetailsPage({
         <div className="mb-6 flex items-center justify-between gap-3">
           <h1 className="text-2xl font-semibold text-gray-900">{t(locale, "adminEvent.pageTitle")}</h1>
           <div className="flex items-center gap-2">
-            <Link href={`/events/${id}/guest`}>
+            <Link href={`/events/${id}/guest`} target="_blank" rel="noopener noreferrer">
               <Button variant="outline" size="sm">
                 <EyeIcon className="mr-1.5 h-4 w-4" />
                 {t(locale, "eventOverview.viewAsGuest")}

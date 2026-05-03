@@ -685,6 +685,7 @@ const fr: Record<string, string> = {
   // ── Event Overview (analytics) ──
   "eventOverview.title": "Aperçu de l'événement",
   "eventOverview.viewAsGuest": "Voir en tant qu'invité",
+  "eventGuest.previewBanner": "Aperçu · Vous voyez cet événement comme un invité.",
   "eventOverview.editEvent": "Modifier",
   "eventOverview.reservations": "Réservations",
   "eventOverview.checkedIn": "Enregistrés",

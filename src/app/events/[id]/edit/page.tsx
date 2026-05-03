@@ -564,135 +564,133 @@ export default function EditEventPage({
           </div>
         </section>
 
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(340px,0.9fr)]">
-          <Card className="rounded-[2rem] border border-gray-200/80 bg-gradient-to-br from-white via-white to-slate-50 shadow-lg shadow-gray-100">
-            <SectionHeader
-              icon={BuildingIcon}
-              eyebrow={translate(locale, "editEvent.contentEyebrow")}
-              title={translate(locale, "editEvent.contentTitle")}
-              description={translate(locale, "editEvent.contentDesc")}
-            />
-            <div className="mt-6 space-y-4">
-              <Input label={translate(locale, "editEvent.eventTitle")} placeholder="e.g., Summer Jazz Night" error={errors.title?.message} {...register("title")} />
-              <Textarea label={translate(locale, "editEvent.description")} placeholder={translate(locale, "editEvent.descriptionPlaceholder")} rows={5} error={errors.description?.message} {...register("description")} />
-
-              {/* Party Types */}
-              <div className="rounded-3xl border border-gray-200 bg-white/80 p-5">
-                <TagMultiSelect
-                  label={translate(locale, "createEvent.partyTypesLabel")}
-                  type="party_type"
-                  tags={partyTypeTags}
-                  selectedIds={selectedPartyTypeIds}
-                  onToggle={(id) => toggleTag(id, selectedPartyTypeIds, setSelectedPartyTypeIds)}
-                  onTagCreated={(tag) => {
-                    setTags((prev) => (prev.some((t) => t.id === tag.id) ? prev : [...prev, { ...tag, type: "party_type" }]));
-                    setSelectedPartyTypeIds((prev) => (prev.includes(tag.id) ? prev : [...prev, tag.id]));
-                  }}
-                  placeholder={translate(locale, "createEvent.addPartyType")}
-                  emptyMessage={translate(locale, "createEvent.noPartyTypes")}
-                  loading={false}
-                  loadingMessage={translate(locale, "createEvent.loadingTags")}
-                  pillColor="teal"
-                  locale={locale}
-                />
-              </div>
-
-              {/* Music Styles */}
-              <div className="rounded-3xl border border-gray-200 bg-white/80 p-5">
-                <TagMultiSelect
-                  label={translate(locale, "createEvent.musicStylesLabel")}
-                  type="music_style"
-                  tags={musicStyleTags}
-                  selectedIds={selectedMusicStyleIds}
-                  onToggle={(id) => toggleTag(id, selectedMusicStyleIds, setSelectedMusicStyleIds)}
-                  onTagCreated={(tag) => {
-                    setTags((prev) => (prev.some((t) => t.id === tag.id) ? prev : [...prev, { ...tag, type: "music_style" }]));
-                    setSelectedMusicStyleIds((prev) => (prev.includes(tag.id) ? prev : [...prev, tag.id]));
-                  }}
-                  placeholder={translate(locale, "createEvent.addMusicStyle")}
-                  emptyMessage={translate(locale, "createEvent.noMusicStyles")}
-                  loading={false}
-                  loadingMessage={translate(locale, "createEvent.loadingTags")}
-                  pillColor="violet"
-                  locale={locale}
-                />
-              </div>
-
-              {/* Extra Services */}
-              <div className="rounded-3xl border border-gray-200 bg-white/80 p-5">
-                <TagMultiSelect
-                  label={translate(locale, "createEvent.extraServicesLabel")}
-                  type="extra_service"
-                  tags={extraServiceTags}
-                  selectedIds={selectedExtraServiceIds}
-                  onToggle={(id) => toggleTag(id, selectedExtraServiceIds, setSelectedExtraServiceIds)}
-                  onTagCreated={(tag) => {
-                    setTags((prev) => (prev.some((t) => t.id === tag.id) ? prev : [...prev, { ...tag, type: "extra_service" }]));
-                    setSelectedExtraServiceIds((prev) => (prev.includes(tag.id) ? prev : [...prev, tag.id]));
-                  }}
-                  placeholder={translate(locale, "createEvent.addExtraService")}
-                  emptyMessage={translate(locale, "createEvent.noExtraServices")}
-                  loading={false}
-                  loadingMessage={translate(locale, "createEvent.loadingTags")}
-                  pillColor="gray"
-                  locale={locale}
-                />
-              </div>
-            </div>
-          </Card>
-
-          <Card className="rounded-[2rem] border border-gray-200/80 bg-white shadow-lg shadow-gray-100">
-            <SectionHeader
-              icon={StarIcon}
-              eyebrow={translate(locale, "editEvent.mediaEyebrow")}
-              title={translate(locale, "editEvent.mediaTitle")}
-              description={translate(locale, "editEvent.mediaDesc")}
-            />
-            <div className="mt-6 space-y-4">
-              <div className="relative aspect-[4/3] overflow-hidden rounded-[1.5rem] border-2 border-dashed border-gray-300 bg-gray-50">
-                {imagePreview ? (
-                  <>
-                    <Image src={imagePreview} alt="Event preview" fill className="object-cover" />
-                    {isUploadingImage && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                        <div className="h-8 w-8 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <div className="flex h-full flex-col items-center justify-center text-center text-gray-400">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gray-200 text-3xl">
-                      +
+        <Card className="rounded-[2rem] border border-gray-200/80 bg-white shadow-lg shadow-gray-100">
+          <SectionHeader
+            icon={StarIcon}
+            eyebrow={translate(locale, "editEvent.mediaEyebrow")}
+            title={translate(locale, "editEvent.mediaTitle")}
+            description={translate(locale, "editEvent.mediaDesc")}
+          />
+          <div className="mt-6 space-y-4">
+            <div className="relative aspect-[16/6] overflow-hidden rounded-[1.5rem] border-2 border-dashed border-gray-300 bg-gray-50">
+              {imagePreview ? (
+                <>
+                  <Image src={imagePreview} alt="Event preview" fill className="object-cover" />
+                  {isUploadingImage && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                      <div className="h-8 w-8 animate-spin rounded-full border-2 border-white border-t-transparent" />
                     </div>
-                    <p className="mt-3 text-sm font-medium text-gray-500">
-                      {translate(locale, "editEvent.noImageSelected")}
-                    </p>
+                  )}
+                </>
+              ) : (
+                <div className="flex h-full flex-col items-center justify-center text-center text-gray-400">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gray-200 text-3xl">
+                    +
                   </div>
-                )}
-              </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp,image/gif"
-                onChange={handleImageSelect}
-                className="hidden"
-                id="event-image-input"
-              />
-              <div className="flex flex-wrap gap-2">
-                <Button variant="outline" size="sm" type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploadingImage}>
-                  {isUploadingImage ? translate(locale, "editEvent.uploading") : imagePreview ? translate(locale, "editEvent.changeImage") : translate(locale, "editEvent.chooseImage")}
-                </Button>
-                {imagePreview && !isUploadingImage && (
-                  <Button variant="ghost" size="sm" type="button" onClick={handleRemoveImage} className="text-red-600 hover:text-red-700">
-                    {translate(locale, "editEvent.remove")}
-                  </Button>
-                )}
-              </div>
-              {imageError && <p className="text-sm text-red-600">{imageError}</p>}
-              <p className="text-sm text-gray-500">{translate(locale, "editEvent.uploadHint")}</p>
+                  <p className="mt-3 text-sm font-medium text-gray-500">
+                    {translate(locale, "editEvent.noImageSelected")}
+                  </p>
+                </div>
+              )}
             </div>
-          </Card>
-        </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              onChange={handleImageSelect}
+              className="hidden"
+              id="event-image-input"
+            />
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploadingImage}>
+                {isUploadingImage ? translate(locale, "editEvent.uploading") : imagePreview ? translate(locale, "editEvent.changeImage") : translate(locale, "editEvent.chooseImage")}
+              </Button>
+              {imagePreview && !isUploadingImage && (
+                <Button variant="ghost" size="sm" type="button" onClick={handleRemoveImage} className="text-red-600 hover:text-red-700">
+                  {translate(locale, "editEvent.remove")}
+                </Button>
+              )}
+            </div>
+            {imageError && <p className="text-sm text-red-600">{imageError}</p>}
+            <p className="text-sm text-gray-500">{translate(locale, "editEvent.uploadHint")}</p>
+          </div>
+        </Card>
+
+        <Card className="rounded-[2rem] border border-gray-200/80 bg-gradient-to-br from-white via-white to-slate-50 shadow-lg shadow-gray-100">
+          <SectionHeader
+            icon={BuildingIcon}
+            eyebrow={translate(locale, "editEvent.contentEyebrow")}
+            title={translate(locale, "editEvent.contentTitle")}
+            description={translate(locale, "editEvent.contentDesc")}
+          />
+          <div className="mt-6 space-y-4">
+            <Input label={translate(locale, "editEvent.eventTitle")} placeholder="e.g., Summer Jazz Night" error={errors.title?.message} {...register("title")} />
+            <Textarea label={translate(locale, "editEvent.description")} placeholder={translate(locale, "editEvent.descriptionPlaceholder")} rows={5} error={errors.description?.message} {...register("description")} />
+
+            {/* Party Types */}
+            <div className="rounded-3xl border border-gray-200 bg-white/80 p-5">
+              <TagMultiSelect
+                label={translate(locale, "createEvent.partyTypesLabel")}
+                type="party_type"
+                tags={partyTypeTags}
+                selectedIds={selectedPartyTypeIds}
+                onToggle={(id) => toggleTag(id, selectedPartyTypeIds, setSelectedPartyTypeIds)}
+                onTagCreated={(tag) => {
+                  setTags((prev) => (prev.some((t) => t.id === tag.id) ? prev : [...prev, { ...tag, type: "party_type" }]));
+                  setSelectedPartyTypeIds((prev) => (prev.includes(tag.id) ? prev : [...prev, tag.id]));
+                }}
+                placeholder={translate(locale, "createEvent.addPartyType")}
+                emptyMessage={translate(locale, "createEvent.noPartyTypes")}
+                loading={false}
+                loadingMessage={translate(locale, "createEvent.loadingTags")}
+                pillColor="teal"
+                locale={locale}
+              />
+            </div>
+
+            {/* Music Styles */}
+            <div className="rounded-3xl border border-gray-200 bg-white/80 p-5">
+              <TagMultiSelect
+                label={translate(locale, "createEvent.musicStylesLabel")}
+                type="music_style"
+                tags={musicStyleTags}
+                selectedIds={selectedMusicStyleIds}
+                onToggle={(id) => toggleTag(id, selectedMusicStyleIds, setSelectedMusicStyleIds)}
+                onTagCreated={(tag) => {
+                  setTags((prev) => (prev.some((t) => t.id === tag.id) ? prev : [...prev, { ...tag, type: "music_style" }]));
+                  setSelectedMusicStyleIds((prev) => (prev.includes(tag.id) ? prev : [...prev, tag.id]));
+                }}
+                placeholder={translate(locale, "createEvent.addMusicStyle")}
+                emptyMessage={translate(locale, "createEvent.noMusicStyles")}
+                loading={false}
+                loadingMessage={translate(locale, "createEvent.loadingTags")}
+                pillColor="violet"
+                locale={locale}
+              />
+            </div>
+
+            {/* Extra Services */}
+            <div className="rounded-3xl border border-gray-200 bg-white/80 p-5">
+              <TagMultiSelect
+                label={translate(locale, "createEvent.extraServicesLabel")}
+                type="extra_service"
+                tags={extraServiceTags}
+                selectedIds={selectedExtraServiceIds}
+                onToggle={(id) => toggleTag(id, selectedExtraServiceIds, setSelectedExtraServiceIds)}
+                onTagCreated={(tag) => {
+                  setTags((prev) => (prev.some((t) => t.id === tag.id) ? prev : [...prev, { ...tag, type: "extra_service" }]));
+                  setSelectedExtraServiceIds((prev) => (prev.includes(tag.id) ? prev : [...prev, tag.id]));
+                }}
+                placeholder={translate(locale, "createEvent.addExtraService")}
+                emptyMessage={translate(locale, "createEvent.noExtraServices")}
+                loading={false}
+                loadingMessage={translate(locale, "createEvent.loadingTags")}
+                pillColor="gray"
+                locale={locale}
+              />
+            </div>
+          </div>
+        </Card>
 
         <Card className="rounded-[2rem] border border-gray-200/80 bg-white shadow-lg shadow-gray-100">
           <SectionHeader

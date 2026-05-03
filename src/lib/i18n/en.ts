@@ -685,6 +685,7 @@ const en = {
   // ── Event Overview (analytics) ──
   "eventOverview.title": "Event Overview",
   "eventOverview.viewAsGuest": "View as Guest",
+  "eventGuest.previewBanner": "Preview · You're viewing this event as a guest would see it.",
   "eventOverview.editEvent": "Edit Event",
   "eventOverview.reservations": "Reservations",
   "eventOverview.checkedIn": "Checked In",
