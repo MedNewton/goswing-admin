@@ -214,7 +214,7 @@ export async function createEventAction(
         event_id: eventId,
         media_url: item.url,
         media_type: item.mediaType,
-        caption: item.caption ? item.caption : null,
+        caption: item.caption ?? null,
         sort_order: idx,
       }));
       const { error: galleryError } = await insertInto(sb, "event_gallery", rows);
@@ -456,7 +456,7 @@ export async function updateEventAction(
         event_id: eventId,
         media_url: item.url,
         media_type: item.mediaType,
-        caption: item.caption ? item.caption : null,
+        caption: item.caption ?? null,
         sort_order: idx,
       }));
       const { error: insertGalleryError } = await insertInto(
