@@ -36,6 +36,7 @@ import {
   updateVenueAction,
   type VenueActionResult,
 } from "@/lib/actions/venues";
+import { createCustomTagAction } from "@/lib/actions/events";
 import { uploadOrganizerImageAction } from "@/lib/actions/organizer";
 import {
   fetchTagsByType,
@@ -169,6 +170,78 @@ function TagPill({
       )}
       {tag.label}
     </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Custom Tag Adder
+// ---------------------------------------------------------------------------
+
+function CustomTagAdder({
+  type,
+  onCreated,
+}: {
+  type: "party_type" | "music_style" | "extra_service";
+  onCreated: (tag: TagOption) => void;
+}) {
+  const [value, setValue] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const submit = async () => {
+    const trimmed = value.trim();
+    if (!trimmed || adding) return;
+    setAdding(true);
+    setError(null);
+    try {
+      const result = await createCustomTagAction({ type, label: trimmed });
+      if (result.success) {
+        onCreated({
+          id: result.tag.id,
+          label: result.tag.label,
+          slug: result.tag.slug,
+          type: result.tag.type,
+        });
+        setValue("");
+      } else {
+        setError(result.error);
+      }
+    } catch {
+      setError("Failed to add tag.");
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  return (
+    <div className="mt-3">
+      <div className="flex items-stretch gap-2">
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              void submit();
+            }
+          }}
+          disabled={adding}
+          placeholder="Add your own…"
+          maxLength={80}
+          className="flex-1 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-500 disabled:bg-gray-50"
+        />
+        <button
+          type="button"
+          onClick={() => void submit()}
+          disabled={adding || value.trim().length === 0}
+          className="rounded-xl bg-gray-950 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {adding ? "Adding…" : "Add"}
+        </button>
+      </div>
+      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+    </div>
   );
 }
 
@@ -928,61 +1001,100 @@ export default function EditVenuePage({
             />
 
             {/* Party types */}
-            {partyTypeTags.length > 0 && (
-              <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">
-                  Party Types
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {partyTypeTags.map((tag) => (
-                    <TagPill
-                      key={tag.id}
-                      tag={tag}
-                      selected={selectedTagIds.has(tag.id)}
-                      onToggle={toggleTag}
-                    />
-                  ))}
-                </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium text-gray-700">
+                Party Types
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {partyTypeTags.map((tag) => (
+                  <TagPill
+                    key={tag.id}
+                    tag={tag}
+                    selected={selectedTagIds.has(tag.id)}
+                    onToggle={toggleTag}
+                  />
+                ))}
               </div>
-            )}
+              <CustomTagAdder
+                type="party_type"
+                onCreated={(tag) => {
+                  setPartyTypeTags((prev) =>
+                    prev.some((t) => t.id === tag.id) ? prev : [...prev, tag],
+                  );
+                  setSelectedTagIds((prev) => {
+                    if (prev.has(tag.id)) return prev;
+                    const next = new Set(prev);
+                    next.add(tag.id);
+                    return next;
+                  });
+                  markExtraDirty();
+                }}
+              />
+            </div>
 
             {/* Music styles */}
-            {musicStyleTags.length > 0 && (
-              <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">
-                  Music Styles
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {musicStyleTags.map((tag) => (
-                    <TagPill
-                      key={tag.id}
-                      tag={tag}
-                      selected={selectedTagIds.has(tag.id)}
-                      onToggle={toggleTag}
-                    />
-                  ))}
-                </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium text-gray-700">
+                Music Styles
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {musicStyleTags.map((tag) => (
+                  <TagPill
+                    key={tag.id}
+                    tag={tag}
+                    selected={selectedTagIds.has(tag.id)}
+                    onToggle={toggleTag}
+                  />
+                ))}
               </div>
-            )}
+              <CustomTagAdder
+                type="music_style"
+                onCreated={(tag) => {
+                  setMusicStyleTags((prev) =>
+                    prev.some((t) => t.id === tag.id) ? prev : [...prev, tag],
+                  );
+                  setSelectedTagIds((prev) => {
+                    if (prev.has(tag.id)) return prev;
+                    const next = new Set(prev);
+                    next.add(tag.id);
+                    return next;
+                  });
+                  markExtraDirty();
+                }}
+              />
+            </div>
 
             {/* Extra services */}
-            {extraServiceTags.length > 0 && (
-              <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">
-                  Extra Services
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {extraServiceTags.map((tag) => (
-                    <TagPill
-                      key={tag.id}
-                      tag={tag}
-                      selected={selectedTagIds.has(tag.id)}
-                      onToggle={toggleTag}
-                    />
-                  ))}
-                </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium text-gray-700">
+                Extra Services
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {extraServiceTags.map((tag) => (
+                  <TagPill
+                    key={tag.id}
+                    tag={tag}
+                    selected={selectedTagIds.has(tag.id)}
+                    onToggle={toggleTag}
+                  />
+                ))}
               </div>
-            )}
+              <CustomTagAdder
+                type="extra_service"
+                onCreated={(tag) => {
+                  setExtraServiceTags((prev) =>
+                    prev.some((t) => t.id === tag.id) ? prev : [...prev, tag],
+                  );
+                  setSelectedTagIds((prev) => {
+                    if (prev.has(tag.id)) return prev;
+                    const next = new Set(prev);
+                    next.add(tag.id);
+                    return next;
+                  });
+                  markExtraDirty();
+                }}
+              />
+            </div>
 
             {/* Capacity */}
             <Input

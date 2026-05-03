@@ -32,12 +32,11 @@ import {
   fetchVenueReviewsWithStats,
   fetchOrganizerGallery,
   fetchOrganizerTags,
-  type VenueStats,
-  type VenueOrganizer,
   type VenueEventItem,
   type SimilarVenueItem,
   type TagItem,
 } from "@/lib/actions/venueDetail";
+import type { VenueStats, VenueOrganizer } from "@/lib/data/venueStats";
 import type { Venue, GalleryItem, VenueReview } from "@/types";
 import { getClientLocale, translate } from "@/lib/i18n/client";
 import type { Locale } from "@/lib/i18n";

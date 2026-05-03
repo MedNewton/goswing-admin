@@ -6,8 +6,10 @@ import type { GalleryItem, VenueReview } from "@/types";
 // ---------------------------------------------------------------------------
 // Server action wrappers for venue detail page
 // ---------------------------------------------------------------------------
-
-export type { VenueStats, VenueOrganizer };
+// Note: type re-exports are intentionally avoided here. Next.js's
+// "use server" transform treats every named export as a server action,
+// which breaks runtime evaluation of type-only re-exports. Consumers
+// should import VenueStats / VenueOrganizer from "@/lib/data/venueStats".
 
 export type VenueEventItem = {
   id: string;
