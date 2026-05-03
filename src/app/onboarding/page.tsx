@@ -39,6 +39,10 @@ import Image from "next/image";
 // ---------------------------------------------------------------------------
 
 const onboardingFormSchema = z.object({
+  // Personal profile
+  display_name: z.string().min(1, "Your name is required").max(120),
+  personal_phone_number: z.string().max(40).optional().or(z.literal("")),
+  avatar_url: z.string().optional().or(z.literal("")),
   // Organizer
   name: z.string().min(1, "Organization name is required").max(100),
   tagline: z.string().max(200).optional().or(z.literal("")),
@@ -140,12 +144,16 @@ export default function OnboardingPage() {
   const [step, setStep] = useState<1 | 2>(1);
 
   // Image states
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const [isUploadingCover, setIsUploadingCover] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
   const [logoError, setLogoError] = useState<string | null>(null);
   const [coverError, setCoverError] = useState<string | null>(null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
 
@@ -172,6 +180,7 @@ export default function OnboardingPage() {
   } = useForm<OnboardingFormValues>({
     resolver: zodResolver(onboardingFormSchema),
     defaultValues: {
+      display_name: "", personal_phone_number: "", avatar_url: "",
       name: "", tagline: "", about: "", city: "", country_code: "",
       email: "", phone: "", website_url: "",
       instagram_handle: "", facebook_handle: "", tiktok_handle: "",
@@ -188,33 +197,38 @@ export default function OnboardingPage() {
   useEffect(() => {
     void (async () => {
       try {
-        const org = await fetchOrganizerForOnboarding();
-        if (org) {
+        const data = await fetchOrganizerForOnboarding();
+        if (data) {
+          const { personal, organizer: org, venue } = data;
           reset({
-            name: org.name ?? "", tagline: org.tagline ?? "", about: org.about ?? "",
-            city: org.city ?? "", country_code: org.country_code ?? "",
-            email: org.email ?? "", phone: org.phone ?? "",
-            website_url: org.website_url ?? "",
-            instagram_handle: org.instagram_handle ?? "",
-            facebook_handle: org.facebook_handle ?? "",
-            tiktok_handle: org.tiktok_handle ?? "",
-            logo_url: org.logo_url ?? "", cover_image_url: org.cover_image_url ?? "",
-            custom_policies: org.custom_policies ?? [],
-            venue_name: org.venue?.name ?? "", venue_type: org.venue?.venue_type ?? "",
-            venue_description: org.venue?.description ?? "",
-            venue_free_access: org.venue?.free_access ?? false,
-            venue_free_for_ladies: org.venue?.free_for_ladies ?? false,
-            venue_address: org.venue?.address_line1 ?? "",
-            venue_city: org.venue?.city ?? "", venue_region: org.venue?.region ?? "",
-            venue_country_code: org.venue?.country_code ?? "",
-            venue_postal_code: org.venue?.postal_code ?? "",
-            venue_capacity: org.venue?.capacity ?? ("" as unknown as undefined),
-            venue_lat: org.venue?.lat ?? undefined,
-            venue_lng: org.venue?.lng ?? undefined,
+            display_name: personal.display_name ?? "",
+            personal_phone_number: personal.phone_number ?? "",
+            avatar_url: personal.avatar_url ?? "",
+            name: org?.name ?? "", tagline: org?.tagline ?? "", about: org?.about ?? "",
+            city: org?.city ?? "", country_code: org?.country_code ?? "",
+            email: org?.email ?? "", phone: org?.phone ?? "",
+            website_url: org?.website_url ?? "",
+            instagram_handle: org?.instagram_handle ?? "",
+            facebook_handle: org?.facebook_handle ?? "",
+            tiktok_handle: org?.tiktok_handle ?? "",
+            logo_url: org?.logo_url ?? "", cover_image_url: org?.cover_image_url ?? "",
+            custom_policies: org?.custom_policies ?? [],
+            venue_name: venue?.name ?? "", venue_type: venue?.venue_type ?? "",
+            venue_description: venue?.description ?? "",
+            venue_free_access: venue?.free_access ?? false,
+            venue_free_for_ladies: venue?.free_for_ladies ?? false,
+            venue_address: venue?.address_line1 ?? "",
+            venue_city: venue?.city ?? "", venue_region: venue?.region ?? "",
+            venue_country_code: venue?.country_code ?? "",
+            venue_postal_code: venue?.postal_code ?? "",
+            venue_capacity: venue?.capacity ?? ("" as unknown as undefined),
+            venue_lat: venue?.lat ?? undefined,
+            venue_lng: venue?.lng ?? undefined,
           });
-          if (org.logo_url) setLogoPreview(org.logo_url);
-          if (org.cover_image_url) setCoverPreview(org.cover_image_url);
-          if (org.custom_policies?.length) setPolicies(org.custom_policies);
+          if (personal.avatar_url) setAvatarPreview(personal.avatar_url);
+          if (org?.logo_url) setLogoPreview(org.logo_url);
+          if (org?.cover_image_url) setCoverPreview(org.cover_image_url);
+          if (org?.custom_policies?.length) setPolicies(org.custom_policies);
         }
       } catch {
         // Continue with empty form
@@ -229,7 +243,7 @@ export default function OnboardingPage() {
     setPreview: (url: string | null) => void,
     setUploading: (v: boolean) => void,
     setError: (err: string | null) => void,
-    fieldName: "logo_url" | "cover_image_url",
+    fieldName: "logo_url" | "cover_image_url" | "avatar_url",
   ) => {
     const previewUrl = URL.createObjectURL(file);
     setPreview(previewUrl);
@@ -254,6 +268,17 @@ export default function OnboardingPage() {
     } finally {
       setUploading(false);
     }
+  };
+
+  const handleAvatarSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await handleImageUpload(file, setAvatarPreview, setIsUploadingAvatar, setAvatarError, "avatar_url");
+  };
+
+  const handleRemoveAvatar = () => {
+    setAvatarPreview(null); setValue("avatar_url", ""); setAvatarError(null);
+    if (avatarInputRef.current) avatarInputRef.current.value = "";
   };
 
   const handleLogoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -325,7 +350,7 @@ export default function OnboardingPage() {
   };
 
   const handleNextStep = async () => {
-    const valid = await trigger(["name", "email"]);
+    const valid = await trigger(["display_name"]);
     if (valid) {
       setStep(2);
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -438,31 +463,30 @@ export default function OnboardingPage() {
           )}
 
           {/* ============================================================= */}
-          {/* STEP 1: Organizer Profile                                     */}
+          {/* STEP 1: Personal Profile                                      */}
           {/* ============================================================= */}
           {step === 1 && (
             <>
-              {/* Branding */}
               <div className="rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100 sm:p-8">
                 <SectionHeader
                   icon={UsersIcon}
-                  eyebrow={translate(locale, "onboarding.step1Eyebrow")}
-                  title={translate(locale, "onboarding.step1Title")}
-                  description={translate(locale, "onboarding.step1Desc")}
+                  eyebrow={translate(locale, "onboarding.personalEyebrow")}
+                  title={translate(locale, "onboarding.personalTitle")}
+                  description={translate(locale, "onboarding.personalDesc")}
                 />
 
                 <div className="mt-6 space-y-6">
-                  {/* Logo */}
+                  {/* Avatar */}
                   <div>
                     <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                      {translate(locale, "onboarding.logoLabel")}
+                      {translate(locale, "onboarding.avatarLabel")}
                     </label>
                     <div className="flex items-center gap-4">
                       <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full border-2 border-dashed border-gray-200 bg-gray-50">
-                        {logoPreview ? (
+                        {avatarPreview ? (
                           <>
-                            <Image src={logoPreview} alt="Logo" fill className="object-cover" />
-                            {isUploadingLogo && (
+                            <Image src={avatarPreview} alt="Avatar" fill className="object-cover" />
+                            {isUploadingAvatar && (
                               <div className="absolute inset-0 flex items-center justify-center bg-black/50">
                                 <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
                               </div>
@@ -475,23 +499,107 @@ export default function OnboardingPage() {
                         )}
                       </div>
                       <div>
-                        <input ref={logoInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleLogoSelect} className="hidden" id="logo-input" />
+                        <input ref={avatarInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleAvatarSelect} className="hidden" id="avatar-input" />
                         <div className="flex gap-2">
-                          <Button variant="outline" size="sm" type="button" onClick={() => logoInputRef.current?.click()} disabled={isUploadingLogo}>
-                            {isUploadingLogo ? translate(locale, "createEvent.uploading") : logoPreview ? translate(locale, "common.edit") : translate(locale, "onboarding.uploadLogo")}
+                          <Button variant="outline" size="sm" type="button" onClick={() => avatarInputRef.current?.click()} disabled={isUploadingAvatar}>
+                            {isUploadingAvatar ? translate(locale, "createEvent.uploading") : avatarPreview ? translate(locale, "onboarding.changeAvatar") : translate(locale, "onboarding.uploadAvatar")}
                           </Button>
-                          {logoPreview && !isUploadingLogo && (
-                            <Button variant="ghost" size="sm" type="button" onClick={handleRemoveLogo} className="text-red-600 hover:text-red-700">
+                          {avatarPreview && !isUploadingAvatar && (
+                            <Button variant="ghost" size="sm" type="button" onClick={handleRemoveAvatar} className="text-red-600 hover:text-red-700">
                               {translate(locale, "common.remove")}
                             </Button>
                           )}
                         </div>
-                        {logoError && <p className="mt-1 text-sm text-red-600">{logoError}</p>}
+                        {avatarError && <p className="mt-1 text-sm text-red-600">{avatarError}</p>}
                         <p className="mt-1 text-xs text-gray-400">{translate(locale, "settingsPage.squareHint")}</p>
                       </div>
                     </div>
                   </div>
 
+                  {/* Display name */}
+                  <Input
+                    label={translate(locale, "onboarding.displayNameLabel")}
+                    placeholder={translate(locale, "onboarding.displayNamePlaceholder")}
+                    error={errors.display_name?.message}
+                    {...register("display_name")}
+                  />
+
+                  {/* Personal phone */}
+                  <Input
+                    label={translate(locale, "onboarding.personalPhoneLabel")}
+                    type="tel"
+                    placeholder={translate(locale, "onboarding.personalPhonePlaceholder")}
+                    error={errors.personal_phone_number?.message}
+                    {...register("personal_phone_number")}
+                  />
+                </div>
+              </div>
+
+              {/* Next Step Button */}
+              <div className="flex justify-end pb-6">
+                <button
+                  type="button"
+                  onClick={handleNextStep}
+                  className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-gray-950 px-8 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-gray-800"
+                >
+                  {translate(locale, "onboarding.nextStep")}
+                  <ChevronRightIcon className="h-4 w-4" />
+                </button>
+              </div>
+            </>
+          )}
+
+          {/* ============================================================= */}
+          {/* STEP 2: Venue & Organization                                  */}
+          {/* ============================================================= */}
+          {step === 2 && (
+            <>
+              <div className="rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100 sm:p-8">
+                <SectionHeader
+                  icon={BuildingIcon}
+                  eyebrow={translate(locale, "onboarding.step2Eyebrow")}
+                  title={translate(locale, "onboarding.step2Title")}
+                  description={translate(locale, "onboarding.step2Desc")}
+                />
+
+                {/* Logo */}
+                <div className="mt-6">
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                    {translate(locale, "onboarding.logoLabel")}
+                  </label>
+                  <div className="flex items-center gap-4">
+                    <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50">
+                      {logoPreview ? (
+                        <>
+                          <Image src={logoPreview} alt="Logo" fill className="object-cover" />
+                          {isUploadingLogo && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                              <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <div className="flex h-full items-center justify-center text-gray-300">
+                          <BuildingIcon className="h-6 w-6" />
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <input ref={logoInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleLogoSelect} className="hidden" id="logo-input" />
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm" type="button" onClick={() => logoInputRef.current?.click()} disabled={isUploadingLogo}>
+                          {isUploadingLogo ? translate(locale, "createEvent.uploading") : logoPreview ? translate(locale, "common.edit") : translate(locale, "onboarding.uploadLogo")}
+                        </Button>
+                        {logoPreview && !isUploadingLogo && (
+                          <Button variant="ghost" size="sm" type="button" onClick={handleRemoveLogo} className="text-red-600 hover:text-red-700">
+                            {translate(locale, "common.remove")}
+                          </Button>
+                        )}
+                      </div>
+                      {logoError && <p className="mt-1 text-sm text-red-600">{logoError}</p>}
+                      <p className="mt-1 text-xs text-gray-400">{translate(locale, "settingsPage.squareHint")}</p>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Organization Details */}
@@ -512,7 +620,7 @@ export default function OnboardingPage() {
                 {/* Contact */}
                 <div className="mt-8 border-t border-gray-100 pt-8">
                   <SectionHeader
-                    icon={MapPinIcon}
+                    icon={MailIcon}
                     eyebrow={translate(locale, "onboarding.contactEyebrow")}
                     title={translate(locale, "onboarding.contactTitle")}
                     description={translate(locale, "onboarding.contactDesc")}
@@ -581,34 +689,16 @@ export default function OnboardingPage() {
                     </Button>
                   </div>
                 </div>
-              </div>
 
-              {/* Next Step Button */}
-              <div className="flex justify-end pb-6">
-                <button
-                  type="button"
-                  onClick={handleNextStep}
-                  className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-gray-950 px-8 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-gray-800"
-                >
-                  {translate(locale, "onboarding.nextStep")}
-                  <ChevronRightIcon className="h-4 w-4" />
-                </button>
-              </div>
-            </>
-          )}
-
-          {/* ============================================================= */}
-          {/* STEP 2: Venue Info                                            */}
-          {/* ============================================================= */}
-          {step === 2 && (
-            <>
-              <div className="rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100 sm:p-8">
-                <SectionHeader
-                  icon={BuildingIcon}
-                  eyebrow={translate(locale, "onboarding.step2Eyebrow")}
-                  title={translate(locale, "onboarding.step2Title")}
-                  description={translate(locale, "onboarding.step2Desc")}
-                />
+                {/* Venue Details */}
+                <div className="mt-8 border-t border-gray-100 pt-8">
+                  <SectionHeader
+                    icon={BuildingIcon}
+                    eyebrow={translate(locale, "onboarding.venueDetailsEyebrow")}
+                    title={translate(locale, "onboarding.venueDetailsTitle")}
+                    description={translate(locale, "onboarding.venueDetailsDesc")}
+                  />
+                </div>
 
                 <div className="mt-6 space-y-4">
                   <Input label={translate(locale, "onboarding.venueName")} placeholder={translate(locale, "onboarding.venueNamePlaceholder")} error={errors.venue_name?.message} {...register("venue_name")} />

@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { auth } from "@clerk/nextjs/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { updateTable, insertInto } from "@/lib/supabase/mutations";
 
@@ -15,7 +15,12 @@ const customPolicySchema = z.object({
 });
 
 const onboardingSchema = z.object({
-  // Personal / organizer info
+  // Personal profile (writes to `profiles`)
+  display_name: z.string().min(1, "Your name is required").max(120),
+  personal_phone_number: z.string().max(40).optional().or(z.literal("")),
+  avatar_url: z.string().optional().or(z.literal("")),
+
+  // Organization info (writes to `organizers`)
   name: z.string().min(1, "Organization name is required").max(100),
   tagline: z.string().max(200).optional().or(z.literal("")),
   about: z.string().max(2000).optional().or(z.literal("")),
@@ -80,6 +85,27 @@ export async function completeOnboardingAction(
   const data = parsed.data;
 
   const sb = createSupabaseAdminClient();
+
+  // Update the user's personal profile first (display_name, phone, avatar)
+  const personalDisplayName = data.display_name.trim();
+  const personalInitials = personalDisplayName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join("");
+
+  const { error: profileError } = await updateTable(sb, "profiles", {
+    display_name: personalDisplayName,
+    initials: personalInitials || null,
+    phone_number: emptyStringToNull(data.personal_phone_number),
+    avatar_url: emptyStringToNull(data.avatar_url),
+  }).eq("user_id", userId);
+
+  if (profileError) {
+    console.error("[completeOnboarding] profile update error:", profileError.message);
+    return { success: false, error: `Failed to save your profile: ${profileError.message}` };
+  }
 
   // Get the current user's organizer by owner_user_id
   const { data: organizer, error: fetchError } = await sb
@@ -291,12 +317,47 @@ export async function uploadOrganizerImageAction(
   }
 }
 
-/** Fetch the current user's organizer data for pre-filling the onboarding form. */
+/** Fetch the current user's profile + organizer data for pre-filling onboarding. */
 export async function fetchOrganizerForOnboarding() {
   const { userId } = await auth();
   if (!userId) return null;
 
   const sb = createSupabaseAdminClient();
+
+  // Personal profile — fall back to Clerk on missing fields (first onboarding).
+  const { data: profileRow } = await sb
+    .from("profiles")
+    .select("display_name, phone_number, avatar_url")
+    .eq("user_id", userId)
+    .limit(1)
+    .maybeSingle();
+
+  const profile = profileRow as {
+    display_name: string | null;
+    phone_number: string | null;
+    avatar_url: string | null;
+  } | null;
+
+  let clerkDisplayName: string | null = null;
+  let clerkAvatarUrl: string | null = null;
+  if (!profile?.display_name || !profile?.avatar_url) {
+    try {
+      const user = await currentUser();
+      if (user) {
+        const composed = [user.firstName, user.lastName].filter(Boolean).join(" ").trim();
+        clerkDisplayName = composed.length > 0 ? composed : null;
+        clerkAvatarUrl = user.imageUrl ?? null;
+      }
+    } catch {
+      // Ignore — prefill is best-effort.
+    }
+  }
+
+  const personal = {
+    display_name: profile?.display_name ?? clerkDisplayName ?? "",
+    phone_number: profile?.phone_number ?? "",
+    avatar_url: profile?.avatar_url ?? clerkAvatarUrl ?? "",
+  };
 
   const { data, error } = await sb
     .from("organizers")
@@ -306,7 +367,7 @@ export async function fetchOrganizerForOnboarding() {
     .single();
 
   if (error || !data) {
-    return null;
+    return { personal, organizer: null, venue: null };
   }
 
   const organizer = data as {
@@ -336,7 +397,8 @@ export async function fetchOrganizerForOnboarding() {
     .maybeSingle();
 
   return {
-    ...organizer,
+    personal,
+    organizer,
     venue: venue as {
       id: string;
       name: string;
