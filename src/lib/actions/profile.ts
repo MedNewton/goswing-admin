@@ -2,8 +2,8 @@
 
 import { z } from "zod";
 import { auth } from "@clerk/nextjs/server";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { updateTable } from "@/lib/supabase/mutations";
+import { adminApiCall, isApiError, isNotFound } from "@/lib/api/client";
+import type { ApiAdminProfile } from "@/lib/api/types";
 
 // ---------------------------------------------------------------------------
 // Zod Schema
@@ -37,17 +37,23 @@ export async function fetchProfile() {
   const { userId } = await auth();
   if (!userId) return null;
 
-  const sb = createSupabaseAdminClient();
+  let profile: ApiAdminProfile;
+  try {
+    profile = await adminApiCall<ApiAdminProfile>("/v1/admin/me/profile");
+  } catch (error) {
+    if (isNotFound(error)) return null;
+    if (isApiError(error) && error.status === 401) return null;
+    throw error;
+  }
 
-  const { data, error } = await sb
-    .from("profiles")
-    .select("user_id, display_name, email, phone_number, avatar_url, occupation")
-    .eq("user_id", userId)
-    .single();
-
-  if (error || !data) return null;
-
-  return data as {
+  return {
+    user_id: profile.userId,
+    display_name: profile.displayName ?? null,
+    email: profile.email,
+    phone_number: profile.phone,
+    avatar_url: profile.avatarUrl,
+    occupation: profile.occupation,
+  } as {
     user_id: string;
     display_name: string | null;
     email: string | null;
@@ -73,20 +79,26 @@ export async function updateProfileAction(
   }
 
   const data = parsed.data;
-  const sb = createSupabaseAdminClient();
 
-  const { error: updateError } = await updateTable(sb, "profiles", {
-    display_name: data.display_name,
-    email: data.email,
-    phone_number: emptyStringToNull(data.phone_number),
-    occupation: emptyStringToNull(data.occupation),
-    avatar_url: emptyStringToNull(data.avatar_url),
-  }).eq("user_id", userId);
-
-  if (updateError) {
-    console.error("[updateProfile] error:", updateError.message);
-    return { success: false, error: updateError.message };
+  try {
+    await adminApiCall<ApiAdminProfile>("/v1/admin/me/profile", {
+      method: "PATCH",
+      body: {
+        displayName: data.display_name,
+        email: data.email,
+        phone: emptyStringToNull(data.phone_number),
+        occupation: emptyStringToNull(data.occupation),
+        avatarUrl: emptyStringToNull(data.avatar_url),
+      },
+    });
+    return { success: true };
+  } catch (error) {
+    const message = isApiError(error)
+      ? error.message
+      : error instanceof Error
+        ? error.message
+        : "Failed to update profile";
+    console.error("[updateProfile] error:", message);
+    return { success: false, error: message };
   }
-
-  return { success: true };
 }

@@ -1,19 +1,31 @@
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { mapPaymentMethods } from "@/lib/mappers/paymentMethods";
-import type { OrganizerPaymentMethodRow } from "@/types/database";
+import { adminApiCall } from "@/lib/api/client";
+import type { ApiFinancePaymentMethod, ApiItems } from "@/lib/api/types";
+import type { OrganizerPaymentMethod } from "@/types";
+import { formatDate } from "@/lib/utils/format";
+
+function mapApiPaymentMethod(
+  item: ApiFinancePaymentMethod,
+): OrganizerPaymentMethod {
+  return {
+    id: item.id,
+    organizerId: item.organizerId,
+    methodType: item.methodType,
+    provider: item.provider,
+    providerAccountId: item.providerAccountId ?? undefined,
+    label: item.label ?? undefined,
+    isDefault: item.isDefault,
+    details: item.details,
+    createdAt: formatDate(item.createdAt),
+  };
+}
 
 /** Fetch all payment methods for an organizer. */
 export async function getPaymentMethods(organizerId: string) {
-  const sb = await createSupabaseServerClient();
-
-  const { data, error } = await sb
-    .from("organizer_payment_methods")
-    .select("*")
-    .eq("organizer_id", organizerId)
-    .order("created_at", { ascending: false });
-
-  if (error) throw error;
-  return mapPaymentMethods((data ?? []) as OrganizerPaymentMethodRow[]);
+  void organizerId; // scoped server-side to the caller's organizer
+  const { items } = await adminApiCall<ApiItems<ApiFinancePaymentMethod>>(
+    "/v1/admin/finance/payment-methods",
+  );
+  return items.map(mapApiPaymentMethod);
 }
 
 /** Fetch payment methods filtered by type. */
@@ -21,15 +33,10 @@ export async function getPaymentMethodsByType(
   organizerId: string,
   methodType: "payment" | "withdrawal",
 ) {
-  const sb = await createSupabaseServerClient();
-
-  const { data, error } = await sb
-    .from("organizer_payment_methods")
-    .select("*")
-    .eq("organizer_id", organizerId)
-    .eq("method_type", methodType)
-    .order("created_at", { ascending: false });
-
-  if (error) throw error;
-  return mapPaymentMethods((data ?? []) as OrganizerPaymentMethodRow[]);
+  void organizerId; // scoped server-side to the caller's organizer
+  const { items } = await adminApiCall<ApiItems<ApiFinancePaymentMethod>>(
+    "/v1/admin/finance/payment-methods",
+    { query: { type: methodType } },
+  );
+  return items.map(mapApiPaymentMethod);
 }
