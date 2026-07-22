@@ -2,9 +2,10 @@
 
 import type { VenueStats, VenueOrganizer } from "@/lib/data/venueStats";
 import type { GalleryItem, VenueReview } from "@/types";
+import type { ApiGalleryItem, ApiItems, ApiTag } from "@/lib/api/types";
 
 // ---------------------------------------------------------------------------
-// Server action wrappers for venue detail page
+// Server action wrappers for venue detail page (Gooswing REST API backed)
 // ---------------------------------------------------------------------------
 // Note: type re-exports are intentionally avoided here. Next.js's
 // "use server" transform treats every named export as a server action,
@@ -80,16 +81,30 @@ export async function fetchVenueReviewsWithStats(venueId: string): Promise<{
   return getVenueReviewsWithStats(venueId);
 }
 
+/** organizerId kept for signature parity; the API scopes to the caller's organizer. */
 export async function fetchOrganizerGallery(
   organizerId: string,
 ): Promise<GalleryItem[]> {
-  const { getOrganizerGallery } = await import("@/lib/data/gallery");
-  return getOrganizerGallery(organizerId);
+  void organizerId;
+  const { adminApiCall } = await import("@/lib/api/client");
+  const res = await adminApiCall<ApiItems<ApiGalleryItem>>(
+    "/v1/admin/organizer/gallery",
+  );
+  return res.items.map((item) => ({
+    id: item.id,
+    mediaUrl: item.url,
+    mediaType: item.mediaType,
+    caption: item.caption ?? undefined,
+    sortOrder: item.sortOrder,
+  }));
 }
 
+/** organizerId kept for signature parity; the API scopes to the caller's organizer. */
 export async function fetchOrganizerTags(
   organizerId: string,
 ): Promise<TagItem[]> {
-  const { getOrganizerTags } = await import("@/lib/data/tags");
-  return getOrganizerTags(organizerId);
+  void organizerId;
+  const { adminApiCall } = await import("@/lib/api/client");
+  const res = await adminApiCall<ApiItems<ApiTag>>("/v1/admin/organizer/tags");
+  return res.items.map((t) => ({ id: t.id, label: t.label, slug: t.slug, type: t.type }));
 }

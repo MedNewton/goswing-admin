@@ -1,5 +1,13 @@
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { getCurrentUserId } from "@/lib/data/auth";
+// Venue detail-page data (stats, organizer, events, similar) — Gooswing REST API.
+import { adminApiCall } from "@/lib/api/client";
+import type {
+  ApiAdminOrganizer,
+  ApiItems,
+  ApiSimilarVenue,
+  ApiVenueEventItem,
+  ApiVenueEvents,
+  ApiVenueStats,
+} from "@/lib/api/types";
 
 /** Stats for the venue detail page gradient header. */
 export interface VenueStats {
@@ -10,68 +18,16 @@ export interface VenueStats {
   followerCount: number;
 }
 
-/** Fetch aggregate stats for a venue. */
+/** Fetch aggregate stats for a venue. (organizerId kept for signature parity; the API derives it.) */
 export async function getVenueStats(venueId: string, organizerId: string | null): Promise<VenueStats> {
-  const sb = await createSupabaseServerClient();
-
-  // Count events for this venue
-  const { count: eventCount } = await sb
-    .from("events")
-    .select("id", { count: "exact", head: true })
-    .eq("venue_id", venueId);
-
-  // Sum attendee_count across all events for this venue
-  const { data: attendeeData } = await sb
-    .from("events")
-    .select("attendee_count")
-    .eq("venue_id", venueId);
-
-  const totalAttendees = (attendeeData ?? []).reduce(
-    (sum, e) => sum + ((e as { attendee_count: number }).attendee_count ?? 0),
-    0,
-  );
-
-  // Review stats: average rating across all reviews of every event held at
-  // this venue (not the venue_reviews table).
-  const { data: eventIdRows } = await sb
-    .from("events")
-    .select("id")
-    .eq("venue_id", venueId);
-
-  const eventIds = ((eventIdRows ?? []) as Array<{ id: string }>).map((e) => e.id);
-
-  let reviewCount = 0;
-  let reviewScore: number | null = null;
-  if (eventIds.length > 0) {
-    const { data: reviewData } = await sb
-      .from("event_reviews")
-      .select("rating")
-      .in("event_id", eventIds);
-
-    const reviews = (reviewData ?? []) as Array<{ rating: number }>;
-    reviewCount = reviews.length;
-    reviewScore =
-      reviewCount > 0
-        ? Math.round((reviews.reduce((sum, r) => sum + r.rating, 0) / reviewCount) * 10) / 10
-        : null;
-  }
-
-  // Follower count (from organizer_follows)
-  let followerCount = 0;
-  if (organizerId) {
-    const { count } = await sb
-      .from("organizer_follows")
-      .select("id", { count: "exact", head: true })
-      .eq("organizer_id", organizerId);
-    followerCount = count ?? 0;
-  }
-
+  void organizerId;
+  const stats = await adminApiCall<ApiVenueStats>(`/v1/admin/venues/${venueId}/stats`);
   return {
-    eventCount: eventCount ?? 0,
-    totalAttendees,
-    reviewScore,
-    reviewCount,
-    followerCount,
+    eventCount: stats.eventCount,
+    totalAttendees: stats.totalAttendees,
+    reviewScore: stats.reviewScore,
+    reviewCount: stats.reviewCount,
+    followerCount: stats.followerCount,
   };
 }
 
@@ -98,103 +54,84 @@ export interface VenueOrganizer {
   customPolicies: Array<{ title: string; description: string }>;
 }
 
-/** Fetch organizer data linked to a venue. */
+/** Fetch organizer data linked to a venue. (organizerId kept for signature parity; the API scopes to the caller's organizer.) */
 export async function getVenueOrganizer(organizerId: string): Promise<VenueOrganizer | null> {
-  const sb = await createSupabaseServerClient();
+  void organizerId;
+  try {
+    const org = await adminApiCall<ApiAdminOrganizer>("/v1/admin/organizer");
+    return {
+      id: org.id,
+      name: org.name,
+      about: org.about,
+      coverImageUrl: org.coverImageUrl,
+      logoUrl: org.logoUrl,
+      email: org.email,
+      phone: org.phone,
+      websiteUrl: org.websiteUrl,
+      instagramHandle: org.instagramHandle,
+      facebookHandle: org.facebookHandle,
+      tiktokHandle: org.tiktokHandle,
+      snapchatHandle: org.snapchatHandle,
+      youtubeHandle: org.youtubeHandle,
+      twitterHandle: org.twitterHandle,
+      pinterestHandle: org.pinterestHandle,
+      googleBusinessUrl: org.googleBusinessUrl,
+      cancellationPolicy: org.cancellationPolicy,
+      refundPolicy: org.refundPolicy,
+      customPolicies: (org.customPolicies ?? []).map((p) => ({
+        title: p.title,
+        description: p.description,
+      })),
+    };
+  } catch {
+    return null;
+  }
+}
 
-  const { data, error } = await sb
-    .from("organizers")
-    .select("*")
-    .eq("id", organizerId)
-    .single();
-
-  if (error || !data) return null;
-
-  const row = data as Record<string, unknown>;
-
+/** API camelCase event → the snake_case shape the venue page consumes. */
+function mapVenueEvent(e: ApiVenueEventItem) {
   return {
-    id: row.id as string,
-    name: row.name as string,
-    about: row.about as string | null,
-    coverImageUrl: row.cover_image_url as string | null,
-    logoUrl: row.logo_url as string | null,
-    email: row.email as string | null,
-    phone: row.phone as string | null,
-    websiteUrl: row.website_url as string | null,
-    instagramHandle: row.instagram_handle as string | null,
-    facebookHandle: row.facebook_handle as string | null,
-    tiktokHandle: row.tiktok_handle as string | null,
-    snapchatHandle: row.snapchat_handle as string | null,
-    youtubeHandle: row.youtube_handle as string | null,
-    twitterHandle: row.twitter_handle as string | null,
-    pinterestHandle: row.pinterest_handle as string | null,
-    googleBusinessUrl: row.google_business_url as string | null,
-    cancellationPolicy: row.cancellation_policy as string | null,
-    refundPolicy: row.refund_policy as string | null,
-    customPolicies: (row.custom_policies as Array<{ title: string; description: string }>) ?? [],
+    id: e.id,
+    title: e.title,
+    hero_image_url: e.heroImageUrl,
+    starts_at: e.startsAt,
+    ends_at: e.endsAt,
+    status: e.status,
+    attendee_count: e.attendeeCount,
+    min_price_cents: e.minPriceCents as number | null,
+    is_free: e.isFree,
+    currency: e.currency,
   };
 }
 
 /** Fetch events for a venue grouped by status (live/upcoming/past). */
 export async function getVenueEvents(venueId: string) {
-  const sb = await createSupabaseServerClient();
-
-  const { data, error } = await sb
-    .from("events")
-    .select("id, title, hero_image_url, starts_at, ends_at, status, attendee_count, min_price_cents, is_free, currency")
-    .eq("venue_id", venueId)
-    .order("starts_at", { ascending: false });
-
-  if (error) throw error;
-
-  const now = new Date();
-  const events = (data ?? []) as Array<{
-    id: string;
-    title: string;
-    hero_image_url: string | null;
-    starts_at: string;
-    ends_at: string | null;
-    status: string;
-    attendee_count: number;
-    min_price_cents: number | null;
-    is_free: boolean;
-    currency: string;
-  }>;
-
-  const live = events.filter(
-    (e) => e.status === "live" || (e.status === "published" && new Date(e.starts_at) <= now && (!e.ends_at || new Date(e.ends_at) > now)),
-  );
-  const upcoming = events.filter(
-    (e) => (e.status === "published" || e.status === "draft") && new Date(e.starts_at) > now,
-  );
-  const past = events.filter(
-    (e) => e.status === "completed" || (e.ends_at && new Date(e.ends_at) <= now),
-  );
-
-  return { live, upcoming, past, all: events };
+  const res = await adminApiCall<ApiVenueEvents>(`/v1/admin/venues/${venueId}/events`);
+  return {
+    live: res.live.map(mapVenueEvent),
+    upcoming: res.upcoming.map(mapVenueEvent),
+    past: res.past.map(mapVenueEvent),
+    all: res.all.map(mapVenueEvent),
+  };
 }
 
-/** Fetch similar venues in the same city (excluding current). */
+/** Fetch similar venues in the same city (excluding current). (city kept for signature parity; the API derives it.) */
 export async function getSimilarVenues(venueId: string, city: string | null) {
   if (!city) return [];
 
-  const sb = await createSupabaseServerClient();
-  const userId = await getCurrentUserId();
-
-  const { data, error } = await sb
-    .from("venues")
-    .select("id, name, city, venue_type, capacity")
-    .eq("created_by_user_id", userId)
-    .eq("city", city)
-    .neq("id", venueId)
-    .limit(6);
-
-  if (error) return [];
-  return (data ?? []) as Array<{
-    id: string;
-    name: string;
-    city: string | null;
-    venue_type: string | null;
-    capacity: number | null;
-  }>;
+  try {
+    const res = await adminApiCall<ApiItems<ApiSimilarVenue>>(
+      `/v1/admin/venues/${venueId}/similar`,
+      { query: { limit: 6 } },
+    );
+    return res.items.map((v) => ({
+      id: v.id,
+      name: v.name,
+      city: v.city,
+      venue_type: v.venueType,
+      capacity: v.capacity,
+    }));
+  } catch {
+    return [];
+  }
 }
