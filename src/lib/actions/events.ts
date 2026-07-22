@@ -1,13 +1,18 @@
 "use server";
 
+// Event server actions backed by the Gooswing REST API.
+
 import { z } from "zod";
-import { createEvent, getOrganizerForCurrentUser, getTags } from "@/lib/data/events";
-import { getCurrentUserId } from "@/lib/data/auth";
-import { insertInto, updateTable } from "@/lib/supabase/mutations";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { getTags } from "@/lib/data/events";
+import { adminApiCall, isApiError } from "@/lib/api/client";
+import type {
+  ApiAdminContext,
+  ApiAdminEventDetail,
+  ApiCreateEventInput,
+  ApiTag,
+  ApiUploadResult,
+} from "@/lib/api/types";
 import { redirect } from "next/navigation";
-import type { EventUpdate, TicketTypeInsert, TicketTypeUpdate } from "@/types/database";
 
 // ---------------------------------------------------------------------------
 // Zod Schema
@@ -55,7 +60,7 @@ const createEventSchema = z.object({
   ticketTiers: z.array(ticketTierSchema).min(1, "At least one ticket tier is required"),
   currency: z.string().default("MAD"),
 
-  // Tags (party types + music styles + extra services all stored as event_tags)
+  // Tags (party types + music styles + extra services all stored as event tags)
   tagIds: z.array(z.string()).optional(),
 
   // Settings
@@ -124,6 +129,17 @@ function resolveEventEndDate(endDate: string | undefined, eventDate: string) {
   return eventDate;
 }
 
+/** Extract per-field errors from an API validation_failed details payload. */
+function extractFieldErrors(details: unknown): Record<string, string[]> | undefined {
+  if (!details || typeof details !== "object" || Array.isArray(details)) return undefined;
+  const fieldErrors: Record<string, string[]> = {};
+  for (const [key, value] of Object.entries(details as Record<string, unknown>)) {
+    if (typeof value === "string") fieldErrors[key] = [value];
+    else if (Array.isArray(value)) fieldErrors[key] = value.map(String);
+  }
+  return Object.keys(fieldErrors).length > 0 ? fieldErrors : undefined;
+}
+
 // ---------------------------------------------------------------------------
 // Server Action
 // ---------------------------------------------------------------------------
@@ -150,12 +166,6 @@ export async function createEventAction(
   const data = parsed.data;
 
   try {
-    // Get organizer for current user
-    const organizer = await getOrganizerForCurrentUser();
-
-    // Use selected venue ID
-    const venueId = trimToNull(data.venueId) ?? undefined;
-
     // Build starts_at timestamp
     const startsAt = new Date(`${data.eventDate}T${data.startTime}`).toISOString();
 
@@ -168,70 +178,53 @@ export async function createEventAction(
       endsAt = new Date(`${data.eventDate}T${data.endTime}`).toISOString();
     }
 
-    // Determine min price from ticket tiers
-    const prices = data.ticketTiers.map((t) => t.price);
-    const minPriceCents = Math.min(...prices) * 100;
-    const isFree = minPriceCents === 0;
-
-    // Generate a random external ID for public-facing references
-    const externalId = crypto.randomUUID().replace(/-/g, "").slice(0, 12);
-
-    // Create event
-    const eventId = await createEvent(
-      {
-        title: data.title,
-        description: emptyStringToNull(data.description),
-        organizer_id: organizer.id,
-        external_id: externalId,
-        starts_at: startsAt,
-        ends_at: endsAt,
-        venue_id: venueId,
-        hero_image_url: emptyStringToNull(data.heroImageUrl),
-        status: data.publishEvent ? "published" : "draft",
-        currency: data.currency,
-        min_price_cents: minPriceCents,
-        is_free: isFree,
-        approval_mode: data.approvalMode,
-        sharing_enabled: data.sharingEnabled,
-        policies: data.policies ?? [],
-      },
-      data.ticketTiers.map((tier) => ({
+    const body: ApiCreateEventInput = {
+      title: data.title,
+      description: emptyStringToNull(data.description),
+      startsAt,
+      endsAt: endsAt ?? null,
+      venueId: trimToNull(data.venueId),
+      heroImageUrl: emptyStringToNull(data.heroImageUrl),
+      publish: data.publishEvent,
+      currency: data.currency,
+      approvalMode: data.approvalMode,
+      sharingEnabled: data.sharingEnabled,
+      policies: data.policies ?? [],
+      ticketTiers: data.ticketTiers.map((tier) => ({
         name: tier.name,
-        price_cents: tier.is_free ? 0 : Math.round(tier.price * 100),
+        priceCents: tier.is_free ? 0 : Math.round(tier.price * 100),
         currency: data.currency,
         description: emptyStringToNull(tier.description),
         capacity: typeof tier.capacity === "number" ? tier.capacity : null,
-        is_free: tier.is_free,
-        free_for_ladies: tier.free_for_ladies,
+        isFree: tier.is_free,
+        freeForLadies: tier.free_for_ladies,
       })),
-      data.tagIds,
-    );
+      tagIds: data.tagIds ?? [],
+      galleryItems: (data.galleryItems ?? []).map((item) => ({
+        url: item.url,
+        mediaType: item.mediaType,
+        caption: item.caption ? item.caption : null,
+      })),
+    };
 
-    // Insert gallery rows (images + videos)
-    if (data.galleryItems && data.galleryItems.length > 0) {
-      const sb = createSupabaseAdminClient();
-      const rows = data.galleryItems.map((item, idx) => ({
-        event_id: eventId,
-        media_url: item.url,
-        media_type: item.mediaType,
-        caption: item.caption ?? null,
-        sort_order: idx,
-      }));
-      const { error: galleryError } = await insertInto(sb, "event_gallery", rows);
-      if (galleryError) {
-        console.error("createEventAction gallery insert error:", galleryError.message);
-        // Event is already created — surface a partial success error so
-        // the user can retry the gallery via the edit page.
-        return {
-          success: false,
-          error: `Event created but failed to save gallery: ${galleryError.message}`,
-        };
-      }
-    }
+    const { eventId } = await adminApiCall<{ eventId: string }>("/v1/admin/events", {
+      method: "POST",
+      body,
+    });
 
     return { success: true, eventId };
   } catch (err) {
     console.error("createEventAction error:", err);
+    if (isApiError(err)) {
+      if (err.code === "validation_failed") {
+        return {
+          success: false,
+          error: err.message || "Validation failed",
+          fieldErrors: extractFieldErrors(err.details),
+        };
+      }
+      return { success: false, error: err.message };
+    }
     const message = err instanceof Error ? err.message : "Failed to create event";
     return { success: false, error: message };
   }
@@ -286,28 +279,6 @@ export async function updateEventAction(
   const data = parsed.data;
 
   try {
-    const sb = await createSupabaseServerClient();
-    const userId = await getCurrentUserId();
-
-    // Verify ownership
-    const { data: ownerCheck, error: ownerError } = await sb
-      .from("events")
-      .select("id")
-      .eq("id", eventId)
-      .eq("created_by_user_id", userId)
-      .single();
-    if (ownerError || !ownerCheck) {
-      return { success: false, error: "Event not found or access denied" };
-    }
-
-    const { data: existingTicketTypeRows, error: existingTicketTypesError } = await sb
-      .from("ticket_types")
-      .select("id")
-      .eq("event_id", eventId);
-
-    if (existingTicketTypesError) throw existingTicketTypesError;
-
-    const venueId = trimToNull(data.venueId);
     const startsAt = new Date(`${data.eventDate}T${data.startTime}`).toISOString();
 
     let endsAt: string | null = null;
@@ -317,159 +288,65 @@ export async function updateEventAction(
       endsAt = new Date(`${data.eventDate}T${data.endTime}`).toISOString();
     }
 
-    const prices = data.ticketTiers.map((t) => t.price);
-    const minPriceCents = Math.min(...prices) * 100;
-    const isFree = minPriceCents === 0;
-    const existingTicketTypeIds = new Set(
-      ((existingTicketTypeRows ?? []) as Array<{ id: string }>).map((row) => row.id)
-    );
-    const submittedExistingTiers = data.ticketTiers.filter(
-      (tier): tier is typeof tier & { id: string } => Boolean(tier.id && existingTicketTypeIds.has(tier.id))
-    );
-    const submittedExistingIds = new Set(submittedExistingTiers.map((tier) => tier.id));
-    const removedTicketTypeIds = [...existingTicketTypeIds].filter((id) => !submittedExistingIds.has(id));
+    // ticketTiers is the authoritative list: tiers with an id are updated,
+    // tiers without one are created, and existing tiers left out are deleted.
+    const body = {
+      title: data.title,
+      description: emptyStringToNull(data.description),
+      startsAt,
+      endsAt,
+      venueId: trimToNull(data.venueId),
+      heroImageUrl: emptyStringToNull(data.heroImageUrl),
+      publish: data.publishEvent,
+      currency: data.currency,
+      approvalMode: data.approvalMode,
+      sharingEnabled: data.sharingEnabled,
+      policies: data.policies ?? [],
+      ticketTiers: data.ticketTiers.map((tier) => ({
+        id: tier.id,
+        name: tier.name,
+        priceCents: tier.is_free ? 0 : Math.round(tier.price * 100),
+        currency: data.currency,
+        description: emptyStringToNull(tier.description),
+        capacity: typeof tier.capacity === "number" ? tier.capacity : null,
+        isFree: tier.is_free,
+        freeForLadies: tier.free_for_ladies,
+      })),
+      tagIds: data.tagIds ?? [],
+      galleryItems: (data.galleryItems ?? []).map((item) => ({
+        url: item.url,
+        mediaType: item.mediaType,
+        caption: item.caption ? item.caption : null,
+      })),
+    };
 
-    if (removedTicketTypeIds.length > 0) {
-      const [{ data: reservationItemRefs, error: reservationItemRefsError }, { data: ticketRefs, error: ticketRefsError }] =
-        await Promise.all([
-          sb
-            .from("reservation_items")
-            .select("ticket_type_id")
-            .in("ticket_type_id", removedTicketTypeIds)
-            .limit(1),
-          sb
-            .from("tickets")
-            .select("ticket_type_id")
-            .in("ticket_type_id", removedTicketTypeIds)
-            .limit(1),
-        ]);
+    await adminApiCall<ApiAdminEventDetail>(`/v1/admin/events/${eventId}`, {
+      method: "PATCH",
+      body,
+    });
 
-      if (reservationItemRefsError) throw reservationItemRefsError;
-      if (ticketRefsError) throw ticketRefsError;
-
-      if ((reservationItemRefs?.length ?? 0) > 0 || (ticketRefs?.length ?? 0) > 0) {
+    return { success: true };
+  } catch (err) {
+    console.error("updateEventAction error:", err);
+    if (isApiError(err)) {
+      if (err.code === "tier_in_use" || err.status === 422) {
         return {
           success: false,
           error: "You cannot remove ticket tiers that already have reservations. Edit the existing tier instead.",
         };
       }
+      if (err.status === 404) {
+        return { success: false, error: "Event not found or access denied" };
+      }
+      if (err.code === "validation_failed") {
+        return {
+          success: false,
+          error: err.message || "Validation failed",
+          fieldErrors: extractFieldErrors(err.details),
+        };
+      }
+      return { success: false, error: err.message };
     }
-
-    const eventUpdates: EventUpdate = {
-      title: data.title,
-      description: emptyStringToNull(data.description),
-      starts_at: startsAt,
-      ends_at: endsAt,
-      venue_id: venueId,
-      hero_image_url: emptyStringToNull(data.heroImageUrl),
-      status: data.publishEvent ? "published" : "draft",
-      currency: data.currency,
-      min_price_cents: minPriceCents,
-      is_free: isFree,
-      approval_mode: data.approvalMode,
-      sharing_enabled: data.sharingEnabled,
-      policies: data.policies ?? [],
-    };
-
-    // Update the event
-    const { error: eventError } = await updateTable(sb, "events", eventUpdates).eq("id", eventId);
-
-    if (eventError) throw eventError;
-
-    for (const tier of submittedExistingTiers) {
-      const ticketTypeUpdates: TicketTypeUpdate = {
-        name: tier.name,
-        price_cents: tier.is_free ? 0 : Math.round(tier.price * 100),
-        currency: data.currency,
-        description: emptyStringToNull(tier.description),
-        capacity: typeof tier.capacity === "number" ? tier.capacity : null,
-        is_free: tier.is_free,
-        free_for_ladies: tier.free_for_ladies,
-      };
-      const { error: updateTicketTypeError } = await updateTable(
-        sb,
-        "ticket_types",
-        ticketTypeUpdates,
-      ).eq("id", tier.id);
-
-      if (updateTicketTypeError) throw updateTicketTypeError;
-    }
-
-    const newTicketTiers: TicketTypeInsert[] = data.ticketTiers
-      .filter((tier) => !tier.id || !existingTicketTypeIds.has(tier.id))
-      .map((tier) => ({
-        event_id: eventId,
-        name: tier.name,
-        price_cents: tier.is_free ? 0 : Math.round(tier.price * 100),
-        currency: data.currency,
-        description: emptyStringToNull(tier.description),
-        capacity: typeof tier.capacity === "number" ? tier.capacity : null,
-        is_free: tier.is_free,
-        free_for_ladies: tier.free_for_ladies,
-      }));
-
-    if (newTicketTiers.length > 0) {
-      const { error: insertTicketsError } = await insertInto(
-        sb,
-        "ticket_types",
-        newTicketTiers
-      );
-
-      if (insertTicketsError) throw insertTicketsError;
-    }
-
-    if (removedTicketTypeIds.length > 0) {
-      const { error: deleteTicketsError } = await sb
-        .from("ticket_types")
-        .delete()
-        .in("id", removedTicketTypeIds);
-
-      if (deleteTicketsError) throw deleteTicketsError;
-    }
-
-    // Delete old event tags and insert new ones
-    const { error: deleteTagsError } = await sb
-      .from("event_tags")
-      .delete()
-      .eq("event_id", eventId);
-
-    if (deleteTagsError) throw deleteTagsError;
-
-    if (data.tagIds && data.tagIds.length > 0) {
-      const { error: insertTagsError } = await insertInto(
-        sb,
-        "event_tags",
-        data.tagIds.map((tag_id) => ({ event_id: eventId, tag_id }))
-      );
-      if (insertTagsError) throw insertTagsError;
-    }
-
-    // Replace gallery items (delete-then-insert).
-    const { error: deleteGalleryError } = await sb
-      .from("event_gallery")
-      .delete()
-      .eq("event_id", eventId);
-    if (deleteGalleryError) throw deleteGalleryError;
-
-    if (data.galleryItems && data.galleryItems.length > 0) {
-      const galleryRows = data.galleryItems.map((item, idx) => ({
-        event_id: eventId,
-        media_url: item.url,
-        media_type: item.mediaType,
-        caption: item.caption ?? null,
-        sort_order: idx,
-      }));
-      const { error: insertGalleryError } = await insertInto(
-        sb,
-        "event_gallery",
-        galleryRows,
-      );
-      if (insertGalleryError) throw insertGalleryError;
-    }
-
-    return { success: true };
-  } catch (err) {
-    console.error("updateEventAction error:", err);
     const message = err instanceof Error ? err.message : "Failed to update event";
     return { success: false, error: message };
   }
@@ -490,6 +367,12 @@ export async function deleteEventAction(eventId: string): Promise<DeleteEventRes
     return { success: true };
   } catch (err) {
     console.error("deleteEventAction error:", err);
+    if (isApiError(err) && err.status === 409) {
+      return {
+        success: false,
+        error: "You cannot delete an event that already has confirmed reservations.",
+      };
+    }
     const message = err instanceof Error ? err.message : "Failed to delete event";
     return { success: false, error: message };
   }
@@ -500,93 +383,57 @@ export async function deleteEventAction(eventId: string): Promise<DeleteEventRes
 // ---------------------------------------------------------------------------
 
 export async function fetchEventForEdit(eventId: string) {
-  const sb = await createSupabaseServerClient();
-  const userId = await getCurrentUserId();
+  const detail = await adminApiCall<ApiAdminEventDetail>(`/v1/admin/events/${eventId}`);
+  const { event, tagIds, ticketTypes, gallery } = detail;
 
-  const { data, error } = await sb
-    .from("events")
-    .select(`
-      *,
-      venues ( name, city ),
-      ticket_types ( id, name, description, price_cents, currency, capacity, is_free, free_for_ladies ),
-      event_tags ( tags ( id, label, slug, type ) ),
-      event_gallery ( id, media_url, media_type, caption, sort_order )
-    `)
-    .eq("id", eventId)
-    .eq("created_by_user_id", userId)
-    .single();
-
-  if (error) throw error;
-
-  const row = data as Record<string, unknown>;
-  const ticketTypes = (row.ticket_types ?? []) as Array<{
-    id: string;
-    name: string;
-    description: string | null;
-    price_cents: number;
-    currency: string;
-    capacity: number | null;
-    is_free: boolean;
-    free_for_ladies: boolean;
-  }>;
-
-  const eventTags = (row.event_tags ?? []) as Array<{
-    tags: { id: string; label: string; slug: string; type: string };
-  }>;
-  const tagIds = eventTags.map((et) => et.tags.id);
-
-  const galleryRows = (row.event_gallery ?? []) as Array<{
-    id: string;
-    media_url: string;
-    media_type: string;
-    caption: string | null;
-    sort_order: number | null;
-  }>;
-  const galleryItems = galleryRows
+  const galleryItems = gallery
     .slice()
-    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
     .map((g) => ({
-      url: g.media_url,
-      mediaType: g.media_type === "video" ? ("video" as const) : ("image" as const),
+      url: g.url,
+      mediaType: g.mediaType === "video" ? ("video" as const) : ("image" as const),
       caption: g.caption ?? "",
     }));
 
   return {
-    id: row.id as string,
-    title: row.title as string,
-    description: (row.description as string | null) ?? "",
-    heroImageUrl: (row.hero_image_url as string | null) ?? "",
-    startsAt: row.starts_at as string,
-    endsAt: (row.ends_at as string | null) ?? null,
-    venueId: (row.venue_id as string | null) ?? "",
-    currency: ((row.currency as string) ?? "MAD").trim(),
-    status: row.status as string,
-    ticketTypes,
-    tagIds,
-    approvalMode: (row.approval_mode as string) ?? "auto",
-    sharingEnabled: (row.sharing_enabled as boolean) ?? true,
-    policies: (row.policies as Array<{ title: string; description: string }>) ?? [],
+    id: event.id,
+    title: event.title,
+    description: event.description ?? "",
+    heroImageUrl: event.heroImageUrl ?? "",
+    startsAt: event.startsAt,
+    endsAt: event.endsAt ?? null,
+    venueId: event.venueId ?? "",
+    currency: (event.currency ?? "MAD").trim(),
+    status: event.status,
+    ticketTypes: ticketTypes.map((tt) => ({
+      id: tt.id,
+      name: tt.name,
+      description: tt.description,
+      price_cents: tt.priceCents,
+      currency: tt.currency,
+      capacity: tt.capacity,
+      is_free: tt.isFree,
+      free_for_ladies: tt.freeForLadies,
+    })),
+    tagIds: [...tagIds],
+    approvalMode: event.approvalMode ?? "auto",
+    sharingEnabled: event.sharingEnabled ?? true,
+    policies: event.policies.map((p) => ({ title: p.title, description: p.description })),
     galleryItems,
   };
 }
 
 /** Fetch organizer contact info for prefilling the create event form. */
 export async function fetchOrganizerContact() {
-  const sb = await createSupabaseServerClient();
-  const userId = await getCurrentUserId();
-
-  const { data, error } = await sb
-    .from("organizers")
-    .select("email, phone")
-    .eq("owner_user_id", userId)
-    .limit(1)
-    .single();
-
-  if (error) return { email: "", phone: "" };
-  return {
-    email: (data as { email: string | null }).email ?? "",
-    phone: (data as { phone: string | null }).phone ?? "",
-  };
+  try {
+    const context = await adminApiCall<ApiAdminContext>("/v1/admin/me/context");
+    return {
+      email: context.organizer?.email ?? "",
+      phone: context.organizer?.phone ?? "",
+    };
+  } catch {
+    return { email: "", phone: "" };
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -634,55 +481,30 @@ export async function createCustomTagAction(input: {
   type: string;
   label: string;
 }): Promise<CreateCustomTagResult> {
-  // Auth — only signed-in users may extend the tag vocabulary.
-  await getCurrentUserId();
-
   const parsed = customTagSchema.safeParse(input);
   if (!parsed.success) {
     return { success: false, error: parsed.error.errors[0]?.message ?? "Invalid input" };
   }
 
   const { type, label } = parsed.data;
-  const slug = slugify(label);
-  if (!slug) {
+  if (!slugify(label)) {
     return { success: false, error: "Label must contain at least one alphanumeric character" };
   }
 
-  const sb = createSupabaseAdminClient();
-
-  // Find-or-create on (type, slug)
-  const { data: existing } = await sb
-    .from("tags")
-    .select("id, label, slug, type")
-    .eq("type", type)
-    .eq("slug", slug)
-    .limit(1)
-    .maybeSingle();
-
-  if (existing) {
+  try {
+    const tag = await adminApiCall<ApiTag>("/v1/admin/tags", {
+      method: "POST",
+      body: { type, label },
+    });
     return {
       success: true,
-      tag: existing as { id: string; label: string; slug: string; type: string },
+      tag: { id: tag.id, label: tag.label, slug: tag.slug, type: tag.type },
     };
+  } catch (err) {
+    console.error("[createCustomTagAction] error:", err);
+    const message = err instanceof Error ? err.message : "Failed to create tag";
+    return { success: false, error: message };
   }
-
-  const { data: inserted, error: insertError } = await insertInto(sb, "tags", {
-    type,
-    slug,
-    label,
-  })
-    .select("id, label, slug, type")
-    .single();
-
-  if (insertError || !inserted) {
-    console.error("[createCustomTagAction] insert error:", insertError?.message);
-    return { success: false, error: insertError?.message ?? "Failed to create tag" };
-  }
-
-  return {
-    success: true,
-    tag: inserted as { id: string; label: string; slug: string; type: string },
-  };
 }
 
 // ---------------------------------------------------------------------------
@@ -714,39 +536,21 @@ export async function uploadEventImageAction(
       return { success: false, error: "File too large. Maximum size is 5MB." };
     }
 
-    // Admin client: storage RLS otherwise blocks INSERT for the
-    // Clerk-bridged JWT and uploads silently fail.
-    const sb = createSupabaseAdminClient();
+    const uploadForm = new FormData();
+    uploadForm.append("file", file);
+    uploadForm.append("kind", "eventHero");
 
-    // Generate unique filename
-    const ext = file.name.split(".").pop() ?? "jpg";
-    const fileName = `${crypto.randomUUID()}.${ext}`;
-    const filePath = `event-images/${fileName}`;
+    const result = await adminApiCall<ApiUploadResult>("/v1/admin/uploads", {
+      method: "POST",
+      body: uploadForm,
+    });
 
-    // Convert File to ArrayBuffer then to Uint8Array for Supabase
-    const arrayBuffer = await file.arrayBuffer();
-    const uint8Array = new Uint8Array(arrayBuffer);
-
-    const { error: uploadError } = await sb.storage
-      .from("event-images")
-      .upload(filePath, uint8Array, {
-        contentType: file.type,
-        upsert: false,
-      });
-
-    if (uploadError) {
-      console.error("Upload error:", uploadError);
-      return { success: false, error: `Upload failed: ${uploadError.message}` };
-    }
-
-    // Get public URL
-    const { data: urlData } = sb.storage
-      .from("event-images")
-      .getPublicUrl(filePath);
-
-    return { success: true, url: urlData.publicUrl };
+    return { success: true, url: result.url };
   } catch (err) {
     console.error("uploadEventImageAction error:", err);
+    if (isApiError(err)) {
+      return { success: false, error: `Upload failed: ${err.message}` };
+    }
     const message = err instanceof Error ? err.message : "Failed to upload image";
     return { success: false, error: message };
   }
@@ -789,36 +593,25 @@ export async function uploadEventMediaAction(
       return { success: false, error: `File too large. Maximum size is ${limitMb}MB.` };
     }
 
-    const sb = createSupabaseAdminClient();
+    const uploadForm = new FormData();
+    uploadForm.append("file", file);
+    uploadForm.append("kind", "eventGallery");
 
-    const ext = file.name.split(".").pop() ?? (isVideo ? "mp4" : "jpg");
-    const fileName = `${crypto.randomUUID()}.${ext}`;
-    const filePath = `event-gallery/${fileName}`;
-
-    const arrayBuffer = await file.arrayBuffer();
-    const uint8Array = new Uint8Array(arrayBuffer);
-
-    const { error: uploadError } = await sb.storage
-      .from("event-images")
-      .upload(filePath, uint8Array, {
-        contentType: file.type,
-        upsert: false,
-      });
-
-    if (uploadError) {
-      console.error("Media upload error:", uploadError);
-      return { success: false, error: `Upload failed: ${uploadError.message}` };
-    }
-
-    const { data: urlData } = sb.storage.from("event-images").getPublicUrl(filePath);
+    const result = await adminApiCall<ApiUploadResult>("/v1/admin/uploads", {
+      method: "POST",
+      body: uploadForm,
+    });
 
     return {
       success: true,
-      url: urlData.publicUrl,
-      mediaType: isVideo ? "video" : "image",
+      url: result.url,
+      mediaType: result.mediaType,
     };
   } catch (err) {
     console.error("uploadEventMediaAction error:", err);
+    if (isApiError(err)) {
+      return { success: false, error: `Upload failed: ${err.message}` };
+    }
     const message = err instanceof Error ? err.message : "Failed to upload media";
     return { success: false, error: message };
   }

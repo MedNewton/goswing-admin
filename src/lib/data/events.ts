@@ -1,10 +1,72 @@
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { insertInto, updateTable } from "@/lib/supabase/mutations";
-import { mapEvent, mapEvents, type EventQueryRow } from "@/lib/mappers/events";
+// Event queries and mutations backed by the Gooswing REST API.
+
+import { adminApiCall } from "@/lib/api/client";
+import type {
+  ApiAdminContext,
+  ApiAdminEvent,
+  ApiAdminEventDetail,
+  ApiCreateEventInput,
+  ApiEventOverview,
+  ApiItems,
+  ApiTag,
+} from "@/lib/api/types";
 import type { EventInsert, EventUpdate, TicketTypeInsert } from "@/types/database";
-import type { EventOverview, TicketSalesBreakdown } from "@/types";
-import { formatMoney } from "@/lib/utils/format";
-import { getCurrentUserId } from "@/lib/data/auth";
+import type { Event, EventOverview, TicketSalesBreakdown } from "@/types";
+import { formatDate, formatMoney, formatPrice } from "@/lib/utils/format";
+
+// ---------------------------------------------------------------------------
+// Mapping helpers
+// ---------------------------------------------------------------------------
+
+function normalizeEventStatus(
+  s: string,
+): "published" | "draft" | "completed" | "cancelled" | "live" {
+  const lower = s.toLowerCase();
+  if (lower === "published") return "published";
+  if (lower === "draft") return "draft";
+  if (lower === "completed") return "completed";
+  if (lower === "cancelled" || lower === "canceled") return "cancelled";
+  if (lower === "live") return "live";
+  return "draft";
+}
+
+/** Map an API admin event item to the UI view model. */
+function mapApiAdminEventToUiEvent(item: ApiAdminEvent): Event {
+  const venueName = item.venueName ?? "";
+  const city = item.venueCity ?? "";
+  const location = [venueName, city].filter(Boolean).join(", ");
+
+  return {
+    id: item.id,
+    title: item.title,
+    description: item.description ?? undefined,
+    image: item.heroImageUrl ?? "/placeholder-event.png",
+    date: formatDate(item.startsAt),
+    startsAt: item.startsAt,
+    endsAt: item.endsAt ?? undefined,
+    location: location || "TBA",
+    venue: venueName || undefined,
+    attendeeCount: item.attendeeCount,
+    reservationCount: item.reservationCount,
+    status: normalizeEventStatus(item.status),
+    currency: item.currency.trim(),
+    minPrice: formatPrice(item.minPriceCents, item.currency, item.isFree),
+    isFree: item.isFree,
+    organizerId: item.organizerId,
+    organizerName: item.organizerName ?? undefined,
+    tags: [...item.tags],
+    partyTypes: [...item.partyTypes],
+    musicStyles: [...item.musicStyles],
+    extraServices: [...item.extraServices],
+    songSuggestionsCount: item.songSuggestionsCount,
+    checkedInCount: item.checkedInCount,
+    reviewScore: item.reviewScore,
+    waitlistEnabled: item.waitlistEnabled,
+    approvalMode: item.approvalMode,
+    sharingEnabled: item.sharingEnabled,
+    policies: item.policies.map((p) => ({ title: p.title, description: p.description })),
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Queries
@@ -12,148 +74,68 @@ import { getCurrentUserId } from "@/lib/data/auth";
 
 /** Fetch all events created by the current user, enriched with counts. */
 export async function getEvents() {
-  const sb = await createSupabaseServerClient();
-  const userId = await getCurrentUserId();
-
-  const { data, error } = await sb
-    .from("events")
-    .select(`
-      *,
-      venues ( name, city ),
-      organizers ( name ),
-      event_tags ( tags ( label, type ) )
-    `)
-    .eq("created_by_user_id", userId)
-    .order("starts_at", { ascending: false });
-
-  if (error) throw error;
-
-  const events = (data ?? []) as EventQueryRow[];
-  if (events.length === 0) return mapEvents(events);
-
-  // Enrich events with aggregated counts in parallel
-  const eventIds = events.map((e) => e.id);
-
-  // Fetch aggregated counts in parallel
-  const [songsResult, checkinsResult, reviewsResult, reservationsResult] = await Promise.all([
-    sb.from("event_song_suggestions").select("event_id").in("event_id", eventIds),
-    sb.from("ticket_checkins").select("ticket_id, tickets!inner(event_id)").in("tickets.event_id", eventIds).eq("result", "accepted"),
-    sb.from("event_reviews").select("event_id, rating").in("event_id", eventIds),
-    sb.from("reservations").select("event_id").in("event_id", eventIds).eq("status", "confirmed"),
-  ]);
-
-  const songCounts: Record<string, number> = {};
-  for (const r of (songsResult.data ?? []) as Array<{ event_id: string }>) {
-    songCounts[r.event_id] = (songCounts[r.event_id] ?? 0) + 1;
-  }
-
-  const checkinCounts: Record<string, number> = {};
-  for (const r of (checkinsResult.data ?? []) as Array<{ tickets: { event_id: string } }>) {
-    const eid = r.tickets.event_id;
-    checkinCounts[eid] = (checkinCounts[eid] ?? 0) + 1;
-  }
-
-  const reviewStats: Record<string, number> = {};
-  const reviewGrouped: Record<string, number[]> = {};
-  for (const r of (reviewsResult.data ?? []) as Array<{ event_id: string; rating: number }>) {
-    (reviewGrouped[r.event_id] ??= []).push(r.rating);
-  }
-  for (const [eid, ratings] of Object.entries(reviewGrouped)) {
-    reviewStats[eid] = ratings.reduce((a, b) => a + b, 0) / ratings.length;
-  }
-
-  const reservationCounts: Record<string, number> = {};
-  for (const r of (reservationsResult.data ?? []) as Array<{ event_id: string }>) {
-    reservationCounts[r.event_id] = (reservationCounts[r.event_id] ?? 0) + 1;
-  }
-
-  // Merge counts into event rows
-  for (const event of events) {
-    event._songSuggestionsCount = songCounts[event.id] ?? 0;
-    event._checkedInCount = checkinCounts[event.id] ?? 0;
-    event._reviewScore = reviewStats[event.id] ?? null;
-    // Also set reservationCount on mapped result
-  }
-
-  const mapped = mapEvents(events);
-  for (let i = 0; i < mapped.length; i++) {
-    const event = events[i];
-    const mappedEvent = mapped[i];
-    if (event && mappedEvent) {
-      mappedEvent.reservationCount = reservationCounts[event.id] ?? 0;
-    }
-  }
-
-  return mapped;
+  const { items } = await adminApiCall<ApiItems<ApiAdminEvent>>("/v1/admin/events");
+  return items.map(mapApiAdminEventToUiEvent);
 }
 
 /** Fetch a single event by ID with full relations (only if owned by current user). */
 export async function getEvent(id: string) {
-  const sb = await createSupabaseServerClient();
-  const userId = await getCurrentUserId();
+  const detail = await adminApiCall<ApiAdminEventDetail>(`/v1/admin/events/${id}`);
 
-  const { data, error } = await sb
-    .from("events")
-    .select(`
-      *,
-      venues ( id, name, city, address_line1, region, country_code, timezone, venue_type, lat, lng, capacity ),
-      organizers ( id, name, logo_url, tagline, about, cover_image_url, established_year, is_verified, city, country_code, phone, email, website_url, instagram_handle, facebook_handle, specialties, cancellation_policy, refund_policy ),
-      event_tags ( tags ( id, label, slug, type ) ),
-      ticket_types ( id, name, description, price_cents, currency, benefits, capacity, sales_start_at, sales_end_at, is_free, free_for_ladies )
-    `)
-    .eq("id", id)
-    .eq("created_by_user_id", userId)
-    .single();
-
-  if (error) throw error;
   return {
-    event: mapEvent(data as EventQueryRow),
-    ticketTypes: (data as Record<string, unknown>).ticket_types as Array<{
-      id: string;
-      name: string;
-      description: string | null;
-      price_cents: number;
-      currency: string;
-      benefits: unknown[];
-      capacity: number | null;
-      sales_start_at: string | null;
-      sales_end_at: string | null;
-      is_free: boolean;
-      free_for_ladies: boolean;
-    }>,
-    organizer: (data as Record<string, unknown>).organizers as {
-      id: string;
-      name: string;
-      logo_url: string | null;
-      tagline: string | null;
-      about: string | null;
-      cover_image_url: string | null;
-      established_year: number | null;
-      is_verified: boolean | null;
-      city: string | null;
-      country_code: string | null;
-      phone: string | null;
-      email: string | null;
-      website_url: string | null;
-      instagram_handle: string | null;
-      facebook_handle: string | null;
-      specialties: string[] | null;
-      cancellation_policy: string | null;
-      refund_policy: string | null;
-    } | null,
-    venue: (data as Record<string, unknown>).venues as {
-      id: string;
-      name: string;
-      city: string | null;
-      address_line1: string | null;
-      region: string | null;
-      country_code: string | null;
-      timezone: string | null;
-      venue_type: string | null;
-      lat: number | null;
-      lng: number | null;
-      capacity: number | null;
-    } | null,
+    event: mapApiAdminEventToUiEvent(detail.event),
+    ticketTypes: detail.ticketTypes.map((tt) => ({
+      id: tt.id,
+      name: tt.name,
+      description: tt.description,
+      price_cents: tt.priceCents,
+      currency: tt.currency,
+      benefits: tt.benefits as unknown[],
+      capacity: tt.capacity,
+      sales_start_at: tt.salesStartAt,
+      sales_end_at: tt.salesEndAt,
+      is_free: tt.isFree,
+      free_for_ladies: tt.freeForLadies,
+    })),
+    organizer: detail.organizer
+      ? {
+          id: detail.organizer.id,
+          name: detail.organizer.name,
+          logo_url: detail.organizer.logoUrl,
+          tagline: detail.organizer.tagline,
+          about: detail.organizer.about,
+          cover_image_url: detail.organizer.coverImageUrl,
+          established_year: detail.organizer.establishedYear,
+          is_verified: detail.organizer.isVerified,
+          city: detail.organizer.city,
+          country_code: detail.organizer.countryCode,
+          phone: detail.organizer.phone,
+          email: detail.organizer.email,
+          website_url: detail.organizer.websiteUrl,
+          instagram_handle: detail.organizer.instagramHandle,
+          facebook_handle: detail.organizer.facebookHandle,
+          specialties: detail.organizer.specialties
+            ? [...detail.organizer.specialties]
+            : null,
+          cancellation_policy: detail.organizer.cancellationPolicy,
+          refund_policy: detail.organizer.refundPolicy,
+        }
+      : null,
+    venue: detail.venue
+      ? {
+          id: detail.venue.id,
+          name: detail.venue.name,
+          city: detail.venue.city,
+          address_line1: detail.venue.addressLine1,
+          region: detail.venue.region,
+          country_code: detail.venue.countryCode,
+          timezone: detail.venue.timezone,
+          venue_type: detail.venue.venueType,
+          lat: detail.venue.lat,
+          lng: detail.venue.lng,
+          capacity: detail.venue.capacity,
+        }
+      : null,
   };
 }
 
@@ -163,78 +145,31 @@ export async function getEvent(id: string) {
 
 /** Fetch full analytics overview for a single event (ownership verified). */
 export async function getEventOverview(eventId: string): Promise<EventOverview> {
-  const sb = await createSupabaseServerClient();
-  const userId = await getCurrentUserId();
-
-  // Verify the event belongs to the current user
-  const { data: ownerCheck, error: ownerError } = await sb
-    .from("events")
-    .select("id")
-    .eq("id", eventId)
-    .eq("created_by_user_id", userId)
-    .single();
-  if (ownerError || !ownerCheck) throw new Error("Event not found or access denied");
-
-  const [reservationsResult, songsResult, checkinsResult, reviewsResult, itemsResult] = await Promise.all([
-    sb.from("reservations").select("id, status, total_amount_cents, currency").eq("event_id", eventId),
-    sb.from("event_song_suggestions").select("id").eq("event_id", eventId),
-    sb.from("ticket_checkins").select("id, tickets!inner(event_id)").eq("tickets.event_id", eventId).eq("result", "accepted"),
-    sb.from("event_reviews").select("rating").eq("event_id", eventId),
-    sb.from("reservation_items").select("ticket_type_name_snapshot, quantity, line_total_cents, currency, reservations!inner(event_id, status)").eq("reservations.event_id", eventId).eq("reservations.status", "confirmed").eq("is_removed", false),
-  ]);
-
-  type ReservationAgg = { id: string; status: string; total_amount_cents: number; currency: string };
-  const allReservations = (reservationsResult.data ?? []) as ReservationAgg[];
-  const confirmedReservations = allReservations.filter((r) => r.status === "confirmed");
-  const cancelledReservations = allReservations.filter((r) => r.status === "cancelled");
-
-  const totalRevenueCents = confirmedReservations.reduce((sum, r) => sum + r.total_amount_cents, 0);
-  const currency = confirmedReservations[0]?.currency ?? "USD";
-
-  // Reviews
-  const ratings = ((reviewsResult.data ?? []) as Array<{ rating: number }>).map((r) => r.rating);
-  const reviewScore = ratings.length > 0 ? ratings.reduce((a, b) => a + b, 0) / ratings.length : null;
-
-  // Ticket sales breakdown by type
-  const breakdownMap: Record<string, { sold: number; revenue: number }> = {};
-  for (const item of (itemsResult.data ?? []) as Array<{
-    ticket_type_name_snapshot: string;
-    quantity: number;
-    line_total_cents: number;
-  }>) {
-    const entry = (breakdownMap[item.ticket_type_name_snapshot] ??= { sold: 0, revenue: 0 });
-    entry.sold += item.quantity;
-    entry.revenue += item.line_total_cents;
-  }
-
-  const ticketSalesBreakdown: TicketSalesBreakdown[] = Object.entries(breakdownMap).map(
-    ([name, { sold, revenue }]) => ({
-      ticketTypeName: name,
-      ticketsSold: sold,
-      revenue,
-      revenueFormatted: formatMoney(revenue, currency),
-    }),
+  const overview = await adminApiCall<ApiEventOverview>(
+    `/v1/admin/events/${eventId}/overview`,
   );
 
-  const totalTicketsSold = ticketSalesBreakdown.reduce((sum, b) => sum + b.ticketsSold, 0);
-
-  // Rates
-  const totalBought = confirmedReservations.length + cancelledReservations.length;
-  const cancellationRate = totalBought > 0 ? (cancelledReservations.length / totalBought) * 100 : null;
+  const ticketSalesBreakdown: TicketSalesBreakdown[] =
+    overview.ticketSalesBreakdown.map((b) => ({
+      ticketTypeName: b.ticketTypeName,
+      ticketsSold: b.ticketsSold,
+      revenue: b.revenueCents,
+      revenueFormatted: formatMoney(b.revenueCents, overview.currency),
+    }));
 
   return {
-    eventId,
-    reservationsCount: confirmedReservations.length,
-    songSuggestionsCount: (songsResult.data ?? []).length,
-    checkedInCount: (checkinsResult.data ?? []).length,
-    reviewScore: reviewScore ? Math.round(reviewScore * 10) / 10 : null,
-    reviewCount: ratings.length,
-    totalTicketsSold,
-    totalRevenue: totalRevenueCents,
-    totalRevenueFormatted: formatMoney(totalRevenueCents, currency),
+    eventId: overview.eventId,
+    reservationsCount: overview.reservationsCount,
+    songSuggestionsCount: overview.songSuggestionsCount,
+    checkedInCount: overview.checkedInCount,
+    reviewScore: overview.reviewScore,
+    reviewCount: overview.reviewCount,
+    totalTicketsSold: overview.totalTicketsSold,
+    totalRevenue: overview.totalRevenueCents,
+    totalRevenueFormatted: formatMoney(overview.totalRevenueCents, overview.currency),
     ticketSalesBreakdown,
     conversionRate: null, // requires page view tracking (not yet available)
-    cancellationRate: cancellationRate ? Math.round(cancellationRate * 10) / 10 : null,
+    cancellationRate: overview.cancellationRate,
   };
 }
 
@@ -244,16 +179,13 @@ export async function getEventOverview(eventId: string): Promise<EventOverview> 
 
 /** Fetch all tags for the multi-select dropdown. */
 export async function getTags() {
-  const sb = await createSupabaseServerClient();
-
-  const { data, error } = await sb
-    .from("tags")
-    .select("id, label, slug, type")
-    .order("type")
-    .order("label");
-
-  if (error) throw error;
-  return (data ?? []) as Array<{ id: string; label: string; slug: string; type: string }>;
+  const { items } = await adminApiCall<ApiItems<ApiTag>>("/v1/admin/tags");
+  return items.map((tag) => ({
+    id: tag.id,
+    label: tag.label,
+    slug: tag.slug,
+    type: tag.type,
+  })) as Array<{ id: string; label: string; slug: string; type: string }>;
 }
 
 // ---------------------------------------------------------------------------
@@ -262,18 +194,11 @@ export async function getTags() {
 
 /** Fetch the organizer row owned by the current authenticated user. */
 export async function getOrganizerForCurrentUser() {
-  const sb = await createSupabaseServerClient();
-  const userId = await getCurrentUserId();
-
-  const { data, error } = await sb
-    .from("organizers")
-    .select("id, name")
-    .eq("owner_user_id", userId)
-    .limit(1)
-    .single();
-
-  if (error) throw error;
-  return data as { id: string; name: string };
+  const context = await adminApiCall<ApiAdminContext>("/v1/admin/me/context");
+  if (!context.organizer) {
+    throw new Error("No organizer found for current user");
+  }
+  return { id: context.organizer.id, name: context.organizer.name };
 }
 
 /** Create a venue and return its ID. */
@@ -284,18 +209,17 @@ export async function createVenue(venue: {
   region?: string | null;
   country_code?: string | null;
 }) {
-  const sb = await createSupabaseServerClient();
-
-  const { data, error } = await insertInto(
-    sb,
-    "venues",
-    venue,
-  )
-    .select("id")
-    .single();
-
-  if (error) throw error;
-  return (data as { id: string }).id;
+  const { venueId } = await adminApiCall<{ venueId: string }>("/v1/admin/venues", {
+    method: "POST",
+    body: {
+      name: venue.name,
+      addressLine1: venue.address_line1 ?? null,
+      city: venue.city ?? null,
+      region: venue.region ?? null,
+      countryCode: venue.country_code ?? null,
+    },
+  });
+  return venueId;
 }
 
 // ---------------------------------------------------------------------------
@@ -308,65 +232,56 @@ export async function createEvent(
   ticketTypes: Omit<TicketTypeInsert, "event_id">[],
   tagIds?: string[],
 ) {
-  const sb = await createSupabaseServerClient();
+  const body: ApiCreateEventInput = {
+    title: event.title,
+    description: event.description ?? null,
+    startsAt: event.starts_at,
+    endsAt: event.ends_at ?? null,
+    venueId: event.venue_id ?? null,
+    heroImageUrl: event.hero_image_url ?? null,
+    publish: event.status === "published",
+    currency: event.currency,
+    approvalMode: event.approval_mode as "auto" | "manual" | undefined,
+    sharingEnabled: event.sharing_enabled,
+    policies: event.policies,
+    ticketTiers: ticketTypes.map((tt) => ({
+      name: tt.name,
+      priceCents: tt.price_cents,
+      currency: tt.currency,
+      description: tt.description ?? null,
+      capacity: tt.capacity ?? null,
+      isFree: tt.is_free,
+      freeForLadies: tt.free_for_ladies,
+    })),
+    tagIds,
+  };
 
-  // Insert event
-  const { data: eventData, error: eventError } = await insertInto(
-    sb,
-    "events",
-    event,
-  )
-    .select("id")
-    .single();
-
-  if (eventError) throw eventError;
-  const eventId = (eventData as { id: string }).id;
-
-  // Insert ticket types
-  if (ticketTypes.length > 0) {
-    const { error: ttError } = await insertInto(
-      sb,
-      "ticket_types",
-      ticketTypes.map((tt) => ({ ...tt, event_id: eventId })),
-    );
-    if (ttError) throw ttError;
-  }
-
-  // Insert event tags
-  if (tagIds && tagIds.length > 0) {
-    const { error: tagError } = await insertInto(
-      sb,
-      "event_tags",
-      tagIds.map((tag_id) => ({ event_id: eventId, tag_id })),
-    );
-    if (tagError) throw tagError;
-  }
-
+  const { eventId } = await adminApiCall<{ eventId: string }>("/v1/admin/events", {
+    method: "POST",
+    body,
+  });
   return eventId;
 }
 
-  /** Update an existing event (only if owned by current user). */
+/** Update an existing event (only if owned by current user). */
 export async function updateEvent(id: string, updates: EventUpdate) {
-  const sb = await createSupabaseServerClient();
-  const userId = await getCurrentUserId();
+  const body: Record<string, unknown> = {};
+  if (updates.title !== undefined) body.title = updates.title;
+  if (updates.description !== undefined) body.description = updates.description;
+  if (updates.starts_at !== undefined) body.startsAt = updates.starts_at;
+  if (updates.ends_at !== undefined) body.endsAt = updates.ends_at;
+  if (updates.venue_id !== undefined) body.venueId = updates.venue_id;
+  if (updates.hero_image_url !== undefined) body.heroImageUrl = updates.hero_image_url;
+  if (updates.status !== undefined) body.status = updates.status;
+  if (updates.currency !== undefined) body.currency = updates.currency;
+  if (updates.approval_mode !== undefined) body.approvalMode = updates.approval_mode;
+  if (updates.sharing_enabled !== undefined) body.sharingEnabled = updates.sharing_enabled;
+  if (updates.policies !== undefined) body.policies = updates.policies;
 
-  const { error } = await updateTable(sb, "events", updates)
-    .eq("id", id)
-    .eq("created_by_user_id", userId);
-
-  if (error) throw error;
+  await adminApiCall(`/v1/admin/events/${id}`, { method: "PATCH", body });
 }
 
 /** Delete an event (only if owned by current user). */
 export async function deleteEvent(id: string) {
-  const sb = await createSupabaseServerClient();
-  const userId = await getCurrentUserId();
-
-  const { error } = await sb
-    .from("events")
-    .delete()
-    .eq("id", id)
-    .eq("created_by_user_id", userId);
-
-  if (error) throw error;
+  await adminApiCall<void>(`/v1/admin/events/${id}`, { method: "DELETE" });
 }
