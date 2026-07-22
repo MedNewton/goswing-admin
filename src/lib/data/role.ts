@@ -1,45 +1,21 @@
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { getCurrentUserId } from "@/lib/data/auth";
+import { adminApiCall } from "@/lib/api/client";
+import type { ApiAdminContext } from "@/lib/api/types";
 import type { OrganizerRole } from "@/types/database";
 
 /**
- * Get the current user's dashboard role.
- * Returns "admin" if owner or admin member, "dj" if DJ member.
- * Falls back to "admin" for the organizer owner (backwards compat).
+ * Get the current user's dashboard role via GET /v1/admin/me/context.
+ * Falls back to "admin" on failure (owner may not have a member row yet).
  */
 export async function getUserRole(): Promise<OrganizerRole> {
-  const userId = await getCurrentUserId();
-  const sb = await createSupabaseServerClient();
-
-  const { data, error } = await sb
-    .from("organizer_members")
-    .select("role")
-    .eq("user_id", userId)
-    .limit(1)
-    .maybeSingle();
-
-  if (error) {
-    console.error("[getUserRole] query failed:", error.message);
+  try {
+    const context = await adminApiCall<ApiAdminContext>("/v1/admin/me/context");
+    return context.role;
+  } catch (error) {
+    console.error(
+      "[getUserRole] context fetch failed:",
+      error instanceof Error ? error.message : String(error),
+    );
     // Fall back to admin for safety (owner may not have a member row yet)
     return "admin";
   }
-
-  const row = data as { role: string } | null;
-
-  if (!row) {
-    // No member row — check if user is an organizer owner (legacy/pre-migration)
-    const { data: orgData } = await sb
-      .from("organizers")
-      .select("id")
-      .eq("owner_user_id", userId)
-      .limit(1)
-      .maybeSingle();
-
-    return orgData ? "admin" : "dj";
-  }
-
-  const validRoles: OrganizerRole[] = ["admin", "dj", "entrance_manager", "finance_manager"];
-  return validRoles.includes(row.role as OrganizerRole)
-    ? (row.role as OrganizerRole)
-    : "admin";
 }
