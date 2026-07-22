@@ -1,0 +1,4566 @@
+{
+	"info": {
+		"name": "Gooswing API — Staging",
+		"description": "Collection de test pour les 7 routes /v1/events* du module goswing (staging).\n\nAuth Clerk JWT auto-minté à chaque requête via pre-request script.\nNécessite l'environnement 'Gooswing staging' importé en parallèle.\n\nDocs spec : C:\\Users\\X1\\Documents\\GoSwing\\odoo-api-spec\\routes\\events.json\nRapport tests : clients/goosw/cr/rapport-test-api-events-2026-05-18.html",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{jwt}}",
+				"type": "string"
+			}
+		]
+	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Auto-mint d'un JWT Clerk frais avant chaque requête.",
+					"// Postman ne wait pas les callbacks pm.sendRequest nested → on utilise",
+					"// async/await + IIFE pour FORCER Postman à attendre la fin du flow",
+					"// avant d'envoyer la requête principale.",
+					"//",
+					"// Env vars requis :",
+					"//   clerk_secret        — sk_test_... (Dashboard Clerk → API Keys)",
+					"//   clerk_test_user_id  — Clerk user ID cible",
+					"//",
+					"// Si quelque chose plante : View → Show Postman Console (Ctrl+Alt+C)",
+					"",
+					"const secret = pm.environment.get('clerk_secret');",
+					"const userId = pm.environment.get('clerk_test_user_id');",
+					"",
+					"if (!secret || secret.includes('REPLACE_')) {",
+					"    throw new Error('clerk_secret env var manque ou contient encore le placeholder REPLACE_. Renseigner sk_test_... depuis le Dashboard Clerk → API Keys → Secret keys.');",
+					"}",
+					"if (!userId) {",
+					"    throw new Error('clerk_test_user_id env var manque. Dashboard Clerk → Users → copie l\\'ID du user de test.');",
+					"}",
+					"",
+					"const send = (opts) => new Promise((resolve, reject) => {",
+					"    pm.sendRequest(opts, (err, res) => {",
+					"        if (err) return reject(err);",
+					"        if (res.code !== 200) {",
+					"            return reject(new Error('HTTP ' + res.code + ': ' + (res.text() || '').substring(0, 200)));",
+					"        }",
+					"        resolve(res);",
+					"    });",
+					"});",
+					"",
+					"const headers = {",
+					"    'Authorization': 'Bearer ' + secret,",
+					"    'Content-Type': 'application/json',",
+					"    'User-Agent': 'Postman-OPTIDEEP/1.0'",
+					"};",
+					"",
+					"// Pattern : await chain dans IIFE async — Postman attend la résolution finale",
+					"await (async () => {",
+					"    const sessionRes = await send({",
+					"        url: 'https://api.clerk.com/v1/sessions',",
+					"        method: 'POST',",
+					"        header: headers,",
+					"        body: { mode: 'raw', raw: JSON.stringify({ user_id: userId }) }",
+					"    });",
+					"    const sessionId = sessionRes.json().id;",
+					"",
+					"    const tokenRes = await send({",
+					"        url: 'https://api.clerk.com/v1/sessions/' + sessionId + '/tokens',",
+					"        method: 'POST',",
+					"        header: headers",
+					"    });",
+					"",
+					"    pm.environment.set('jwt', tokenRes.json().jwt);",
+					"    console.log('[Gooswing] Fresh JWT minté pour ' + userId + ' (session ' + sessionId + ')');",
+					"})();"
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "https://web.gooswing.com",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "0. (Manual) Refresh JWT now",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{clerk_secret}}"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "User-Agent",
+						"value": "Postman-OPTIDEEP/1.0"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"user_id\": \"{{clerk_test_user_id}}\"}"
+				},
+				"url": {
+					"raw": "https://api.clerk.com/v1/sessions",
+					"host": [
+						"api",
+						"clerk",
+						"com"
+					],
+					"path": [
+						"v1",
+						"sessions"
+					]
+				},
+				"description": "Fallback manuel si le pre-request script auto-mint plante. Clic Send → tu vois la response avec le session id. La Tests-script enchaîne automatiquement avec /v1/sessions/<id>/tokens et stocke le JWT dans la variable d'env. Après ça, les requêtes #1-7 marchent."
+			},
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"// Cette requête principale crée la session. Le Tests script fait",
+							"// le 2e call (mint token) et stocke le JWT.",
+							"if (pm.response.code !== 200) {",
+							"    console.error('[Gooswing] /v1/sessions failed:', pm.response.text());",
+							"    return;",
+							"}",
+							"const sessionId = pm.response.json().id;",
+							"console.log('[Gooswing] Session créée :', sessionId);",
+							"",
+							"pm.sendRequest({",
+							"    url: 'https://api.clerk.com/v1/sessions/' + sessionId + '/tokens',",
+							"    method: 'POST',",
+							"    header: {",
+							"        'Authorization': 'Bearer ' + pm.environment.get('clerk_secret'),",
+							"        'Content-Type': 'application/json',",
+							"        'User-Agent': 'Postman-OPTIDEEP/1.0'",
+							"    }",
+							"}, (err, res) => {",
+							"    if (err || res.code !== 200) {",
+							"        console.error('[Gooswing] /tokens failed:', err || res.text());",
+							"        return;",
+							"    }",
+							"    const jwt = res.json().jwt;",
+							"    pm.environment.set('jwt', jwt);",
+							"    console.log('[Gooswing] JWT stocké dans env.jwt (' + jwt.substring(0, 30) + '...)');",
+							"});"
+						]
+					}
+				}
+			]
+		},
+		{
+			"name": "Phase 1 — Events (live sur main)",
+			"description": "Les 7 routes /v1/events* livrees par le sprint S18 (avant Phase 2). Toutes en GET, toutes authentifiees Clerk JWT (auto-minte via le pre-request script du parent collection). Voir routes/events.json pour le contrat detaille.",
+			"item": [
+				{
+					"name": "1. List published events",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/events",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"events"
+							]
+						},
+						"description": "Spec : GET /v1/events — Liste tous les events publiés, triés par date_begin ascendant. Pas de query params."
+					}
+				},
+				{
+					"name": "2. Event detail (by UUID or slug)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/events/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"events",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "cafe-hafa-sunset-live",
+									"description": "UUID (gw_external_id) ou slug (gw_slug). Exemples seedés : tanjazz-festival, cap-spartel-beach-dj-sunset, asilah-acoustic-night, tetouan-andalusian-night, cafe-hafa-sunset-live, tangerine-late-night-house, movenpick-rooftop-lounge"
+								}
+							]
+						},
+						"description": "Spec : GET /v1/events/:id — résolution UUID puis fallback slug."
+					}
+				},
+				{
+					"name": "3. Ticket types for event",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/events/:id/ticket-types",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"events",
+								":id",
+								"ticket-types"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "tanjazz-festival",
+									"description": "UUID ou slug de l'event"
+								}
+							]
+						},
+						"description": "Spec : GET /v1/events/:id/ticket-types — tickets dans la fenêtre de vente courante (sales_start_at <= now <= sales_end_at)."
+					}
+				},
+				{
+					"name": "4. Events by organizer",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/organizers/:organizerId/events?limit=5",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"organizers",
+								":organizerId",
+								"events"
+							],
+							"query": [
+								{
+									"key": "limit",
+									"value": "5",
+									"description": "Default 5, min 1, max 50"
+								},
+								{
+									"key": "exclude",
+									"value": "",
+									"description": "UUID d'event à exclure (ex. l'event courant qu'on est en train de regarder)",
+									"disabled": true
+								}
+							],
+							"variable": [
+								{
+									"key": "organizerId",
+									"value": "REPLACE_WITH_UUID_FROM_/v1/events_response",
+									"description": "UUID de l'organisateur (champ organizerId du payload Event). Récupère-le en lançant d'abord la requête #1."
+								}
+							]
+						},
+						"description": "Spec : GET /v1/organizers/:organizerId/events — mini-cards des events de l'organisateur."
+					}
+				},
+				{
+					"name": "5. Similar events",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/events/:id/similar?limit=5",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"events",
+								":id",
+								"similar"
+							],
+							"query": [
+								{
+									"key": "limit",
+									"value": "5",
+									"description": "Default 5, min 1, max 50"
+								}
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "cap-spartel-beach-dj-sunset",
+									"description": "Events similaires : même gw_category sinon fallback tags."
+								}
+							]
+						},
+						"description": "Spec : GET /v1/events/:id/similar — category-first, fallback tags."
+					}
+				},
+				{
+					"name": "6. Upcoming by venue and/or organizer",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/events/upcoming-by-venue-or-organizer?organizerId=&venueId=&limit=20",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"events",
+								"upcoming-by-venue-or-organizer"
+							],
+							"query": [
+								{
+									"key": "organizerId",
+									"value": "",
+									"description": "UUID organisateur (optionnel SI venueId est passé)"
+								},
+								{
+									"key": "venueId",
+									"value": "",
+									"description": "UUID venue (optionnel SI organizerId est passé)"
+								},
+								{
+									"key": "exclude",
+									"value": "",
+									"description": "UUID d'event à exclure",
+									"disabled": true
+								},
+								{
+									"key": "limit",
+									"value": "20",
+									"description": "Default 20, min 1, max 100"
+								}
+							]
+						},
+						"description": "Spec : GET /v1/events/upcoming-by-venue-or-organizer — union deduped venue + organizer.\n\n⚠️ Au moins UN des deux (organizerId / venueId) est requis, sinon 400 validation_failed."
+					}
+				},
+				{
+					"name": "7. Event attendees",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/events/:id/attendees?limit=20",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"events",
+								":id",
+								"attendees"
+							],
+							"query": [
+								{
+									"key": "limit",
+									"value": "20",
+									"description": "Default 20, min 1, max 100"
+								}
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "tanjazz-festival",
+									"description": "UUID event (pas de fallback slug ici)"
+								}
+							]
+						},
+						"description": "Spec : GET /v1/events/:id/attendees — { attendees, totalCount }. Distinct users (par clerk_user_id) avec réservations confirmed/completed."
+					}
+				}
+			]
+		},
+		{
+			"name": "Phase 2 / Slice A — Profile + Settings (PR #8-#9-#10-#11, S23)",
+			"description": "Routes /v1/me/profile* (#140) et /v1/me/settings (#141). Toutes les routes utilisent le sub du JWT comme identité (clerk_user_id) — JAMAIS depuis le body. Ordre naturel d'exécution :\n\n8. POST /v1/me/profile/init    → crée le profile + settings + notif prefs\n9. POST /v1/me/profile/onboarding-complete → seed phone + toggles initiaux\n10. GET  /v1/me/profile         → lecture profil + stats + interests\n11. PATCH /v1/me/profile        → mise à jour partielle\n12. GET  /v1/me/settings        → lecture des 6 toggles rapides\n13. PATCH /v1/me/settings       → mise à jour partielle d'1 ou N toggles\n14. POST /v1/me/profile/deactivate → soft-suspend (409 si déjà)\n15. POST /v1/me/profile/delete  → soft-delete (409 si déjà)",
+			"item": [
+				{
+					"name": "8. (Profile) POST /v1/me/profile/init",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"displayName\": \"Med Ben\",\n  \"email\": \"med@example.com\",\n  \"phone\": \"+212600000000\",\n  \"avatarUrl\": \"https://cdn.gooswing.com/avatars/test.jpg\",\n  \"location\": \"Tangier\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/me/profile/init",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"me",
+								"profile",
+								"init"
+							]
+						},
+						"description": "Spec §C.2 — upsert idempotent.\n\n* Crée res.partner (gw_clerk_user_id = JWT.sub, gw_role='user') si absent.\n* Crée res.users lié au partner si absent.\n* Seed les rows goswing.user_settings + goswing.notification_preferences avec defaults model.\n* Tous les champs du body sont OPTIONNELS. Body vide = utiliser le sub Clerk comme nom de fallback.\n* Second appel ne réécrit AUCUN champ existant (idempotence stricte)."
+					}
+				},
+				{
+					"name": "9. (Profile) POST /v1/me/profile/onboarding-complete",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"phone\": \"+212600000000\",\n  \"location\": \"Tangier\",\n  \"pushNotificationsEnabled\": true,\n  \"locationServicesEnabled\": false\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/me/profile/onboarding-complete",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"me",
+								"profile",
+								"onboarding-complete"
+							]
+						},
+						"description": "Spec §C.4 — patch phone + location sur partner + push/location toggles sur settings en 1 transaction.\n\nRetourne { profile, settings } camelCase."
+					}
+				},
+				{
+					"name": "10. (Profile) GET /v1/me/profile",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/me/profile",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"me",
+								"profile"
+							]
+						},
+						"description": "Spec §C.1 — retourne le profile complet (16 champs) + interests[] (Many2many tags) + stats { attendedCount, savedCount, reviewsCount } computed via 3 search_counts sur event_attendance(status='going') / event_favorite / event_review.\n\n404 not_found si aucun profile pour ce JWT sub (appel POST /init manquant)."
+					}
+				},
+				{
+					"name": "11. (Profile) PATCH /v1/me/profile",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"occupation\": \"Designer\",\n  \"city\": \"Tangier\",\n  \"countryCode\": \"MA\",\n  \"profileVisibility\": \"public\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/me/profile",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"me",
+								"profile"
+							]
+						},
+						"description": "Spec §C.3 — partial update, n'importe quel sous-ensemble de {displayName, avatarUrl, email, phone, phoneVerified, city, countryCode, occupation, profileVisibility}.\n\nValidations :\n- displayName : non-empty string\n- email : RFC-5321 loose + max 320 chars\n- phone : E.164 (+<8..15 digits>)\n- countryCode : ISO-3166-1 alpha-2 (existe dans res.country)\n- profileVisibility : 'public' | 'private'\n- Clé inconnue → 400 validation_failed avec details.field"
+					}
+				},
+				{
+					"name": "12. (Settings) GET /v1/me/settings",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/me/settings",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"me",
+								"settings"
+							]
+						},
+						"description": "Spec §D.1 — retourne les 6 booleans : pushNotificationsEnabled, locationServicesEnabled, loginNotificationsEnabled, savePaymentInfo, autoReloadWallet, emailReceipts + userId (Clerk sub) + createdAt/updatedAt.\n\nLazy-init : si la row n'existe pas encore (cas /init pas appelé), elle est créée avec les defaults model (push=True, emailReceipts=True, autres=False)."
+					}
+				},
+				{
+					"name": "13. (Settings) PATCH /v1/me/settings",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"pushNotificationsEnabled\": false,\n  \"autoReloadWallet\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/me/settings",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"me",
+								"settings"
+							]
+						},
+						"description": "Spec §D.2 — partial update sur n'importe quel sous-ensemble des 6 booleans.\n\nValidations :\n- Valeurs non-boolean (\"true\", 1, 0) → 400 validation_failed avec details.field\n- Clé inconnue → 400 validation_failed avec details.field\n- Body vide → no-op (200 avec l'état courant)"
+					}
+				},
+				{
+					"name": "14. (Profile) POST /v1/me/profile/deactivate",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/me/profile/deactivate",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"me",
+								"profile",
+								"deactivate"
+							]
+						},
+						"description": "Spec §C.5 — accountStatus → deactivated. Pas de body.\n\nSet gw_account_status='suspended' + gw_deactivated_at=now.\n409 conflict si déjà deactivated ou deleted (details.currentStatus).\n\nReprise possible côté Clerk (out of scope ici)."
+					}
+				},
+				{
+					"name": "15. (Profile) POST /v1/me/profile/delete",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/me/profile/delete",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"me",
+								"profile",
+								"delete"
+							]
+						},
+						"description": "Spec §C.6 — accountStatus → deleted. Pas de body.\n\n⚠️ Cette PR ship le MINIMUM : set gw_account_status='deleted' + gw_deleted_at=now.\n\nLes cascading actions (cancel reservations futures, soft-delete reviews/songs/stories, wipe payment methods) sont volontairement différées à une tâche dédiée (touchent 5+ models, méritent leur propre observabilité + transaction story).\n\n409 conflict si déjà deleted."
+					}
+				},
+				{
+					"name": "16. (Notif Prefs) GET /v1/me/notification-preferences",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/me/notification-preferences",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"me",
+								"notification-preferences"
+							]
+						},
+						"description": "Spec §E.1 — retourne 16 booleans (5 push, 5 email, 3 sms, 2 misc, 1 quiet hours master) + quietHoursStart/End (HH:MM 24h ou null) + userId + createdAt/updatedAt.\n\nLazy-init : si la row n'existe pas, créée avec les defaults model alignés sur spec §E.1 (post-#144). Notamment : pushEnabled=true (et 4 push sub all true), emailEnabled=true + weeklyDigest/eventInvites true, promotions/newsletter false, smsEnabled=false + urgentUpdates false + eventCancellations true, personalizedAds=true, locationBasedSuggestions=true, quietHoursEnabled=false + start/end null."
+					}
+				},
+				{
+					"name": "17. (Notif Prefs) PATCH /v1/me/notification-preferences",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"smsEnabled\": true,\n  \"emailNewsletter\": true,\n  \"quietHoursEnabled\": true,\n  \"quietHoursStart\": \"22:30\",\n  \"quietHoursEnd\": \"08:00\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/me/notification-preferences",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"me",
+								"notification-preferences"
+							]
+						},
+						"description": "Spec §E.2 — partial update sur n'importe quel sous-ensemble des 16 booleans + 2 strings.\n\nValidations :\n- Booleans : isinstance bool strict, rejette 'true'/0/1 → 400 validation_failed\n- quietHoursStart/End : regex ^([01]\\d|2[0-3]):[0-5]\\d$ ou null\n- Si l'état RESULTANT (payload + row existante) a quietHoursEnabled=true,   alors quietHoursStart ET quietHoursEnd doivent etre non-null (400 avec details.field)\n- PATCH {quietHoursEnabled: false} clear automatiquement start/end (UX disable = reset)\n- Clé inconnue → 400 validation_failed avec details.field\n\nExemples de bodies à tester :\n- Activer quiet hours valide : ce body par défaut\n- Quiet hours sans start : {\"quietHoursEnabled\": true} → 400 details.field=quietHoursStart\n- Format invalide : {\"quietHoursStart\": \"25:99\"} → 400 details.field=quietHoursStart\n- Disable + auto-clear : {\"quietHoursEnabled\": false} → start/end ramenes à null\n- Boolean wrong type : {\"smsEnabled\": \"true\"} → 400 details.field=smsEnabled"
+					}
+				}
+			]
+		},
+		{
+			"name": "Phase 2 / Slice B + F — Organizers + Follows + Reservations + Access (PR #14-#19, S24)",
+			"description": "Routes /v1/organizers/* (#146), /v1/me/followed-organizers/* (#147), /v1/reservations* (#148+#149), /v1/events/:id/my-access (#150). Stackées au-dessus de #145 (infra : idempotency middleware, gw_followers_count compute, QR helper).\n\nORDRE NATUREL POUR TESTER (FLOW MOBILE END-TO-END) :\n1. GET /v1/events (Phase 1) → récupère un eventId/slug + organizerId\n16-19. GET /v1/organizers/:id*  → profil organizer + gallery + reviews\n20. PUT /v1/me/followed-organizers/:id → follow\n22. GET /v1/me/followed-organizers → vérifier persistence\n21. DELETE /v1/me/followed-organizers/:id → unfollow\n3. GET /v1/events/:id/ticket-types (Phase 1) → récupère ticketTypeId(s)\n23. POST /v1/reservations + header Idempotency-Key (auto-mint via {{$randomUUID}})\n24. GET /v1/me/reservations?include=qr → liste avec QR\n25. GET /v1/reservations/:id → detail + QR + holder\n26. GET /v1/events/:id/my-access → progress card statut\n\nSTAGING : actuellement sur feature/OPT-GOOSW-26-task-150-* qui empile #145+#147+#146+#148+#149+#150. Tous les 11 endpoints sont live. Quand les 6 PRs sont mergées (par toi), le VPS bascule sur main et les routes restent identiques.",
+			"item": [
+				{
+					"name": "16. (Organizer) GET /v1/organizers/:id  — full profile",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/organizers/:organizerId",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"organizers",
+								":organizerId"
+							],
+							"variable": [
+								{
+									"key": "organizerId",
+									"value": "REPLACE_WITH_ORG_UUID",
+									"description": "UUID (gw_external_id) de l'organisateur. Récupère-le depuis le champ organizerId d'un Event renvoyé par /v1/events."
+								}
+							]
+						},
+						"description": "Spec §I.1 — full organizer profile + 6 stats computed live + isFollowing (calculé contre le JWT sub).\n\nStats : avgRating, reviewCount, eventCount, followerCount (depuis gw_followers_count, compute field de #145), totalAttendees, successRate (events_with_attendance / total_events × 100).\n\n404 si organizer absent."
+					}
+				},
+				{
+					"name": "17. (Organizer) GET /v1/organizers/:id/summary  — compact",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/organizers/:organizerId/summary",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"organizers",
+								":organizerId",
+								"summary"
+							],
+							"variable": [
+								{
+									"key": "organizerId",
+									"value": "REPLACE_WITH_ORG_UUID"
+								}
+							]
+						},
+						"description": "Spec §I.2 — payload léger pour EventDetailsPage : organizerId, logoUrl, followerCount, avgRating, isFollowing, cancellationPolicy, refundPolicy."
+					}
+				},
+				{
+					"name": "18. (Organizer) GET /v1/organizers/:id/gallery  — cursor-paginated",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/organizers/:organizerId/gallery?limit=50",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"organizers",
+								":organizerId",
+								"gallery"
+							],
+							"query": [
+								{
+									"key": "limit",
+									"value": "50",
+									"description": "1..100, défaut 50"
+								},
+								{
+									"key": "cursor",
+									"value": "",
+									"description": "Opaque base64 — page 2+",
+									"disabled": true
+								}
+							],
+							"variable": [
+								{
+									"key": "organizerId",
+									"value": "REPLACE_WITH_ORG_UUID"
+								}
+							]
+						},
+						"description": "Spec §I.3 — items {id, imageUrl, caption, createdAt, mediaType: 'image'|'video'} triés sort_order asc puis createdAt desc.\n\nResponse : {items, nextCursor, hasMore}."
+					}
+				},
+				{
+					"name": "19. (Organizer) GET /v1/organizers/:id/reviews  — cross-event aggregate",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/organizers/:organizerId/reviews?limit=50",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"organizers",
+								":organizerId",
+								"reviews"
+							],
+							"query": [
+								{
+									"key": "limit",
+									"value": "50",
+									"description": "1..100, défaut 50"
+								},
+								{
+									"key": "cursor",
+									"value": "",
+									"disabled": true
+								}
+							],
+							"variable": [
+								{
+									"key": "organizerId",
+									"value": "REPLACE_WITH_ORG_UUID"
+								}
+							]
+						},
+						"description": "Spec §I.4 — agrégat reviews cross-events de l'organizer. items {id, userId, userName, userAvatarUrl, rating, comment, eventId, eventTitle, createdAt}.\n\nuserName/userAvatarUrl dénormalisés via join res.partner.gw_clerk_user_id (1 lookup batch par page)."
+					}
+				},
+				{
+					"name": "20. (Follow) PUT /v1/me/followed-organizers/:id  — idempotent follow",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/me/followed-organizers/:organizerId",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"me",
+								"followed-organizers",
+								":organizerId"
+							],
+							"variable": [
+								{
+									"key": "organizerId",
+									"value": "REPLACE_WITH_ORG_UUID"
+								}
+							]
+						},
+						"description": "Spec §J.1 — idempotent. Premier appel = create row. Appels suivants = no-op + return current state.\n\nResponse : {organizerId, isFollowing: true, followedAt, followerCount}.\n\nfollowerCount lit gw_followers_count (compute field stored de #145) → bumpé automatiquement par le create."
+					}
+				},
+				{
+					"name": "21. (Follow) DELETE /v1/me/followed-organizers/:id  — idempotent unfollow",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/me/followed-organizers/:organizerId",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"me",
+								"followed-organizers",
+								":organizerId"
+							],
+							"variable": [
+								{
+									"key": "organizerId",
+									"value": "REPLACE_WITH_ORG_UUID"
+								}
+							]
+						},
+						"description": "Spec §J.2 — idempotent. Pas de body. Response : {organizerId, isFollowing: false, followerCount}."
+					}
+				},
+				{
+					"name": "22. (Follow) GET /v1/me/followed-organizers  — list",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/me/followed-organizers?limit=50",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"me",
+								"followed-organizers"
+							],
+							"query": [
+								{
+									"key": "limit",
+									"value": "50"
+								},
+								{
+									"key": "cursor",
+									"value": "",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Spec §J.3 — items {id, name, logoUrl, followedAt} sorted followedAt desc.\n\nCursor pagination opaque."
+					}
+				},
+				{
+					"name": "23. (Reservations) POST /v1/reservations  — create + Idempotency-Key",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Idempotency-Key",
+								"value": "{{$randomUUID}}",
+								"description": "UUID v4. Same key + same body = replay cached response (24h TTL). Same key + DIFFERENT body = 409 conflict."
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"eventId\": \"REPLACE_WITH_EVENT_UUID_OR_SLUG\",\n  \"quantities\": {\n    \"REPLACE_WITH_TICKET_TYPE_UUID\": 2\n  },\n  \"attendees\": [\n    {\n      \"ticketTypeId\": \"REPLACE_WITH_TICKET_TYPE_UUID\",\n      \"index\": 1,\n      \"firstName\": \"Alice\",\n      \"lastName\": \"Doe\",\n      \"email\": \"alice@example.com\",\n      \"phoneNumber\": \"+212600000001\",\n      \"dietaryRestrictions\": \"vegetarian\"\n    },\n    {\n      \"ticketTypeId\": \"REPLACE_WITH_TICKET_TYPE_UUID\",\n      \"index\": 2,\n      \"firstName\": \"Bob\",\n      \"lastName\": \"Doe\",\n      \"email\": \"bob@example.com\"\n    }\n  ],\n  \"billing\": {\n    \"email\": \"alice@example.com\",\n    \"firstName\": \"Alice\",\n    \"lastName\": \"Doe\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/reservations",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"reservations"
+							]
+						},
+						"description": "Spec §L.1 — LA route la plus complexe Phase 2.\n\nValidations server-side :\n- 404 si eventId inconnu\n- 400 si ticketTypeId inconnu (details.field='quantities', details.ticketTypeId=X)\n- 422 outside_sales_window (details.reason='outside_sales_window', details.ticketTypeId)\n- 422 sold_out (details.reason='sold_out', details.ticketTypeId)\n- 400 si attendees.length != sum(quantities)\n- 400 si firstName/lastName/email manquant ou email invalide\n- 400 si billing.{email, firstName, lastName} manquant\n\nServer-side pricing depuis event.event.ticket.price (jamais trust body).\n\nIdempotency-Key (§A.7) : header UUID. Replay 24h returns cached response sans duplicate. Body différent + même key = 409 conflict.\n\nApproval mode :\n- event.gw_approval_mode='auto' → status='confirmed' (state='sale')\n- event.gw_approval_mode='manual' → status='pending' (state='sent')\n\nResponse 201 : {reservationId, status, totals: {totalTickets, subtotalCents, serviceFeeCents (0 = Phase 3 placeholder), totalCents, currency}}"
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// gw-autoseed",
+									"const d = pm.response.json() || {};",
+									"if (d.id != null) pm.environment.set('reservationId', d.id);"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "24. (Reservations) GET /v1/me/reservations  — split active/past",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/me/reservations?include=qr&limit=50",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"me",
+								"reservations"
+							],
+							"query": [
+								{
+									"key": "include",
+									"value": "qr",
+									"description": "Set to 'qr' to embed qrValue/qrCaption per ticket"
+								},
+								{
+									"key": "limit",
+									"value": "50",
+									"description": "1..100, applique à active ET past"
+								},
+								{
+									"key": "cursor",
+									"value": "",
+									"description": "Pagine le past array uniquement",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Spec §L.2 — split active/past par event.date_end vs now. Cancelled vont en past.\n\nResponse : {active: [...], past: [...], nextCursor, hasMore}.\n\nChaque item : id, eventId, eventExternalId, status, title, startsAtIso, endsAtIso, venueName, venueCity, currency, totalAmountCents, savingsCents, orderedAt, totalTickets, items[] (line breakdown), tickets[].\n\nAvec ?include=qr : tickets[].qrValue = format GSV1:res=...;tkt=...;n=...;code=... (helper de #145).\n\nCursor pagination opaque appliquée au past array."
+					}
+				},
+				{
+					"name": "25. (Reservations) GET /v1/reservations/:id  — full detail + QR",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/reservations/:reservationId",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"reservations",
+								":reservationId"
+							],
+							"variable": [
+								{
+									"key": "reservationId",
+									"value": "REPLACE_WITH_RESERVATION_UUID",
+									"description": "UUID renvoyé par POST /v1/reservations (champ reservationId de la response)"
+								}
+							]
+						},
+						"description": "Spec §L.3 — full detail. QR + holder TOUJOURS inclus.\n\nResponse : id, status, currency, totalAmountCents, subtotalCents, serviceFeeCents, orderedAt, event {id, externalId, title, startsAtIso, endsAtIso, venueName, venueCity, imageUrl}, items[] (avec benefits snapshot stocké à l'achat), tickets[] (chaque ticket avec qrValue, qrCaption, holder {firstName, lastName, email, phoneNumber}, checkedInAt).\n\nOwnership check : 403 forbidden si pas owner.\n404 si reservationId inconnu.\n\ncheckedInAt = earliest accepted scanned_at sur goswing.ticket_checkin (LEFT JOIN), null si aucun checkin."
+					}
+				},
+				{
+					"name": "26. (Access) GET /v1/events/:id/my-access  — progress card",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/events/:eventId/my-access",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"events",
+								":eventId",
+								"my-access"
+							],
+							"variable": [
+								{
+									"key": "eventId",
+									"value": "tanjazz-festival",
+									"description": "UUID (gw_external_id) ou slug (gw_slug). Spec §M.1 accepte les deux."
+								}
+							]
+						},
+						"description": "Spec §M.1 — powers EventDetailsPage progress card + gating Story/Review/Songs CTAs.\n\nResponse :\n- hasReservation: bool\n- reservationId: UUID|null\n- statusRaw: literal sale.order.gw_status (debug)\n- status: 'none'|'pending'|'confirmed'|'checkedIn'|'cancelled'|'refunded'|'unknown'\n- steps: {ticketsPurchased, reservationConfirmed, checkedIn}\n- canUseCheckedInActions: bool (status === 'checkedIn')\n\nLogique : pick best reservation par status score (checkedIn=3 > confirmed=2 > pending=1 > else=0). 1 accepted checkin override score à 3."
+					}
+				}
+			]
+		},
+		{
+			"name": "Phase 2 / Slice C + D + G — Favorites + Interests + Reviews (PR #20-#22, S26)",
+			"item": [
+				{
+					"name": "25. (Favorites) GET /v1/me/favorites  — list cursor-paginated",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/me/favorites",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"me",
+								"favorites"
+							],
+							"query": [
+								{
+									"key": "limit",
+									"value": "20",
+									"disabled": true
+								},
+								{
+									"key": "cursor",
+									"value": "",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Spec §K.1 — favorited events for the current user, cursor-paginated.\n\nItems denormalize event title, organizer, venue, city, image, price label."
+					}
+				},
+				{
+					"name": "26. (Favorites) GET /v1/me/favorites/ids  — compact id list",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/me/favorites/ids",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"me",
+								"favorites",
+								"ids"
+							]
+						},
+						"description": "Spec §K.2 — compact `{eventIds: [...]}` listing for client-side heart-icon hydration. No pagination envelope."
+					}
+				},
+				{
+					"name": "27. (Favorites) PUT /v1/me/favorites/:eventId  — idempotent favorite",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/me/favorites/:eventId",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"me",
+								"favorites",
+								":eventId"
+							],
+							"variable": [
+								{
+									"key": "eventId",
+									"value": "REPLACE_WITH_EVENT_UUID_OR_SLUG",
+									"description": "gw_external_id (UUID) ou slug."
+								}
+							]
+						},
+						"description": "Spec §K.3 — favorite an event. Idempotent: a second PUT is a no-op.\n\nResponse: `{eventId, favorite: true, favoritedAt}`."
+					}
+				},
+				{
+					"name": "28. (Favorites) DELETE /v1/me/favorites/:eventId  — idempotent unfavorite",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/me/favorites/:eventId",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"me",
+								"favorites",
+								":eventId"
+							],
+							"variable": [
+								{
+									"key": "eventId",
+									"value": "REPLACE_WITH_EVENT_UUID_OR_SLUG"
+								}
+							]
+						},
+						"description": "Spec §K.4 — unfavorite. Idempotent — returns favorite=false even if the row did not exist."
+					}
+				},
+				{
+					"name": "29. (Tags) GET /v1/tags  — catalog of available interest tags",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/tags",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"tags"
+							]
+						},
+						"description": "Spec §L.1 — list of tags the user can pick as interests. Returned with emoji + category. Cached by frontend (catalog rarely changes)."
+					}
+				},
+				{
+					"name": "30. (Interests) GET /v1/me/interests  — current user's tags",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/me/interests",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"me",
+								"interests"
+							]
+						},
+						"description": "Spec §L.2 — `{items: [...]}` of the user's interest tags."
+					}
+				},
+				{
+					"name": "31. (Interests) PUT /v1/me/interests  — replace full set",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/me/interests",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"me",
+								"interests"
+							]
+						},
+						"description": "Spec §L.3 — atomically replace the full interest set with the `tagIds` array provided. Overrides any prior single-tag POST/DELETE state.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"tagIds\": [\n    \"tag-music\",\n    \"tag-cinema\"\n  ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					}
+				},
+				{
+					"name": "32. (Interests) POST /v1/me/interests/:tagId  — add single tag",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/me/interests/:tagId",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"me",
+								"interests",
+								":tagId"
+							],
+							"variable": [
+								{
+									"key": "tagId",
+									"value": "tag-music"
+								}
+							]
+						},
+						"description": "Spec §L.4 — add one tag to the current set. Idempotent: a second POST is a no-op (no duplicate row)."
+					}
+				},
+				{
+					"name": "33. (Interests) DELETE /v1/me/interests/:tagId  — remove single tag",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/me/interests/:tagId",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"me",
+								"interests",
+								":tagId"
+							],
+							"variable": [
+								{
+									"key": "tagId",
+									"value": "tag-music"
+								}
+							]
+						},
+						"description": "Spec §L.5 — remove one tag from the current set. Idempotent."
+					}
+				},
+				{
+					"name": "34. (Reviews) POST /v1/events/:eventId/reviews  — submit review",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Idempotency-Key",
+								"value": "review-{{$randomUUID}}",
+								"disabled": true
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/events/:eventId/reviews",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"events",
+								":eventId",
+								"reviews"
+							],
+							"variable": [
+								{
+									"key": "eventId",
+									"value": "REPLACE_WITH_EVENT_UUID"
+								}
+							]
+						},
+						"description": "Spec §N.1 — submit a review. Eligibility: must have a confirmed/completed reservation on this event (403 `review_not_eligible` otherwise). One review per (user, event) — 409 on duplicate.\n\nHonors Idempotency-Key.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"rating\": 5,\n  \"comment\": \"Amazing event!\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					}
+				},
+				{
+					"name": "35. (Reviews) GET /v1/events/:eventId/reviews/mine  — single review",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/events/:eventId/reviews/mine",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"events",
+								":eventId",
+								"reviews",
+								"mine"
+							],
+							"variable": [
+								{
+									"key": "eventId",
+									"value": "REPLACE_WITH_EVENT_UUID"
+								}
+							]
+						},
+						"description": "Spec §N.2 — `{review: ...}` or `{review: null}`."
+					}
+				},
+				{
+					"name": "36. (Reviews) GET /v1/me/reviews  — cursor-paginated + totals",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/me/reviews",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"me",
+								"reviews"
+							],
+							"query": [
+								{
+									"key": "limit",
+									"value": "20",
+									"disabled": true
+								},
+								{
+									"key": "cursor",
+									"value": "",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Spec §N.3 — all the user's reviews (drafts + published), cursor-paginated, with `totals = {publishedCount, draftCount, averageRating}` envelope."
+					}
+				},
+				{
+					"name": "37. (Reviews) PATCH /v1/reviews/:reviewId  — update author-only",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/reviews/:reviewId",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"reviews",
+								":reviewId"
+							],
+							"variable": [
+								{
+									"key": "reviewId",
+									"value": "REPLACE_WITH_REVIEW_UUID"
+								}
+							]
+						},
+						"description": "Spec §N.4 — author only (403 otherwise). Allowed fields: rating, comment. Setting comment to null clears it.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"rating\": 4,\n  \"comment\": \"Edited comment.\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					}
+				},
+				{
+					"name": "38. (Reviews) DELETE /v1/reviews/:reviewId  — delete author-only",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/reviews/:reviewId",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"reviews",
+								":reviewId"
+							],
+							"variable": [
+								{
+									"key": "reviewId",
+									"value": "REPLACE_WITH_REVIEW_UUID"
+								}
+							]
+						},
+						"description": "Spec §N.5 — author only. Returns `{}` (treat as 204)."
+					}
+				}
+			],
+			"description": "S26 — 14 routes across 3 slices.\n\nSlice C (Favorites, §K) : 4 routes.\nSlice D (Tags catalog + Interests, §L) : 5 routes.\nSlice G (Reviews, §N) : 5 routes."
+		},
+		{
+			"name": "Phase 2 / Slice E + H — Payments + Login + Songs + Stories (PR #23-#25, S27)",
+			"item": [
+				{
+					"name": "39. (Payments) GET /v1/me/payment-methods  — list",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/me/payment-methods",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"me",
+								"payment-methods"
+							]
+						},
+						"description": "Spec §F.1 — `{items: [...]}` sorted `isDefault desc, createdAt desc`. Never includes provider tokens, only the opaque `providerPaymentMethodId` + display metadata."
+					}
+				},
+				{
+					"name": "40. (Payments) POST /v1/me/payment-methods  — register card",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Idempotency-Key",
+								"value": "pm-{{$randomUUID}}",
+								"disabled": true
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/me/payment-methods",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"me",
+								"payment-methods"
+							]
+						},
+						"description": "Spec §F.2 — register a card. If `isDefault: true`, demotes the previous default in the same transaction. 409 on duplicate `(user, provider, providerPaymentMethodId)`.\n\nHonors Idempotency-Key.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"provider\": \"stripe\",\n  \"providerPaymentMethodId\": \"pm_test_stripe_42\",\n  \"cardBrand\": \"visa\",\n  \"cardLastFour\": \"4242\",\n  \"cardExpMonth\": 12,\n  \"cardExpYear\": 2030,\n  \"cardholderName\": \"Med Ben\",\n  \"isDefault\": true\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					}
+				},
+				{
+					"name": "41. (Payments) POST /v1/me/payment-methods/:id/default  — promote default",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/me/payment-methods/:paymentMethodId/default",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"me",
+								"payment-methods",
+								":paymentMethodId",
+								"default"
+							],
+							"variable": [
+								{
+									"key": "paymentMethodId",
+									"value": "REPLACE_WITH_PAYMENT_METHOD_UUID"
+								}
+							]
+						},
+						"description": "Spec §F.3 — promote a card to default; atomically demotes the previous default. Idempotent if the target is already default. 404 if id unknown (or owned by another user)."
+					}
+				},
+				{
+					"name": "42. (Payments) DELETE /v1/me/payment-methods/:id  — remove card",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/me/payment-methods/:paymentMethodId",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"me",
+								"payment-methods",
+								":paymentMethodId"
+							],
+							"variable": [
+								{
+									"key": "paymentMethodId",
+									"value": "REPLACE_WITH_PAYMENT_METHOD_UUID"
+								}
+							]
+						},
+						"description": "Spec §F.4 — remove a card. If it was the default and other cards remain, the most-recently-created remaining card is auto-promoted to default."
+					}
+				},
+				{
+					"name": "43. (Login) GET /v1/me/login-history  — cursor-paginated",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/me/login-history",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"me",
+								"login-history"
+							],
+							"query": [
+								{
+									"key": "limit",
+									"value": "20",
+									"disabled": true
+								},
+								{
+									"key": "cursor",
+									"value": "",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Spec §G.1 — login events for the current user, sorted `createdAt desc`. Read-only — the write hook lives in goswing.auth.clerk (not in this US)."
+					}
+				},
+				{
+					"name": "44. (Songs) POST /v1/events/:eventId/song-suggestions  — suggest a Deezer track",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Idempotency-Key",
+								"value": "song-{{$randomUUID}}",
+								"disabled": true
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/events/:eventId/song-suggestions",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"events",
+								":eventId",
+								"song-suggestions"
+							],
+							"variable": [
+								{
+									"key": "eventId",
+									"value": "REPLACE_WITH_EVENT_UUID"
+								}
+							]
+						},
+						"description": "Spec §O.1 — suggest a Deezer track for an event. Eligibility = confirmed reservation (same rule as reviews — 403 `song_not_eligible`). Unique `(user, event, deezerTrackId)` — 409 on duplicate.\n\nHonors Idempotency-Key.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"deezerTrackId\": \"dz-123456\",\n  \"trackTitle\": \"Nuit Tanger\",\n  \"artistName\": \"Nass El Ghiwane\",\n  \"artworkUrl\": \"https://cdn.deezer.com/cover/sample.jpg\",\n  \"deezerLink\": \"https://www.deezer.com/track/123456\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					}
+				},
+				{
+					"name": "45. (Songs) GET /v1/events/:eventId/song-suggestions/mine  — my suggestions",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/events/:eventId/song-suggestions/mine",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"events",
+								":eventId",
+								"song-suggestions",
+								"mine"
+							],
+							"variable": [
+								{
+									"key": "eventId",
+									"value": "REPLACE_WITH_EVENT_UUID"
+								}
+							]
+						},
+						"description": "Spec §O.2 — current user's suggestions for this event, sorted `createdAt desc`. `{items: [...]}`."
+					}
+				},
+				{
+					"name": "46. (Songs) DELETE /v1/song-suggestions/:id  — author only",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/song-suggestions/:suggestionId",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"song-suggestions",
+								":suggestionId"
+							],
+							"variable": [
+								{
+									"key": "suggestionId",
+									"value": "REPLACE_WITH_SUGGESTION_UUID"
+								}
+							]
+						},
+						"description": "Spec §O.3 — remove your own suggestion. 403 if not author."
+					}
+				},
+				{
+					"name": "47. (Stories) POST /v1/events/:eventId/stories  — multipart upload",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/events/:eventId/stories",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"events",
+								":eventId",
+								"stories"
+							],
+							"variable": [
+								{
+									"key": "eventId",
+									"value": "REPLACE_WITH_EVENT_UUID"
+								}
+							]
+						},
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "photo",
+									"type": "file",
+									"src": []
+								},
+								{
+									"key": "meta",
+									"type": "text",
+									"value": "{\"caption\": \"Magic night!\"}"
+								}
+							]
+						},
+						"description": "Spec §P.1 — post a 24h photo story. **multipart/form-data**: 2 parts.\n  - `photo` (file): JPEG/PNG, max 8 MB, max 4096x4096 px.\n  - `meta` (text/JSON): `{caption?, reservationId?}` — caption up to 500 chars.\n\nEligibility = confirmed reservation (403 `story_not_eligible` otherwise). Honors Idempotency-Key. Postman: select the file in the body tab, paste the meta JSON in the `meta` text field."
+					}
+				},
+				{
+					"name": "48. (Stories) GET /v1/events/:eventId/stories  — active stories",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/events/:eventId/stories",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"events",
+								":eventId",
+								"stories"
+							],
+							"variable": [
+								{
+									"key": "eventId",
+									"value": "REPLACE_WITH_EVENT_UUID"
+								}
+							],
+							"query": [
+								{
+									"key": "limit",
+									"value": "20",
+									"disabled": true
+								},
+								{
+									"key": "cursor",
+									"value": "",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Spec §P.2 — active (non-expired) stories for the event, cursor-paginated. Items denormalize `userName` + `userAvatarUrl` from the author's partner."
+					}
+				},
+				{
+					"name": "49. (Stories) GET /v1/events/:eventId/stories/mine  — my active story",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/events/:eventId/stories/mine",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"events",
+								":eventId",
+								"stories",
+								"mine"
+							],
+							"variable": [
+								{
+									"key": "eventId",
+									"value": "REPLACE_WITH_EVENT_UUID"
+								}
+							]
+						},
+						"description": "Spec §P.3 — caller's active story for the event (1 per user per event convention). Returns `{story: null}` when none."
+					}
+				},
+				{
+					"name": "50. (Stories) GET /v1/events/:eventId/stories/count  — count for map pin badges",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/events/:eventId/stories/count",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"events",
+								":eventId",
+								"stories",
+								"count"
+							],
+							"variable": [
+								{
+									"key": "eventId",
+									"value": "REPLACE_WITH_EVENT_UUID"
+								}
+							]
+						},
+						"description": "Spec §P.4 — `{count: int}` for map pin badges. Counts non-expired stories only."
+					}
+				},
+				{
+					"name": "51. (Stories) DELETE /v1/stories/:id  — author only + cleanup",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/stories/:storyId",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"stories",
+								":storyId"
+							],
+							"variable": [
+								{
+									"key": "storyId",
+									"value": "REPLACE_WITH_STORY_UUID"
+								}
+							]
+						},
+						"description": "Spec §P.5 — remove story row AND the underlying ir.attachment in the same transaction. 403 if not author."
+					}
+				}
+			],
+			"description": "S27 — 13 routes across 2 slices. CLOSES Phase 2.\n\nSlice E (Payments + Login history, §F + §G) : 5 routes.\nSlice H (Songs + Stories, §O + §P) : 8 routes.\n\nPhase 2 Gooswing 100% delivered (49 routes total)."
+		},
+		{
+			"name": "Phase 3 / Session, profil & onboarding (60-65)",
+			"item": [
+				{
+					"name": "60 GET context",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/me/context",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"me",
+								"context"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "61 POST provision",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/me/provision",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"me",
+								"provision"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"med@example.com\",\n  \"firstName\": \"Med\",\n  \"lastName\": \"Ben\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "62 GET profile",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/me/profile",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"me",
+								"profile"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "63 PATCH profile",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/me/profile",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"me",
+								"profile"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"displayName\": \"Med Ben\",\n  \"occupation\": \"Event manager\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "64 GET onboarding",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/me/onboarding",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"me",
+								"onboarding"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "65 POST onboarding",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/me/onboarding",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"me",
+								"onboarding"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"personal\": {\n    \"displayName\": \"Med Ben\",\n    \"phone\": \"+212600000000\"\n  },\n  \"organizer\": {\n    \"name\": \"Tanjazz Productions\",\n    \"city\": \"Tangier\",\n    \"countryCode\": \"MA\"\n  },\n  \"venue\": {\n    \"name\": \"Plaza del Toro\",\n    \"city\": \"Tangier\",\n    \"capacity\": 500\n  }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// gw-autoseed",
+									"const d = pm.response.json() || {};",
+									"if (d.organizerId != null) pm.environment.set('organizerId', d.organizerId);",
+									"if (d.venueId != null) pm.environment.set('venueId', d.venueId);"
+								]
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Phase 3 / Organizer & assets (66-72)",
+			"item": [
+				{
+					"name": "66 GET organizer",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/organizer",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"organizer"
+							]
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// gw-autoseed",
+									"const d = pm.response.json() || {};",
+									"if (d.id != null) pm.environment.set('organizerId', d.id);"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "67 PATCH organizer",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/organizer",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"organizer"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"tagline\": \"Best jazz\",\n  \"instagramHandle\": \"tanjazz\",\n  \"specialties\": [\n    \"jazz\",\n    \"festivals\"\n  ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "68 GET organizer gallery",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/organizer/gallery",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"organizer",
+								"gallery"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "69 POST organizer gallery",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/organizer/gallery",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"organizer",
+								"gallery"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"url\": \"https://cdn.gooswing.com/g1.jpg\",\n  \"mediaType\": \"image\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// gw-autoseed",
+									"const d = pm.response.json() || {};",
+									"if (d.id != null) pm.environment.set('galleryItemId', d.id);"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "70 DELETE organizer gallery item",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/organizer/gallery/{{galleryItemId}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"organizer",
+								"gallery",
+								"{{galleryItemId}}"
+							]
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// gw-autoseed",
+									"if (!pm.environment.get('galleryItemId')) throw new Error('Seed {{galleryItemId}} first (run the matching create/list request).');"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "71 GET organizer tags",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/organizer/tags",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"organizer",
+								"tags"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "72 PUT organizer tags",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/organizer/tags",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"organizer",
+								"tags"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"tagIds\": [\n    \"{{tagId}}\"\n  ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Phase 3 / Tags & uploads (73-74, 115)",
+			"item": [
+				{
+					"name": "73 GET tags",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/tags?type=music_style",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"tags"
+							],
+							"query": [
+								{
+									"key": "type",
+									"value": "music_style"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "74 POST tag (get-or-create)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/tags",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"tags"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"type\": \"party_type\",\n  \"label\": \"Rooftop Party\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// gw-autoseed",
+									"const d = pm.response.json() || {};",
+									"if (d.id != null) pm.environment.set('tagId', d.id);"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "115 POST upload (multipart)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "multipart/form-data"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/uploads",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"uploads"
+							]
+						},
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"type": "file",
+									"src": []
+								},
+								{
+									"key": "kind",
+									"value": "eventHero",
+									"type": "text"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Phase 3 / Events CRUD + analytics (75-80, 114)",
+			"item": [
+				{
+					"name": "75 GET events",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/events",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"events"
+							]
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// gw-autoseed",
+									"const d = pm.response.json() || {};",
+									"if (d.items && d.items[0] && d.items[0].id != null) pm.environment.set('eventId', d.items[0].id);"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "76 GET event detail",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/events/{{eventId}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"events",
+								"{{eventId}}"
+							]
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// gw-autoseed",
+									"if (!pm.environment.get('eventId')) throw new Error('Seed {{eventId}} first (run the matching create/list request).');"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "77 GET event overview",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/events/{{eventId}}/overview",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"events",
+								"{{eventId}}",
+								"overview"
+							]
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// gw-autoseed",
+									"if (!pm.environment.get('eventId')) throw new Error('Seed {{eventId}} first (run the matching create/list request).');"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "78 POST event",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/events",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"events"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"title\": \"Tanjazz Festival 2026\",\n  \"startsAt\": \"2026-09-12T20:00:00.000Z\",\n  \"endsAt\": \"2026-09-15T02:00:00.000Z\",\n  \"venueId\": \"{{venueId}}\",\n  \"publish\": true,\n  \"approvalMode\": \"auto\",\n  \"ticketTiers\": [\n    {\n      \"name\": \"Early Bird\",\n      \"priceCents\": 3000,\n      \"capacity\": 100\n    }\n  ],\n  \"tagIds\": [\n    \"{{tagId}}\"\n  ],\n  \"galleryItems\": [\n    {\n      \"url\": \"https://cdn/x.jpg\",\n      \"mediaType\": \"image\"\n    }\n  ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// gw-autoseed",
+									"const d = pm.response.json() || {};",
+									"if (d.eventId != null) pm.environment.set('eventId', d.eventId);"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "79 PATCH event",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/events/{{eventId}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"events",
+								"{{eventId}}"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"title\": \"Tanjazz 2026 (edited)\",\n  \"ticketTiers\": [\n    {\n      \"name\": \"Standard\",\n      \"priceCents\": 5000\n    }\n  ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// gw-autoseed",
+									"if (!pm.environment.get('eventId')) throw new Error('Seed {{eventId}} first (run the matching create/list request).');"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "80 DELETE event",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/events/{{eventId}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"events",
+								"{{eventId}}"
+							]
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// gw-autoseed",
+									"if (!pm.environment.get('eventId')) throw new Error('Seed {{eventId}} first (run the matching create/list request).');"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "114 GET dashboard overview",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/overview",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"overview"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Phase 3 / Venues CRUD + detail (81-89)",
+			"item": [
+				{
+					"name": "81 GET venues",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/venues",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"venues"
+							]
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// gw-autoseed",
+									"const d = pm.response.json() || {};",
+									"if (d.items && d.items[0] && d.items[0].id != null) pm.environment.set('venueId', d.items[0].id);"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "81b GET venues (select)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/venues?view=select",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"venues"
+							],
+							"query": [
+								{
+									"key": "view",
+									"value": "select"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "82 POST venue",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/venues",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"venues"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Plaza del Toro\",\n  \"city\": \"Tangier\",\n  \"venueType\": \"club\",\n  \"capacity\": 500\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// gw-autoseed",
+									"const d = pm.response.json() || {};",
+									"if (d.venueId != null) pm.environment.set('venueId', d.venueId);"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "83 GET venue",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/venues/{{venueId}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"venues",
+								"{{venueId}}"
+							]
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// gw-autoseed",
+									"if (!pm.environment.get('venueId')) throw new Error('Seed {{venueId}} first (run the matching create/list request).');"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "84 PATCH venue",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/venues/{{venueId}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"venues",
+								"{{venueId}}"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"capacity\": 600\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// gw-autoseed",
+									"if (!pm.environment.get('venueId')) throw new Error('Seed {{venueId}} first (run the matching create/list request).');"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "85 DELETE venue",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/venues/{{venueId}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"venues",
+								"{{venueId}}"
+							]
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// gw-autoseed",
+									"if (!pm.environment.get('venueId')) throw new Error('Seed {{venueId}} first (run the matching create/list request).');"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "86 GET venue stats",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/venues/{{venueId}}/stats",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"venues",
+								"{{venueId}}",
+								"stats"
+							]
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// gw-autoseed",
+									"if (!pm.environment.get('venueId')) throw new Error('Seed {{venueId}} first (run the matching create/list request).');"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "87 GET venue events",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/venues/{{venueId}}/events",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"venues",
+								"{{venueId}}",
+								"events"
+							]
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// gw-autoseed",
+									"if (!pm.environment.get('venueId')) throw new Error('Seed {{venueId}} first (run the matching create/list request).');"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "88 GET venue similar",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/venues/{{venueId}}/similar",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"venues",
+								"{{venueId}}",
+								"similar"
+							]
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// gw-autoseed",
+									"if (!pm.environment.get('venueId')) throw new Error('Seed {{venueId}} first (run the matching create/list request).');"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "89 GET venue reviews",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/venues/{{venueId}}/reviews",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"venues",
+								"{{venueId}}",
+								"reviews"
+							]
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// gw-autoseed",
+									"const d = pm.response.json() || {};",
+									"if (d.items && d.items[0] && d.items[0].id != null) pm.environment.set('venueReviewId', d.items[0].id);"
+								]
+							}
+						},
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// gw-autoseed",
+									"if (!pm.environment.get('venueId')) throw new Error('Seed {{venueId}} first (run the matching create/list request).');"
+								]
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Phase 3 / Orders & attendees (90-94)",
+			"item": [
+				{
+					"name": "90 GET orders",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/orders",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"orders"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "91 GET order detail",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/orders/{{orderId}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"orders",
+								"{{orderId}}"
+							]
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// gw-autoseed",
+									"if (!pm.environment.get('orderId')) throw new Error('Seed {{orderId}} first (run the matching create/list request).');"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "92 POST order status",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/orders/{{orderId}}/status",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"orders",
+								"{{orderId}}",
+								"status"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"status\": \"checkedIn\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// gw-autoseed",
+									"if (!pm.environment.get('orderId')) throw new Error('Seed {{orderId}} first (run the matching create/list request).');"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "93 GET attendees",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/attendees",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"attendees"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "94 GET checkin-summary",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/attendees/checkin-summary",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"attendees",
+								"checkin-summary"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Phase 3 / Finance (95-101)",
+			"item": [
+				{
+					"name": "95 GET transactions",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/finance/transactions",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"finance",
+								"transactions"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "96 GET payouts",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/finance/payouts",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"finance",
+								"payouts"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "97 GET payouts upcoming",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/finance/payouts/upcoming",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"finance",
+								"payouts",
+								"upcoming"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "98 GET payment-methods",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/finance/payment-methods",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"finance",
+								"payment-methods"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "99 POST payment-method",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/finance/payment-methods",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"finance",
+								"payment-methods"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"methodType\": \"withdrawal\",\n  \"label\": \"Main bank\",\n  \"isDefault\": true\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// gw-autoseed",
+									"const d = pm.response.json() || {};",
+									"if (d.id != null) pm.environment.set('paymentMethodId', d.id);"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "100 POST payment-method default",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/finance/payment-methods/{{paymentMethodId}}/default",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"finance",
+								"payment-methods",
+								"{{paymentMethodId}}",
+								"default"
+							]
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// gw-autoseed",
+									"if (!pm.environment.get('paymentMethodId')) throw new Error('Seed {{paymentMethodId}} first (run the matching create/list request).');"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "101 DELETE payment-method",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/finance/payment-methods/{{paymentMethodId}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"finance",
+								"payment-methods",
+								"{{paymentMethodId}}"
+							]
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// gw-autoseed",
+									"if (!pm.environment.get('paymentMethodId')) throw new Error('Seed {{paymentMethodId}} first (run the matching create/list request).');"
+								]
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Phase 3 / Reviews, music & team (102-113)",
+			"item": [
+				{
+					"name": "102 GET reviews",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/reviews",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"reviews"
+							]
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// gw-autoseed",
+									"const d = pm.response.json() || {};",
+									"if (d.items && d.items[0] && d.items[0].id != null) pm.environment.set('reviewId', d.items[0].id);"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "103 POST review like-toggle",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/reviews/{{reviewId}}/like-toggle",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"reviews",
+								"{{reviewId}}",
+								"like-toggle"
+							]
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// gw-autoseed",
+									"if (!pm.environment.get('reviewId')) throw new Error('Seed {{reviewId}} first (run the matching create/list request).');"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "104 PUT review reply",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/reviews/{{reviewId}}/reply",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"reviews",
+								"{{reviewId}}",
+								"reply"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"reply\": \"Thank you!\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// gw-autoseed",
+									"if (!pm.environment.get('reviewId')) throw new Error('Seed {{reviewId}} first (run the matching create/list request).');"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "105 DELETE review reply",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/reviews/{{reviewId}}/reply",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"reviews",
+								"{{reviewId}}",
+								"reply"
+							]
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// gw-autoseed",
+									"if (!pm.environment.get('reviewId')) throw new Error('Seed {{reviewId}} first (run the matching create/list request).');"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "106 POST venue-review like-toggle",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/venue-reviews/{{venueReviewId}}/like-toggle",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"venue-reviews",
+								"{{venueReviewId}}",
+								"like-toggle"
+							]
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// gw-autoseed",
+									"if (!pm.environment.get('venueReviewId')) throw new Error('Seed {{venueReviewId}} first (run the matching create/list request).');"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "107 PUT venue-review reply",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/venue-reviews/{{venueReviewId}}/reply",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"venue-reviews",
+								"{{venueReviewId}}",
+								"reply"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"reply\": \"Cheers\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// gw-autoseed",
+									"if (!pm.environment.get('venueReviewId')) throw new Error('Seed {{venueReviewId}} first (run the matching create/list request).');"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "108 GET song-suggestions",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/song-suggestions",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"song-suggestions"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "109 GET team",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/team",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"team"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "110 GET team user-search",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/team/user-search?q=sara",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"team",
+								"user-search"
+							],
+							"query": [
+								{
+									"key": "q",
+									"value": "sara"
+								}
+							]
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// gw-autoseed",
+									"const d = pm.response.json() || {};",
+									"if (d.items && d.items[0] && d.items[0].userId != null) pm.environment.set('candidateClerkId', d.items[0].userId);"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "111 POST team member",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/team",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"team"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"userId\": \"{{candidateClerkId}}\",\n  \"role\": \"entrance_manager\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// gw-autoseed",
+									"const d = pm.response.json() || {};",
+									"if (d.memberId != null) pm.environment.set('memberId', d.memberId);"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "112 PATCH team member",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/team/{{memberId}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"team",
+								"{{memberId}}"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"role\": \"dj\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// gw-autoseed",
+									"if (!pm.environment.get('memberId')) throw new Error('Seed {{memberId}} first (run the matching create/list request).');"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "113 DELETE team member",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{clerk_jwt}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/v1/admin/team/{{memberId}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"admin",
+								"team",
+								"{{memberId}}"
+							]
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// gw-autoseed",
+									"if (!pm.environment.get('memberId')) throw new Error('Seed {{memberId}} first (run the matching create/list request).');"
+								]
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Phase 3 / Discover public (116-127) — no auth",
+			"item": [
+				{
+					"name": "116 GET public events",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/v1/public/events?city=Tangier&limit=50",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"public",
+								"events"
+							],
+							"query": [
+								{
+									"key": "city",
+									"value": "Tangier"
+								},
+								{
+									"key": "limit",
+									"value": "50"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "117 GET public featured",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/v1/public/events/featured",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"public",
+								"events",
+								"featured"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "118 GET public event",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/v1/public/events/{{eventId}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"public",
+								"events",
+								"{{eventId}}"
+							]
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// gw-autoseed",
+									"if (!pm.environment.get('eventId')) throw new Error('Seed {{eventId}} first (run the matching create/list request).');"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "119 GET public event gallery",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/v1/public/events/{{eventId}}/gallery",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"public",
+								"events",
+								"{{eventId}}",
+								"gallery"
+							]
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// gw-autoseed",
+									"if (!pm.environment.get('eventId')) throw new Error('Seed {{eventId}} first (run the matching create/list request).');"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "120 GET public event similar",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/v1/public/events/{{eventId}}/similar",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"public",
+								"events",
+								"{{eventId}}",
+								"similar"
+							]
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// gw-autoseed",
+									"if (!pm.environment.get('eventId')) throw new Error('Seed {{eventId}} first (run the matching create/list request).');"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "125 GET public organizer events",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/v1/public/organizers/{{organizerId}}/events",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"public",
+								"organizers",
+								"{{organizerId}}",
+								"events"
+							]
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// gw-autoseed",
+									"if (!pm.environment.get('organizerId')) throw new Error('Seed {{organizerId}} first (run the matching create/list request).');"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "121 GET public venues",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/v1/public/venues",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"public",
+								"venues"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "122 GET public venue",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/v1/public/venues/{{venueId}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"public",
+								"venues",
+								"{{venueId}}"
+							]
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// gw-autoseed",
+									"if (!pm.environment.get('venueId')) throw new Error('Seed {{venueId}} first (run the matching create/list request).');"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "123 GET public venue events",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/v1/public/venues/{{venueId}}/events",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"public",
+								"venues",
+								"{{venueId}}",
+								"events"
+							]
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// gw-autoseed",
+									"if (!pm.environment.get('venueId')) throw new Error('Seed {{venueId}} first (run the matching create/list request).');"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "124 GET public venue similar",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/v1/public/venues/{{venueId}}/similar",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"public",
+								"venues",
+								"{{venueId}}",
+								"similar"
+							]
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// gw-autoseed",
+									"if (!pm.environment.get('venueId')) throw new Error('Seed {{venueId}} first (run the matching create/list request).');"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "126 GET public cities",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/v1/public/cities",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"public",
+								"cities"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "127 GET public tags",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/v1/public/tags?type=music_style",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"public",
+								"tags"
+							],
+							"query": [
+								{
+									"key": "type",
+									"value": "music_style"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}
