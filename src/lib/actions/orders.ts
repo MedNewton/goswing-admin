@@ -1,7 +1,6 @@
 "use server";
 
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { updateTable } from "@/lib/supabase/mutations";
+import { adminApiCall, isApiError, isNotFound } from "@/lib/api/client";
 import { revalidatePath } from "next/cache";
 
 export type UpdateReservationStatusResult =
@@ -19,17 +18,10 @@ export async function updateReservationStatusAction(
   }
 
   try {
-    const sb = createSupabaseAdminClient();
-
-    const { data, error } = await updateTable(sb, "reservations", { status: newStatus })
-      .eq("id", reservationId)
-      .select("id");
-
-    if (error) throw error;
-
-    if (!data || data.length === 0) {
-      return { success: false, error: "Reservation not found or update not permitted." };
-    }
+    await adminApiCall<{ id: string; status: string }>(
+      `/v1/admin/orders/${reservationId}/status`,
+      { method: "POST", body: { status: newStatus } },
+    );
 
     revalidatePath("/orders");
     revalidatePath("/attendees");
@@ -37,7 +29,14 @@ export async function updateReservationStatusAction(
     return { success: true };
   } catch (err) {
     console.error("updateReservationStatusAction error:", err);
-    const message = err instanceof Error ? err.message : "Failed to update status";
+    if (isNotFound(err)) {
+      return { success: false, error: "Reservation not found or update not permitted." };
+    }
+    const message = isApiError(err)
+      ? err.message
+      : err instanceof Error
+        ? err.message
+        : "Failed to update status";
     return { success: false, error: message };
   }
 }

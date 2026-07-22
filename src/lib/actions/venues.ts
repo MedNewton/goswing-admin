@@ -1,11 +1,13 @@
 "use server";
 
+// Venue server actions — Gooswing REST API backed (see lib/data/venues.ts).
 import { z } from "zod";
 import {
   createVenue,
   updateVenue,
   deleteVenue,
 } from "@/lib/data/venues";
+import { isApiError } from "@/lib/api/client";
 import { revalidatePath } from "next/cache";
 
 // ---------------------------------------------------------------------------
@@ -69,6 +71,28 @@ function normalizeOptionalText(value: string | null | undefined) {
   return null;
 }
 
+/** Map an API validation_failed error to the fieldErrors result shape when possible. */
+function toFailureResult(err: unknown, fallback: string): VenueActionResult {
+  if (isApiError(err)) {
+    if (err.code === "validation_failed") {
+      const details = err.details;
+      const fieldErrors =
+        details && typeof details === "object" && !Array.isArray(details)
+          ? Object.fromEntries(
+              Object.entries(details as Record<string, unknown>).map(([key, value]) => [
+                key,
+                Array.isArray(value) ? value.map(String) : [String(value)],
+              ]),
+            )
+          : undefined;
+      return { success: false, error: err.message, fieldErrors };
+    }
+    return { success: false, error: err.message };
+  }
+  const message = err instanceof Error ? err.message : fallback;
+  return { success: false, error: message };
+}
+
 export async function createVenueAction(
   formData: CreateVenueInput
 ): Promise<VenueActionResult> {
@@ -108,8 +132,7 @@ export async function createVenueAction(
     return { success: true, venueId };
   } catch (err) {
     console.error("createVenueAction error:", err);
-    const message = err instanceof Error ? err.message : "Failed to create venue";
-    return { success: false, error: message };
+    return toFailureResult(err, "Failed to create venue");
   }
 }
 
@@ -152,8 +175,7 @@ export async function updateVenueAction(
     return { success: true, venueId };
   } catch (err) {
     console.error("updateVenueAction error:", err);
-    const message = err instanceof Error ? err.message : "Failed to update venue";
-    return { success: false, error: message };
+    return toFailureResult(err, "Failed to update venue");
   }
 }
 
@@ -180,6 +202,7 @@ export async function deleteVenueAction(
     return { success: true };
   } catch (err) {
     console.error("deleteVenueAction error:", err);
+    // 409 conflict (events still reference the venue) surfaces the API message.
     const message = err instanceof Error ? err.message : "Failed to delete venue";
     return { success: false, error: message };
   }

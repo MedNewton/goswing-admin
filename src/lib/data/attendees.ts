@@ -1,5 +1,9 @@
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { getCurrentUserId } from "@/lib/data/auth";
+import { adminApiCall } from "@/lib/api/client";
+import type {
+  ApiAttendee,
+  ApiCheckinSummaryItem,
+  ApiItems,
+} from "@/lib/api/types";
 import type { Attendee } from "@/types";
 
 /**
@@ -7,80 +11,21 @@ import type { Attendee } from "@/types";
  * for events owned by the current user.
  */
 export async function getAttendees(filters?: { eventId?: string }) {
-  const sb = await createSupabaseServerClient();
+  const { items } = await adminApiCall<ApiItems<ApiAttendee>>(
+    "/v1/admin/attendees",
+    { query: { eventId: filters?.eventId } },
+  );
 
-  let query = sb
-    .from("reservations")
-    .select(`
-      id,
-      user_id,
-      event_id,
-      status,
-      billing_first_name,
-      billing_last_name,
-      billing_email,
-      total_amount_cents,
-      currency,
-      ordered_at,
-      updated_at,
-      events ( title ),
-      reservation_items ( ticket_type_name_snapshot, quantity )
-    `)
-    .eq("status", "checkedIn")
-    .order("updated_at", { ascending: false });
-
-  if (filters?.eventId) {
-    query = query.eq("event_id", filters.eventId);
-  }
-
-  const { data, error } = await query;
-  if (error) throw error;
-
-  type CheckedInRow = {
-    id: string;
-    user_id: string;
-    event_id: string;
-    status: string;
-    billing_first_name: string | null;
-    billing_last_name: string | null;
-    billing_email: string | null;
-    total_amount_cents: number;
-    currency: string;
-    ordered_at: string;
-    updated_at: string;
-    events: { title: string } | null;
-    reservation_items: Array<{ ticket_type_name_snapshot: string; quantity: number }>;
-  };
-
-  return ((data ?? []) as unknown as CheckedInRow[]).map((row): Attendee => {
-    const name =
-      [row.billing_first_name, row.billing_last_name].filter(Boolean).join(" ") ||
-      "Guest";
-
-    let email = "—";
-    if (row.billing_email) {
-      email = row.billing_email;
-    }
-
-    const items = row.reservation_items ?? [];
-    const ticketType =
-      items.length === 1
-        ? items[0]!.ticket_type_name_snapshot
-        : items.length > 1
-          ? items.map((i) => `${i.ticket_type_name_snapshot} x${i.quantity}`).join(", ")
-          : undefined;
-
-    return {
-      id: row.id,
-      name,
-      email,
-      eventId: row.event_id,
-      eventName: row.events?.title ?? "Unknown Event",
-      checkedIn: true,
-      checkInTime: row.updated_at,
-      ticketType,
-    };
-  });
+  return items.map((row): Attendee => ({
+    id: row.reservationId,
+    name: row.name ?? "Guest",
+    email: row.email ?? "—",
+    eventId: row.eventId,
+    eventName: row.eventTitle,
+    checkedIn: true,
+    checkInTime: row.checkedInAt ?? undefined,
+    ticketType: row.ticketSummary ?? undefined,
+  }));
 }
 
 /** Get check-in summary counts per event (only current user's events). */
@@ -93,39 +38,15 @@ export async function getCheckinSummary(): Promise<
     cancelled: number;
   }>
 > {
-  const sb = await createSupabaseServerClient();
-  const userId = await getCurrentUserId();
+  const { items } = await adminApiCall<ApiItems<ApiCheckinSummaryItem>>(
+    "/v1/admin/attendees/checkin-summary",
+  );
 
-  const { data, error } = await sb
-    .from("events")
-    .select(`
-      id,
-      title,
-      reservations ( id, status )
-    `)
-    .eq("created_by_user_id", userId)
-    .order("starts_at", { ascending: false });
-
-  if (error) throw error;
-
-  type EventWithReservations = {
-    id: string;
-    title: string;
-    reservations: Array<{ id: string; status: string }>;
-  };
-
-  return ((data ?? []) as EventWithReservations[])
-    .map((event) => {
-      const reservations = event.reservations ?? [];
-      const checkedIn = reservations.filter((r) => r.status === "checkedIn").length;
-      const cancelled = reservations.filter((r) => r.status === "cancelled").length;
-      return {
-        eventId: event.id,
-        eventName: event.title,
-        totalReservations: reservations.length,
-        checkedIn,
-        cancelled,
-      };
-    })
-    .filter((e) => e.totalReservations > 0);
+  return items.map((item) => ({
+    eventId: item.eventId,
+    eventName: item.eventTitle,
+    totalReservations: item.totalReservations,
+    checkedIn: item.checkedIn,
+    cancelled: item.cancelled,
+  }));
 }

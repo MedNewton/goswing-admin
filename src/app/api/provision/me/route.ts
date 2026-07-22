@@ -1,15 +1,11 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import { env } from "@/env";
-import { provisionUser } from "@/lib/provisioning/userProvisioning";
+import { adminApiCall } from "@/lib/api/client";
+import type { ApiProvisionResult } from "@/lib/api/types";
 
 export const runtime = "nodejs";
 
 export async function POST() {
-  if (!env.SUPABASE_SERVICE_ROLE_KEY) {
-    return NextResponse.json({ ok: true, skipped: true }, { status: 200 });
-  }
-
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ ok: false }, { status: 401 });
@@ -35,14 +31,17 @@ export async function POST() {
   }
 
   try {
-    const result = await provisionUser({
-      userId,
-      email,
-      firstName,
-      lastName,
-      imageUrl,
-    });
-    return NextResponse.json({ ok: true, needsOnboarding: result.needsOnboarding }, { status: 200 });
+    const result = await adminApiCall<ApiProvisionResult>(
+      "/v1/admin/me/provision",
+      {
+        method: "POST",
+        body: { email, firstName, lastName, imageUrl },
+      },
+    );
+    return NextResponse.json(
+      { ok: true, needsOnboarding: result.needsOnboarding },
+      { status: 200 },
+    );
   } catch (error) {
     console.error("[provisioning] self-heal failed", error);
     return NextResponse.json({ ok: false }, { status: 500 });

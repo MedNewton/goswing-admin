@@ -1,54 +1,25 @@
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { adminApiCall } from "@/lib/api/client";
+import type { ApiTransaction, ApiTransactionsResponse } from "@/lib/api/types";
 import type { Transaction } from "@/types";
 import { formatDate, formatMoney } from "@/lib/utils/format";
 
-type ReservationFinanceRow = {
-  id: string;
-  event_id: string;
-  status: string;
-  currency: string;
-  subtotal_cents: number;
-  service_fees_cents: number;
-  tax_cents: number;
-  total_amount_cents: number;
-  ordered_at: string;
-  events: { title: string } | null;
-  reservation_items: Array<{
-    quantity: number;
-    line_total_cents: number;
-    ticket_type_name_snapshot: string;
-  }>;
-};
-
-function normalizeFinanceStatus(s: string): Transaction["status"] {
-  const lower = s.toLowerCase();
-  if (lower === "confirmed" || lower === "checkedin") return "completed";
-  if (lower === "cancelled" || lower === "canceled" || lower === "expired" || lower === "refunded")
-    return "failed";
-  return "pending";
-}
-
-function mapReservationToTransaction(row: ReservationFinanceRow): Transaction {
-  const cur = row.currency.trim();
-  const gross = row.total_amount_cents;
-  const fee = row.service_fees_cents;
-  const net = gross - fee;
-
+function mapApiTransaction(item: ApiTransaction): Transaction {
+  const cur = item.currency.trim();
   return {
-    id: row.id,
-    eventId: row.event_id,
-    eventName: row.events?.title ?? "Unknown Event",
-    grossAmount: gross,
-    platformFee: fee,
-    netAmount: net,
-    grossFormatted: formatMoney(gross, cur),
-    feeFormatted: formatMoney(fee, cur),
-    netFormatted: formatMoney(net, cur),
+    id: item.id,
+    eventId: item.eventId,
+    eventName: item.eventTitle,
+    grossAmount: item.grossCents,
+    platformFee: item.platformFeeCents,
+    netAmount: item.netCents,
+    grossFormatted: formatMoney(item.grossCents, cur),
+    feeFormatted: formatMoney(item.platformFeeCents, cur),
+    netFormatted: formatMoney(item.netCents, cur),
     currency: cur,
-    date: formatDate(row.ordered_at),
-    orderedAt: row.ordered_at,
-    status: normalizeFinanceStatus(row.status),
-    provider: "stripe",
+    date: formatDate(item.orderedAt),
+    orderedAt: item.orderedAt,
+    status: item.status,
+    provider: item.provider,
   };
 }
 
@@ -57,35 +28,12 @@ export async function getTransactions(filters?: {
   eventId?: string;
   status?: string;
 }) {
-  const sb = await createSupabaseServerClient();
-
-  let query = sb
-    .from("reservations")
-    .select(`
-      id,
-      event_id,
-      status,
-      currency,
-      subtotal_cents,
-      service_fees_cents,
-      tax_cents,
-      total_amount_cents,
-      ordered_at,
-      events ( title ),
-      reservation_items ( quantity, line_total_cents, ticket_type_name_snapshot )
-    `)
-    .order("ordered_at", { ascending: false });
-
-  if (filters?.eventId) {
-    query = query.eq("event_id", filters.eventId);
-  }
-
-  const { data, error } = await query;
-  if (error) throw error;
-
-  let transactions = ((data ?? []) as unknown as ReservationFinanceRow[]).map(
-    mapReservationToTransaction,
+  const { items } = await adminApiCall<ApiTransactionsResponse>(
+    "/v1/admin/finance/transactions",
+    { query: { eventId: filters?.eventId, status: filters?.status } },
   );
+
+  let transactions = items.map(mapApiTransaction);
 
   if (filters?.status) {
     transactions = transactions.filter((t) => t.status === filters.status);

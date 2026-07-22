@@ -1,8 +1,7 @@
 "use server";
 
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { getCurrentUserId } from "@/lib/data/auth";
-import { insertInto, updateTable } from "@/lib/supabase/mutations";
+import { adminApiCall } from "@/lib/api/client";
+import type { ApiTeamMember } from "@/lib/api/types";
 import { revalidatePath } from "next/cache";
 import type { OrganizerRole } from "@/types/database";
 
@@ -10,39 +9,16 @@ export type TeamActionResult =
   | { success: true }
   | { success: false; error: string };
 
-async function getOrganizerIdForOwner() {
-  const sb = await createSupabaseServerClient();
-  const userId = await getCurrentUserId();
-
-  const { data, error } = await sb
-    .from("organizers")
-    .select("id")
-    .eq("owner_user_id", userId)
-    .limit(1)
-    .single();
-
-  if (error || !data)
-    throw new Error("Organizer not found");
-
-  return { sb, organizerId: (data as { id: string }).id, currentUserId: userId };
-}
-
 /** Add a user as a team member. */
 export async function addTeamMemberAction(
   targetUserId: string,
   role: OrganizerRole,
 ): Promise<TeamActionResult> {
   try {
-    const { sb, organizerId, currentUserId } = await getOrganizerIdForOwner();
-
-    const { error } = await insertInto(sb, "organizer_members", {
-      organizer_id: organizerId,
-      user_id: targetUserId,
-      role,
-      invited_by: currentUserId,
+    await adminApiCall<ApiTeamMember>("/v1/admin/team", {
+      method: "POST",
+      body: { userId: targetUserId, role },
     });
-
-    if (error) throw error;
 
     revalidatePath("/team");
     return { success: true };
@@ -59,13 +35,10 @@ export async function updateTeamMemberRoleAction(
   role: OrganizerRole,
 ): Promise<TeamActionResult> {
   try {
-    const { sb } = await getOrganizerIdForOwner();
-
-    const { error } = await updateTable(sb, "organizer_members", {
-      role,
-    }).eq("id", memberId);
-
-    if (error) throw error;
+    await adminApiCall<ApiTeamMember>(`/v1/admin/team/${memberId}`, {
+      method: "PATCH",
+      body: { role },
+    });
 
     revalidatePath("/team");
     return { success: true };
@@ -81,14 +54,9 @@ export async function removeTeamMemberAction(
   memberId: string,
 ): Promise<TeamActionResult> {
   try {
-    const { sb } = await getOrganizerIdForOwner();
-
-    const { error } = await sb
-      .from("organizer_members")
-      .delete()
-      .eq("id", memberId);
-
-    if (error) throw error;
+    await adminApiCall<void>(`/v1/admin/team/${memberId}`, {
+      method: "DELETE",
+    });
 
     revalidatePath("/team");
     return { success: true };

@@ -1,7 +1,7 @@
 "use server";
 
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { updateTable } from "@/lib/supabase/mutations";
+import { adminApiCall } from "@/lib/api/client";
+import type { ApiLikeToggleResult, ApiReplyResult } from "@/lib/api/types";
 import { revalidatePath } from "next/cache";
 
 export type ReviewActionResult =
@@ -13,24 +13,10 @@ export async function toggleReviewLike(
   reviewId: string,
 ): Promise<ReviewActionResult> {
   try {
-    const sb = await createSupabaseServerClient();
-
-    // Fetch current state
-    const { data: review, error: fetchError } = await sb
-      .from("event_reviews")
-      .select("admin_liked")
-      .eq("id", reviewId)
-      .single();
-
-    if (fetchError) throw fetchError;
-
-    const currentLiked = (review as { admin_liked: boolean } | null)?.admin_liked ?? false;
-
-    const { error } = await updateTable(sb, "event_reviews", {
-      admin_liked: !currentLiked,
-    }).eq("id", reviewId);
-
-    if (error) throw error;
+    await adminApiCall<ApiLikeToggleResult>(
+      `/v1/admin/reviews/${reviewId}/like-toggle`,
+      { method: "POST" },
+    );
 
     revalidatePath("/reviews");
     return { success: true };
@@ -47,14 +33,10 @@ export async function replyToReview(
   reply: string,
 ): Promise<ReviewActionResult> {
   try {
-    const sb = await createSupabaseServerClient();
-
-    const { error } = await updateTable(sb, "event_reviews", {
-      admin_reply: reply.trim(),
-      admin_reply_at: new Date().toISOString(),
-    }).eq("id", reviewId);
-
-    if (error) throw error;
+    await adminApiCall<ApiReplyResult>(`/v1/admin/reviews/${reviewId}/reply`, {
+      method: "PUT",
+      body: { reply: reply.trim() },
+    });
 
     revalidatePath("/reviews");
     return { success: true };
@@ -70,14 +52,9 @@ export async function removeReviewReply(
   reviewId: string,
 ): Promise<ReviewActionResult> {
   try {
-    const sb = await createSupabaseServerClient();
-
-    const { error } = await updateTable(sb, "event_reviews", {
-      admin_reply: null,
-      admin_reply_at: null,
-    }).eq("id", reviewId);
-
-    if (error) throw error;
+    await adminApiCall<ApiReplyResult>(`/v1/admin/reviews/${reviewId}/reply`, {
+      method: "DELETE",
+    });
 
     revalidatePath("/reviews");
     return { success: true };
@@ -93,23 +70,10 @@ export async function toggleVenueReviewLike(
   reviewId: string,
 ): Promise<ReviewActionResult> {
   try {
-    const sb = await createSupabaseServerClient();
-
-    const { data: review, error: fetchError } = await sb
-      .from("venue_reviews")
-      .select("admin_liked")
-      .eq("id", reviewId)
-      .single();
-
-    if (fetchError) throw fetchError;
-
-    const currentLiked = (review as { admin_liked: boolean } | null)?.admin_liked ?? false;
-
-    const { error } = await updateTable(sb, "venue_reviews", {
-      admin_liked: !currentLiked,
-    }).eq("id", reviewId);
-
-    if (error) throw error;
+    await adminApiCall<ApiLikeToggleResult>(
+      `/v1/admin/venue-reviews/${reviewId}/like-toggle`,
+      { method: "POST" },
+    );
 
     revalidatePath("/reviews");
     return { success: true };
@@ -126,14 +90,10 @@ export async function replyToVenueReview(
   reply: string,
 ): Promise<ReviewActionResult> {
   try {
-    const sb = await createSupabaseServerClient();
-
-    const { error } = await updateTable(sb, "venue_reviews", {
-      admin_reply: reply.trim(),
-      admin_reply_at: new Date().toISOString(),
-    }).eq("id", reviewId);
-
-    if (error) throw error;
+    await adminApiCall<ApiReplyResult>(
+      `/v1/admin/venue-reviews/${reviewId}/reply`,
+      { method: "PUT", body: { reply: reply.trim() } },
+    );
 
     revalidatePath("/reviews");
     return { success: true };

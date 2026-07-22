@@ -1,8 +1,8 @@
 "use server";
 
 import { z } from "zod";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { insertInto, updateTable } from "@/lib/supabase/mutations";
+import { adminApiCall } from "@/lib/api/client";
+import type { ApiFinancePaymentMethod } from "@/lib/api/types";
 import { revalidatePath } from "next/cache";
 
 const createPaymentMethodSchema = z.object({
@@ -33,17 +33,25 @@ export async function createPaymentMethodAction(
   }
 
   try {
-    const sb = await createSupabaseServerClient();
-
-    const { data, error } = await insertInto(sb, "organizer_payment_methods", parsed.data)
-      .select("id")
-      .single();
-
-    if (error) throw error;
+    // organizer_id is resolved server-side from the caller — not sent
+    const created = await adminApiCall<ApiFinancePaymentMethod>(
+      "/v1/admin/finance/payment-methods",
+      {
+        method: "POST",
+        body: {
+          methodType: parsed.data.method_type,
+          provider: parsed.data.provider,
+          providerAccountId: parsed.data.provider_account_id ?? null,
+          label: parsed.data.label ?? null,
+          isDefault: parsed.data.is_default,
+          details: parsed.data.details,
+        },
+      },
+    );
 
     revalidatePath("/finance");
     revalidatePath("/settings");
-    return { success: true, id: (data as { id: string }).id };
+    return { success: true, id: created.id };
   } catch (err) {
     console.error("createPaymentMethodAction error:", err);
     const message = err instanceof Error ? err.message : "Failed to create payment method";
@@ -56,14 +64,9 @@ export async function deletePaymentMethodAction(
   id: string,
 ): Promise<DeletePaymentMethodResult> {
   try {
-    const sb = await createSupabaseServerClient();
-
-    const { error } = await sb
-      .from("organizer_payment_methods")
-      .delete()
-      .eq("id", id);
-
-    if (error) throw error;
+    await adminApiCall<void>(`/v1/admin/finance/payment-methods/${id}`, {
+      method: "DELETE",
+    });
 
     revalidatePath("/finance");
     revalidatePath("/settings");
@@ -81,24 +84,13 @@ export async function setDefaultPaymentMethodAction(
   organizerId: string,
   methodType: "payment" | "withdrawal",
 ): Promise<DeletePaymentMethodResult> {
+  void organizerId;
+  void methodType; // the API unsets same-type defaults server-side
   try {
-    const sb = await createSupabaseServerClient();
-
-    // Unset all defaults of same type
-    const { error: unsetError } = await updateTable(sb, "organizer_payment_methods", {
-      is_default: false,
-    })
-      .eq("organizer_id", organizerId)
-      .eq("method_type", methodType);
-
-    if (unsetError) throw unsetError;
-
-    // Set the new default
-    const { error } = await updateTable(sb, "organizer_payment_methods", {
-      is_default: true,
-    }).eq("id", id);
-
-    if (error) throw error;
+    await adminApiCall<ApiFinancePaymentMethod>(
+      `/v1/admin/finance/payment-methods/${id}/default`,
+      { method: "POST" },
+    );
 
     revalidatePath("/finance");
     revalidatePath("/settings");

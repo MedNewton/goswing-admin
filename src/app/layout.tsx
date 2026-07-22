@@ -3,7 +3,7 @@ import "@/styles/globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
 import { type Metadata } from "next";
 import { Geist } from "next/font/google";
-import SupabaseClerkBridge from "@/lib/SupabaseClerkBridge";
+import ProvisionBridge from "@/lib/ProvisionBridge";
 
 export const metadata: Metadata = {
   title: "GoSwing",
@@ -22,7 +22,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={geist.className}>
         <ClerkProvider>
-          <SupabaseClerkBridge>{children}</SupabaseClerkBridge>
+          <ProvisionBridge>{children}</ProvisionBridge>
         </ClerkProvider>
       </body>
     </html>

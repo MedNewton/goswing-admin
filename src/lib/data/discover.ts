@@ -1,9 +1,91 @@
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { mapEvent, mapEvents, type EventQueryRow } from "@/lib/mappers/events";
-import { mapVenue, mapVenues } from "@/lib/mappers/venues";
+import { publicApiCall, isNotFound } from "@/lib/api/client";
+import type {
+  ApiCityInfo,
+  ApiItems,
+  ApiPublicEventCard,
+  ApiPublicEventDetail,
+  ApiPublicOrganizer,
+  ApiPublicVenue,
+  ApiPublicVenueDetail,
+  ApiTag,
+} from "@/lib/api/types";
 import type { Event, Venue } from "@/types";
-import type { VenueRow } from "@/types/database";
+import { formatDate, formatPrice } from "@/lib/utils/format";
 
+// Discover listings are cached briefly so public pages can be served fast.
+const LIST_REVALIDATE = 60;
+
+// ---------------------------------------------------------------------------
+// Local mappers (API → UI view models)
+// ---------------------------------------------------------------------------
+
+function mapPublicEventCardToUiEvent(card: ApiPublicEventCard): Event {
+  const location = [card.venueName, card.venueCity].filter(Boolean).join(", ");
+  return {
+    id: card.id,
+    title: card.title,
+    description: card.description ?? undefined,
+    image: card.heroImageUrl ?? "/placeholder-event.png",
+    date: formatDate(card.startsAt),
+    startsAt: card.startsAt,
+    endsAt: card.endsAt ?? undefined,
+    location: location || "TBA",
+    venue: card.venueName ?? undefined,
+    attendeeCount: card.attendeeCount,
+    status: "published",
+    currency: card.currency.trim(),
+    minPrice: formatPrice(card.minPriceCents, card.currency, card.isFree),
+    isFree: card.isFree,
+    organizerName: card.organizerName ?? undefined,
+    tags: [...card.tags],
+    partyTypes: [...card.partyTypes],
+    musicStyles: [...card.musicStyles],
+    extraServices: [...card.extraServices],
+  };
+}
+
+function mapPublicVenueToUiVenue(v: ApiPublicVenue): Venue {
+  return {
+    id: v.id,
+    name: v.name,
+    address: v.addressLine1,
+    city: v.city,
+    region: v.region,
+    countryCode: v.countryCode,
+    lat: v.lat,
+    lng: v.lng,
+    venueType: v.venueType,
+    timezone: v.timezone,
+    // Not exposed by the public API; unused by public pages.
+    createdAt: "",
+    postalCode: v.postalCode,
+    capacity: v.capacity,
+    organizerId: v.organizerId,
+    description: v.description,
+    freeAccess: v.freeAccess,
+    freeForLadies: v.freeForLadies,
+    coverImageUrl: v.coverImageUrl,
+  };
+}
+
+function mapPublicOrganizerToRaw(o: ApiPublicOrganizer) {
+  return {
+    id: o.id,
+    name: o.name,
+    logo_url: o.logoUrl,
+    tagline: o.tagline,
+    about: o.about,
+    cover_image_url: o.coverImageUrl,
+    city: o.city,
+    country_code: o.countryCode,
+    phone: o.phone,
+    email: o.email,
+    website_url: o.websiteUrl,
+    instagram_handle: o.instagramHandle,
+    facebook_handle: o.facebookHandle,
+    specialties: o.specialties,
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Published Events
@@ -21,83 +103,29 @@ export interface DiscoverEventFilters {
 export async function getPublishedEvents(
   filters?: DiscoverEventFilters,
 ): Promise<Event[]> {
-  const sb = createSupabaseAdminClient();
-
-  let query = sb
-    .from("events")
-    .select(
-      `*, venues ( name, city ), organizers ( name ), event_tags ( tags ( label, slug, type ) )`,
-    )
-    .eq("status", "published")
-    .gte("starts_at", new Date().toISOString())
-    .order("starts_at", { ascending: true });
-
-  if (filters?.isFree) {
-    query = query.eq("is_free", true);
-  }
-  if (filters?.search) {
-    query = query.ilike("title", `%${filters.search}%`);
-  }
-  if (filters?.limit) {
-    query = query.limit(filters.limit);
-  }
-  if (filters?.offset) {
-    query = query.range(
-      filters.offset,
-      filters.offset + (filters.limit ?? 50) - 1,
-    );
-  }
-
-  const { data, error } = await query;
-  if (error) throw error;
-
-  let events = mapEvents((data ?? []) as EventQueryRow[]);
-
-  // Post-filter by city (from joined venue)
-  if (filters?.city) {
-    const cityLower = filters.city.toLowerCase();
-    events = events.filter((e) =>
-      e.location?.toLowerCase().includes(cityLower),
-    );
-  }
-
-  // Post-filter by party type tag
-  if (filters?.partyType) {
-    const slug = filters.partyType;
-    type RawEventWithTags = {
-      id: string;
-      event_tags?: Array<{ tags: { slug?: string; label?: string; type?: string } | null }>;
-    };
-    const rawEvents = (data ?? []) as RawEventWithTags[];
-    const matchingIds = new Set(
-      rawEvents
-        .filter((e) =>
-          e.event_tags?.some((et) => et.tags?.slug === slug),
-        )
-        .map((e) => e.id),
-    );
-    events = events.filter((e) => matchingIds.has(e.id));
-  }
-
-  return events;
+  const { items } = await publicApiCall<ApiItems<ApiPublicEventCard>>(
+    "/v1/public/events",
+    {
+      query: {
+        city: filters?.city,
+        partyType: filters?.partyType,
+        isFree: filters?.isFree ? true : undefined,
+        search: filters?.search,
+        limit: filters?.limit,
+        offset: filters?.offset,
+      },
+      revalidate: LIST_REVALIDATE,
+    },
+  );
+  return items.map(mapPublicEventCardToUiEvent);
 }
 
 export async function getFeaturedEvents(limit = 6): Promise<Event[]> {
-  const sb = createSupabaseAdminClient();
-
-  const { data, error } = await sb
-    .from("events")
-    .select(
-      `*, venues ( name, city ), organizers ( name ), event_tags ( tags ( label ) )`,
-    )
-    .eq("status", "published")
-    .gte("starts_at", new Date().toISOString())
-    .not("hero_image_url", "is", null)
-    .order("starts_at", { ascending: true })
-    .limit(limit);
-
-  if (error) throw error;
-  return mapEvents((data ?? []) as EventQueryRow[]);
+  const { items } = await publicApiCall<ApiItems<ApiPublicEventCard>>(
+    "/v1/public/events/featured",
+    { query: { limit }, revalidate: LIST_REVALIDATE },
+  );
+  return items.map(mapPublicEventCardToUiEvent);
 }
 
 // ---------------------------------------------------------------------------
@@ -105,61 +133,43 @@ export async function getFeaturedEvents(limit = 6): Promise<Event[]> {
 // ---------------------------------------------------------------------------
 
 export async function getPublishedEvent(id: string) {
-  const sb = createSupabaseAdminClient();
-
-  const { data, error } = await sb
-    .from("events")
-    .select(
-      `*,
-      venues ( id, name, city, address_line1, region, country_code, timezone, venue_type, lat, lng ),
-      organizers ( id, name, logo_url, tagline, about, cover_image_url, city, country_code, phone, email, website_url, instagram_handle, facebook_handle, specialties ),
-      event_tags ( tags ( id, label, slug, type ) ),
-      ticket_types ( id, name, description, price_cents, currency, capacity )`,
-    )
-    .eq("id", id)
-    .eq("status", "published")
-    .single();
-
-  if (error) return null;
+  let data: ApiPublicEventDetail;
+  try {
+    data = await publicApiCall<ApiPublicEventDetail>(
+      `/v1/public/events/${id}`,
+    );
+  } catch (error) {
+    if (isNotFound(error)) return null;
+    throw error;
+  }
 
   return {
-    event: mapEvent(data as EventQueryRow),
-    ticketTypes: (data as Record<string, unknown>).ticket_types as Array<{
-      id: string;
-      name: string;
-      description: string | null;
-      price_cents: number;
-      currency: string;
-      capacity: number | null;
-    }>,
-    organizer: (data as Record<string, unknown>).organizers as {
-      id: string;
-      name: string;
-      logo_url: string | null;
-      tagline: string | null;
-      about: string | null;
-      cover_image_url: string | null;
-      city: string | null;
-      country_code: string | null;
-      phone: string | null;
-      email: string | null;
-      website_url: string | null;
-      instagram_handle: string | null;
-      facebook_handle: string | null;
-      specialties: string[] | null;
-    } | null,
-    venue: (data as Record<string, unknown>).venues as {
-      id: string;
-      name: string;
-      city: string | null;
-      address_line1: string | null;
-      region: string | null;
-      country_code: string | null;
-      timezone: string | null;
-      venue_type: string | null;
-      lat: number | null;
-      lng: number | null;
-    } | null,
+    event: mapPublicEventCardToUiEvent(data.event),
+    ticketTypes: data.ticketTypes.map((tt) => ({
+      id: tt.id,
+      name: tt.name,
+      description: tt.description,
+      price_cents: tt.priceCents,
+      currency: tt.currency,
+      capacity: tt.capacity,
+    })),
+    organizer: data.organizer
+      ? mapPublicOrganizerToRaw(data.organizer)
+      : null,
+    venue: data.venue
+      ? {
+          id: data.venue.id,
+          name: data.venue.name,
+          city: data.venue.city,
+          address_line1: data.venue.addressLine1,
+          region: data.venue.region,
+          country_code: data.venue.countryCode,
+          timezone: data.venue.timezone,
+          venue_type: data.venue.venueType,
+          lat: data.venue.lat,
+          lng: data.venue.lng,
+        }
+      : null,
   };
 }
 
@@ -178,42 +188,32 @@ export interface DiscoverVenueFilters {
 export async function getPublishedVenues(
   filters?: DiscoverVenueFilters,
 ): Promise<Venue[]> {
-  const sb = createSupabaseAdminClient();
-
-  let query = sb
-    .from("venues")
-    .select("*, organizers ( cover_image_url )")
-    .order("name", { ascending: true });
-
-  if (filters?.venueType) {
-    query = query.ilike("venue_type", filters.venueType);
-  }
-  if (filters?.city) {
-    query = query.ilike("city", filters.city);
-  }
-  if (filters?.search) {
-    query = query.ilike("name", `%${filters.search}%`);
-  }
-  if (filters?.limit) {
-    query = query.limit(filters.limit);
-  }
-
-  const { data, error } = await query;
-  if (error) throw error;
-  return mapVenues((data ?? []) as VenueRow[]);
+  const { items } = await publicApiCall<ApiItems<ApiPublicVenue>>(
+    "/v1/public/venues",
+    {
+      query: {
+        venueType: filters?.venueType,
+        city: filters?.city,
+        search: filters?.search,
+        limit: filters?.limit,
+        offset: filters?.offset,
+      },
+      revalidate: LIST_REVALIDATE,
+    },
+  );
+  return items.map(mapPublicVenueToUiVenue);
 }
 
 export async function getPublishedVenue(id: string) {
-  const sb = createSupabaseAdminClient();
-
-  const { data, error } = await sb
-    .from("venues")
-    .select("*, organizers ( cover_image_url )")
-    .eq("id", id)
-    .single();
-
-  if (error) return null;
-  return mapVenue(data as VenueRow);
+  try {
+    const data = await publicApiCall<ApiPublicVenueDetail>(
+      `/v1/public/venues/${id}`,
+    );
+    return mapPublicVenueToUiVenue(data.venue);
+  } catch (error) {
+    if (isNotFound(error)) return null;
+    throw error;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -221,21 +221,16 @@ export async function getPublishedVenue(id: string) {
 // ---------------------------------------------------------------------------
 
 export async function getPublicTags(type: string) {
-  const sb = createSupabaseAdminClient();
-
-  const { data, error } = await sb
-    .from("tags")
-    .select("id, label, slug, type")
-    .eq("type", type)
-    .order("label");
-
-  if (error) throw error;
-  return (data ?? []) as Array<{
-    id: string;
-    label: string;
-    slug: string;
-    type: string;
-  }>;
+  const { items } = await publicApiCall<ApiItems<ApiTag>>("/v1/public/tags", {
+    query: { type },
+    revalidate: LIST_REVALIDATE,
+  });
+  return items.map((t) => ({
+    id: t.id,
+    label: t.label,
+    slug: t.slug,
+    type: t.type,
+  }));
 }
 
 // ---------------------------------------------------------------------------
@@ -249,60 +244,15 @@ export interface CityInfo {
 }
 
 export async function getCitiesWithCounts(): Promise<CityInfo[]> {
-  const sb = createSupabaseAdminClient();
-
-  // Get all venues with a city
-  const { data: venues, error: vErr } = await sb
-    .from("venues")
-    .select("id, city")
-    .not("city", "is", null);
-
-  if (vErr) throw vErr;
-
-  // Get published upcoming events with venue_id
-  const { data: events, error: eErr } = await sb
-    .from("events")
-    .select("venue_id")
-    .eq("status", "published")
-    .gte("starts_at", new Date().toISOString());
-
-  if (eErr) throw eErr;
-
-  // Build venue-to-city map
-  const venueCityMap = new Map<string, string>();
-  const cityVenueCount = new Map<string, number>();
-
-  for (const v of (venues ?? []) as Array<{ id: string; city: string | null }>) {
-    if (v.city) {
-      venueCityMap.set(v.id, v.city);
-      cityVenueCount.set(v.city, (cityVenueCount.get(v.city) ?? 0) + 1);
-    }
-  }
-
-  // Count events per city
-  const cityEventCount = new Map<string, number>();
-  for (const e of (events ?? []) as Array<{ venue_id: string | null }>) {
-    if (e.venue_id) {
-      const city = venueCityMap.get(e.venue_id);
-      if (city) {
-        cityEventCount.set(city, (cityEventCount.get(city) ?? 0) + 1);
-      }
-    }
-  }
-
-  // Merge into result
-  const allCities = new Set([
-    ...cityVenueCount.keys(),
-    ...cityEventCount.keys(),
-  ]);
-
-  return [...allCities]
-    .map((city) => ({
-      city,
-      eventCount: cityEventCount.get(city) ?? 0,
-      venueCount: cityVenueCount.get(city) ?? 0,
-    }))
-    .sort((a, b) => b.eventCount + b.venueCount - (a.eventCount + a.venueCount));
+  const { items } = await publicApiCall<ApiItems<ApiCityInfo>>(
+    "/v1/public/cities",
+    { revalidate: LIST_REVALIDATE },
+  );
+  return items.map((c) => ({
+    city: c.city,
+    eventCount: c.eventCount,
+    venueCount: c.venueCount,
+  }));
 }
 
 export async function getCityData(
@@ -321,20 +271,16 @@ export async function getCityData(
 // ---------------------------------------------------------------------------
 
 export async function getEventsAtVenue(venueId: string): Promise<Event[]> {
-  const sb = createSupabaseAdminClient();
-
-  const { data, error } = await sb
-    .from("events")
-    .select(
-      `*, venues ( name, city ), organizers ( name ), event_tags ( tags ( label ) )`,
-    )
-    .eq("status", "published")
-    .eq("venue_id", venueId)
-    .gte("starts_at", new Date().toISOString())
-    .order("starts_at", { ascending: true });
-
-  if (error) throw error;
-  return mapEvents((data ?? []) as EventQueryRow[]);
+  try {
+    const { items } = await publicApiCall<ApiItems<ApiPublicEventCard>>(
+      `/v1/public/venues/${venueId}/events`,
+      { revalidate: LIST_REVALIDATE },
+    );
+    return items.map(mapPublicEventCardToUiEvent);
+  } catch (error) {
+    if (isNotFound(error)) return [];
+    throw error;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -346,29 +292,20 @@ export async function getEventsByOrganizer(
   excludeEventId?: string,
   limit = 6,
 ): Promise<Event[]> {
-  const sb = createSupabaseAdminClient();
-
-  let query = sb
-    .from("events")
-    .select(
-      `*, venues ( name, city ), organizers ( name ), event_tags ( tags ( label, type ) )`,
-    )
-    .eq("status", "published")
-    .eq("organizer_id", organizerId)
-    .order("starts_at", { ascending: true })
-    .limit(limit);
-
-  if (excludeEventId) {
-    query = query.neq("id", excludeEventId);
+  try {
+    const { items } = await publicApiCall<ApiItems<ApiPublicEventCard>>(
+      `/v1/public/organizers/${organizerId}/events`,
+      { query: { exclude: excludeEventId, limit }, revalidate: LIST_REVALIDATE },
+    );
+    return items.map(mapPublicEventCardToUiEvent);
+  } catch (error) {
+    if (isNotFound(error)) return [];
+    throw error;
   }
-
-  const { data, error } = await query;
-  if (error) throw error;
-  return mapEvents((data ?? []) as EventQueryRow[]);
 }
 
 // ---------------------------------------------------------------------------
-// Similar events (same city or party type, excluding current)
+// Similar events (same city preferred, excluding current)
 // ---------------------------------------------------------------------------
 
 export async function getSimilarEvents(
@@ -376,27 +313,18 @@ export async function getSimilarEvents(
   venueCity: string | null,
   limit = 6,
 ): Promise<Event[]> {
-  const sb = createSupabaseAdminClient();
-
-  let query = sb
-    .from("events")
-    .select(
-      `*, venues ( name, city ), organizers ( name ), event_tags ( tags ( label, type ) )`,
-    )
-    .eq("status", "published")
-    .neq("id", eventId)
-    .gte("starts_at", new Date().toISOString())
-    .order("starts_at", { ascending: true })
-    .limit(limit);
-
-  // If we have a city, filter by it
-  if (venueCity) {
-    query = query.eq("venues.city", venueCity);
+  // venueCity is unused: the API applies the city preference itself.
+  void venueCity;
+  try {
+    const { items } = await publicApiCall<ApiItems<ApiPublicEventCard>>(
+      `/v1/public/events/${eventId}/similar`,
+      { query: { limit }, revalidate: LIST_REVALIDATE },
+    );
+    return items.map(mapPublicEventCardToUiEvent);
+  } catch (error) {
+    if (isNotFound(error)) return [];
+    throw error;
   }
-
-  const { data, error } = await query;
-  if (error) throw error;
-  return mapEvents((data ?? []) as EventQueryRow[]);
 }
 
 /** Find published venues in the same city, excluding the current one. */
@@ -405,58 +333,42 @@ export async function getSimilarPublishedVenues(
   city: string | null,
   limit = 6,
 ): Promise<Venue[]> {
-  if (!city) return [];
-
-  const sb = createSupabaseAdminClient();
-
-  const { data, error } = await sb
-    .from("venues")
-    .select("*, organizers ( cover_image_url )")
-    .ilike("city", city)
-    .neq("id", venueId)
-    .limit(limit);
-
-  if (error) return [];
-  return mapVenues((data ?? []) as VenueRow[]);
+  // city is unused: the API resolves the venue's city itself.
+  void city;
+  try {
+    const { items } = await publicApiCall<ApiItems<ApiPublicVenue>>(
+      `/v1/public/venues/${venueId}/similar`,
+      { query: { limit }, revalidate: LIST_REVALIDATE },
+    );
+    return items.map(mapPublicVenueToUiVenue);
+  } catch (error) {
+    if (isNotFound(error)) return [];
+    throw error;
+  }
 }
 
 // ---------------------------------------------------------------------------
-// Public venue with organizer + reviews (for guest venue view)
+// Public venue with organizer (for guest venue view)
 // ---------------------------------------------------------------------------
 
 export async function getPublishedVenueDetail(id: string) {
-  const sb = createSupabaseAdminClient();
+  let data: ApiPublicVenueDetail;
+  try {
+    data = await publicApiCall<ApiPublicVenueDetail>(
+      `/v1/public/venues/${id}`,
+    );
+  } catch (error) {
+    if (isNotFound(error)) return null;
+    throw error;
+  }
 
-  const { data, error } = await sb
-    .from("venues")
-    .select(
-      `*,
-      organizers ( id, name, logo_url, tagline, about, cover_image_url, city, country_code, phone, email, website_url, instagram_handle, facebook_handle, tiktok_handle, snapchat_handle, specialties )`,
-    )
-    .eq("id", id)
-    .single();
+  const organizer = data.organizer
+    ? {
+        ...mapPublicOrganizerToRaw(data.organizer),
+        tiktok_handle: data.organizer.tiktokHandle ?? null,
+        snapchat_handle: data.organizer.snapchatHandle ?? null,
+      }
+    : null;
 
-  if (error) return null;
-
-  const venue = mapVenue(data as VenueRow);
-  const organizer = (data as Record<string, unknown>).organizers as {
-    id: string;
-    name: string;
-    logo_url: string | null;
-    tagline: string | null;
-    about: string | null;
-    cover_image_url: string | null;
-    city: string | null;
-    country_code: string | null;
-    phone: string | null;
-    email: string | null;
-    website_url: string | null;
-    instagram_handle: string | null;
-    facebook_handle: string | null;
-    tiktok_handle: string | null;
-    snapchat_handle: string | null;
-    specialties: string[] | null;
-  } | null;
-
-  return { venue, organizer };
+  return { venue: mapPublicVenueToUiVenue(data.venue), organizer };
 }

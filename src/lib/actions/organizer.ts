@@ -2,8 +2,12 @@
 
 import { z } from "zod";
 import { auth, currentUser } from "@clerk/nextjs/server";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { updateTable, insertInto } from "@/lib/supabase/mutations";
+import { adminApiCall, isApiError } from "@/lib/api/client";
+import type {
+  ApiOnboardingData,
+  ApiOnboardingResult,
+  ApiUploadResult,
+} from "@/lib/api/types";
 
 // ---------------------------------------------------------------------------
 // Zod Schema
@@ -15,12 +19,12 @@ const customPolicySchema = z.object({
 });
 
 const onboardingSchema = z.object({
-  // Personal profile (writes to `profiles`)
+  // Personal profile
   display_name: z.string().min(1, "Your name is required").max(120),
   personal_phone_number: z.string().max(40).optional().or(z.literal("")),
   avatar_url: z.string().optional().or(z.literal("")),
 
-  // Organization info (writes to `organizers`)
+  // Organization info
   name: z.string().min(1, "Organization name is required").max(100),
   tagline: z.string().max(200).optional().or(z.literal("")),
   about: z.string().max(2000).optional().or(z.literal("")),
@@ -83,176 +87,70 @@ export async function completeOnboardingAction(
   }
 
   const data = parsed.data;
+  const galleryImageUrls = data.gallery_image_urls ?? [];
 
-  const sb = createSupabaseAdminClient();
+  const body = {
+    personal: {
+      displayName: data.display_name.trim(),
+      phone: emptyStringToNull(data.personal_phone_number),
+      avatarUrl: emptyStringToNull(data.avatar_url),
+    },
+    organizer: {
+      name: data.name,
+      tagline: emptyStringToNull(data.tagline),
+      about: emptyStringToNull(data.about),
+      city: emptyStringToNull(data.city) ?? emptyStringToNull(data.venue_city),
+      countryCode:
+        emptyStringToNull(data.country_code) ?? emptyStringToNull(data.venue_country_code),
+      email: data.email,
+      phone: emptyStringToNull(data.phone),
+      websiteUrl: emptyStringToNull(data.website_url),
+      instagramHandle: emptyStringToNull(data.instagram_handle),
+      facebookHandle: emptyStringToNull(data.facebook_handle),
+      tiktokHandle: emptyStringToNull(data.tiktok_handle),
+      logoUrl: emptyStringToNull(data.logo_url),
+      coverImageUrl: emptyStringToNull(data.cover_image_url),
+      customPolicies: data.custom_policies ?? [],
+    },
+    venue: {
+      name: data.venue_name.trim(),
+      venueType: emptyStringToNull(data.venue_type),
+      description: emptyStringToNull(data.venue_description),
+      freeAccess: data.venue_free_access ?? false,
+      freeForLadies: data.venue_free_for_ladies ?? false,
+      addressLine1: emptyStringToNull(data.venue_address),
+      city: emptyStringToNull(data.venue_city) ?? emptyStringToNull(data.city),
+      region: emptyStringToNull(data.venue_region),
+      countryCode:
+        emptyStringToNull(data.venue_country_code) ?? emptyStringToNull(data.country_code),
+      postalCode: emptyStringToNull(data.venue_postal_code),
+      capacity: typeof data.venue_capacity === "number" ? data.venue_capacity : null,
+      lat: data.venue_lat ?? null,
+      lng: data.venue_lng ?? null,
+    },
+    // Only send when non-empty: the API replaces the whole gallery when the
+    // field is present, while today an empty list leaves existing rows alone.
+    ...(galleryImageUrls.length > 0 ? { galleryImageUrls } : {}),
+  };
 
-  // Update the user's personal profile first (display_name, phone, avatar)
-  const personalDisplayName = data.display_name.trim();
-  const personalInitials = personalDisplayName
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part.charAt(0).toUpperCase())
-    .join("");
-
-  const { error: profileError } = await updateTable(sb, "profiles", {
-    display_name: personalDisplayName,
-    initials: personalInitials || null,
-    phone_number: emptyStringToNull(data.personal_phone_number),
-    avatar_url: emptyStringToNull(data.avatar_url),
-  }).eq("user_id", userId);
-
-  if (profileError) {
-    console.error("[completeOnboarding] profile update error:", profileError.message);
-    return { success: false, error: `Failed to save your profile: ${profileError.message}` };
-  }
-
-  // Get the current user's organizer by owner_user_id
-  const { data: organizer, error: fetchError } = await sb
-    .from("organizers")
-    .select("id")
-    .eq("owner_user_id", userId)
-    .limit(1)
-    .single();
-
-  if (fetchError || !organizer) {
-    console.error("[completeOnboarding] fetch error:", fetchError?.message);
-    return { success: false, error: "Could not find your organizer profile" };
-  }
-
-  const organizerId = (organizer as { id: string }).id;
-
-  // Update organizer profile
-  const { error: updateError } = await updateTable(sb, "organizers", {
-    name: data.name,
-    tagline: emptyStringToNull(data.tagline),
-    about: emptyStringToNull(data.about),
-    city: emptyStringToNull(data.city) ?? emptyStringToNull(data.venue_city),
-    country_code: emptyStringToNull(data.country_code) ?? emptyStringToNull(data.venue_country_code),
-    email: data.email,
-    phone: emptyStringToNull(data.phone),
-    website_url: emptyStringToNull(data.website_url),
-    instagram_handle: emptyStringToNull(data.instagram_handle),
-    facebook_handle: emptyStringToNull(data.facebook_handle),
-    tiktok_handle: emptyStringToNull(data.tiktok_handle),
-    logo_url: emptyStringToNull(data.logo_url),
-    cover_image_url: emptyStringToNull(data.cover_image_url),
-    custom_policies: data.custom_policies ?? [],
-  }).eq("id", organizerId);
-
-  if (updateError) {
-    console.error("[completeOnboarding] update error:", updateError.message);
-    if (updateError.code === "23505") {
-      return { success: false, error: "An organization with this name already exists" };
-    }
-    return { success: false, error: updateError.message };
-  }
-
-  // Ensure the current user is registered as an admin member of the organizer.
-  // Some legacy organizers only have owner_user_id set; downstream permission
-  // checks expect an organizer_members row.
-  const { data: existingMember } = await sb
-    .from("organizer_members")
-    .select("id")
-    .eq("organizer_id", organizerId)
-    .eq("user_id", userId)
-    .maybeSingle();
-  if (!existingMember) {
-    const { error: memberError } = await insertInto(sb, "organizer_members", {
-      organizer_id: organizerId,
-      user_id: userId,
-      role: "admin",
+  try {
+    await adminApiCall<ApiOnboardingResult>("/v1/admin/me/onboarding", {
+      method: "POST",
+      body,
     });
-    if (memberError) {
-      console.error("[completeOnboarding] member insert error:", memberError.message);
-    }
-  }
-
-  // Create venue (one per organizer) — check if one already exists first
-  const { data: existingVenue } = await sb
-    .from("venues")
-    .select("id")
-    .eq("organizer_id", organizerId)
-    .limit(1)
-    .maybeSingle();
-
-  if (!existingVenue) {
-    if (!organizerId) {
-      return { success: false, error: "Internal error: organizerId missing before venue insert" };
-    }
-    const { data: insertedVenue, error: venueError } = await insertInto(sb, "venues", {
-      name: data.venue_name.trim(),
-      organizer_id: organizerId,
-      description: emptyStringToNull(data.venue_description),
-      free_access: data.venue_free_access ?? false,
-      free_for_ladies: data.venue_free_for_ladies ?? false,
-      address_line1: emptyStringToNull(data.venue_address),
-      city: emptyStringToNull(data.venue_city) ?? data.city,
-      region: emptyStringToNull(data.venue_region),
-      country_code: emptyStringToNull(data.venue_country_code) ?? data.country_code,
-      postal_code: emptyStringToNull(data.venue_postal_code),
-      venue_type: emptyStringToNull(data.venue_type),
-      capacity: typeof data.venue_capacity === "number" ? data.venue_capacity : null,
-      lat: data.venue_lat ?? null,
-      lng: data.venue_lng ?? null,
-      created_by_user_id: userId,
-    }).select("id, organizer_id").single();
-
-    if (venueError) {
-      console.error("[completeOnboarding] venue creation error:", venueError.message);
-      return { success: false, error: `Failed to create venue: ${venueError.message}` };
-    }
-    const inserted = insertedVenue as { id: string; organizer_id: string | null } | null;
-    if (!inserted?.organizer_id) {
-      console.error("[completeOnboarding] venue inserted without organizer_id, repairing", { organizerId, inserted });
-      if (inserted?.id) {
-        await updateTable(sb, "venues", { organizer_id: organizerId }).eq("id", inserted.id);
-      } else {
-        return { success: false, error: "Venue insert returned no row" };
+    return { success: true };
+  } catch (error) {
+    if (isApiError(error)) {
+      console.error("[completeOnboarding] error:", error.message);
+      if (error.status === 409 || error.code === "conflict") {
+        return { success: false, error: "An organization with this name already exists" };
       }
+      return { success: false, error: error.message };
     }
-  } else {
-    // Update existing venue
-    const { error: venueUpdateError } = await updateTable(sb, "venues", {
-      name: data.venue_name.trim(),
-      organizer_id: organizerId,
-      description: emptyStringToNull(data.venue_description),
-      free_access: data.venue_free_access ?? false,
-      free_for_ladies: data.venue_free_for_ladies ?? false,
-      address_line1: emptyStringToNull(data.venue_address),
-      city: emptyStringToNull(data.venue_city) ?? data.city,
-      region: emptyStringToNull(data.venue_region),
-      country_code: emptyStringToNull(data.venue_country_code) ?? data.country_code,
-      postal_code: emptyStringToNull(data.venue_postal_code),
-      venue_type: emptyStringToNull(data.venue_type),
-      capacity: typeof data.venue_capacity === "number" ? data.venue_capacity : null,
-      lat: data.venue_lat ?? null,
-      lng: data.venue_lng ?? null,
-    }).eq("id", (existingVenue as { id: string }).id);
-
-    if (venueUpdateError) {
-      console.error("[completeOnboarding] venue update error:", venueUpdateError.message);
-    }
+    console.error("[completeOnboarding] error:", error);
+    const message = error instanceof Error ? error.message : "Failed to complete onboarding";
+    return { success: false, error: message };
   }
-
-  // Replace any pre-existing gallery rows for this organizer with the
-  // freshly uploaded ones from onboarding (clean slate per onboarding run).
-  if ((data.gallery_image_urls?.length ?? 0) > 0) {
-    await sb.from("organizer_gallery").delete().eq("organizer_id", organizerId);
-    const galleryRows = data.gallery_image_urls.map((url, idx) => ({
-      organizer_id: organizerId,
-      image_url: url,
-      media_type: "image",
-      sort_order: idx,
-    }));
-    const { error: galleryError } = await insertInto(sb, "organizer_gallery", galleryRows);
-    if (galleryError) {
-      console.error("[completeOnboarding] gallery insert error:", galleryError.message);
-      return { success: false, error: `Failed to save gallery: ${galleryError.message}` };
-    }
-  }
-
-  return { success: true };
 }
 
 // ---------------------------------------------------------------------------
@@ -282,37 +180,19 @@ export async function uploadOrganizerImageAction(
       return { success: false, error: "File too large. Maximum size is 5MB." };
     }
 
-    // Admin client: storage RLS otherwise blocks INSERT for the
-    // Clerk-bridged JWT and uploads silently fail.
-    const sb = createSupabaseAdminClient();
+    const uploadForm = new FormData();
+    uploadForm.append("file", file);
+    uploadForm.append("kind", "organizerImage");
 
-    const ext = file.name.split(".").pop() ?? "jpg";
-    const fileName = `${crypto.randomUUID()}.${ext}`;
-    const filePath = `organizer-images/${fileName}`;
+    const result = await adminApiCall<ApiUploadResult>("/v1/admin/uploads", {
+      method: "POST",
+      body: uploadForm,
+    });
 
-    const arrayBuffer = await file.arrayBuffer();
-    const uint8Array = new Uint8Array(arrayBuffer);
-
-    const { error: uploadError } = await sb.storage
-      .from("event-images")
-      .upload(filePath, uint8Array, {
-        contentType: file.type,
-        upsert: false,
-      });
-
-    if (uploadError) {
-      console.error("Upload error:", uploadError);
-      return { success: false, error: `Upload failed: ${uploadError.message}` };
-    }
-
-    const { data: urlData } = sb.storage
-      .from("event-images")
-      .getPublicUrl(filePath);
-
-    return { success: true, url: urlData.publicUrl };
+    return { success: true, url: result.url };
   } catch (err) {
     console.error("uploadOrganizerImageAction error:", err);
-    const message = err instanceof Error ? err.message : "Failed to upload image";
+    const message = err instanceof Error ? `Upload failed: ${err.message}` : "Failed to upload image";
     return { success: false, error: message };
   }
 }
@@ -322,25 +202,19 @@ export async function fetchOrganizerForOnboarding() {
   const { userId } = await auth();
   if (!userId) return null;
 
-  const sb = createSupabaseAdminClient();
+  let data: ApiOnboardingData;
+  try {
+    data = await adminApiCall<ApiOnboardingData>("/v1/admin/me/onboarding");
+  } catch (error) {
+    console.error("[fetchOrganizerForOnboarding] error:", error);
+    return null;
+  }
 
-  // Personal profile — fall back to Clerk on missing fields (first onboarding).
-  const { data: profileRow } = await sb
-    .from("profiles")
-    .select("display_name, phone_number, avatar_url")
-    .eq("user_id", userId)
-    .limit(1)
-    .maybeSingle();
-
-  const profile = profileRow as {
-    display_name: string | null;
-    phone_number: string | null;
-    avatar_url: string | null;
-  } | null;
-
+  // The API already applies Clerk fallbacks server-side; keep a cheap
+  // client-side fallback for first-time users with missing fields.
   let clerkDisplayName: string | null = null;
   let clerkAvatarUrl: string | null = null;
-  if (!profile?.display_name || !profile?.avatar_url) {
+  if (!data.personal.displayName || !data.personal.avatarUrl) {
     try {
       const user = await currentUser();
       if (user) {
@@ -354,66 +228,54 @@ export async function fetchOrganizerForOnboarding() {
   }
 
   const personal = {
-    display_name: profile?.display_name ?? clerkDisplayName ?? "",
-    phone_number: profile?.phone_number ?? "",
-    avatar_url: profile?.avatar_url ?? clerkAvatarUrl ?? "",
+    display_name: data.personal.displayName ?? clerkDisplayName ?? "",
+    phone_number: data.personal.phone ?? "",
+    avatar_url: data.personal.avatarUrl ?? clerkAvatarUrl ?? "",
   };
 
-  const { data, error } = await sb
-    .from("organizers")
-    .select("id, name, tagline, about, city, country_code, email, phone, website_url, instagram_handle, facebook_handle, tiktok_handle, logo_url, cover_image_url, custom_policies")
-    .eq("owner_user_id", userId)
-    .limit(1)
-    .single();
+  const org = data.organizer;
+  const organizer = org
+    ? {
+        id: org.id,
+        name: org.name,
+        tagline: org.tagline,
+        about: org.about,
+        city: org.city,
+        country_code: org.countryCode,
+        email: org.email,
+        phone: org.phone,
+        website_url: org.websiteUrl,
+        instagram_handle: org.instagramHandle,
+        facebook_handle: org.facebookHandle,
+        tiktok_handle: org.tiktokHandle,
+        logo_url: org.logoUrl,
+        cover_image_url: org.coverImageUrl,
+        custom_policies: (org.customPolicies ?? []) as Array<{
+          title: string;
+          description: string;
+        }>,
+      }
+    : null;
 
-  if (error || !data) {
-    return { personal, organizer: null, venue: null };
-  }
+  const apiVenue = data.venue;
+  const venue = apiVenue
+    ? {
+        id: apiVenue.id,
+        name: apiVenue.name,
+        venue_type: apiVenue.venueType,
+        description: apiVenue.description,
+        free_access: apiVenue.freeAccess,
+        free_for_ladies: apiVenue.freeForLadies,
+        address_line1: apiVenue.addressLine1,
+        city: apiVenue.city,
+        region: apiVenue.region,
+        country_code: apiVenue.countryCode,
+        postal_code: apiVenue.postalCode,
+        capacity: apiVenue.capacity,
+        lat: apiVenue.lat,
+        lng: apiVenue.lng,
+      }
+    : null;
 
-  const organizer = data as {
-    id: string;
-    name: string;
-    tagline: string | null;
-    about: string | null;
-    city: string | null;
-    country_code: string | null;
-    email: string | null;
-    phone: string | null;
-    website_url: string | null;
-    instagram_handle: string | null;
-    facebook_handle: string | null;
-    tiktok_handle: string | null;
-    logo_url: string | null;
-    cover_image_url: string | null;
-    custom_policies: Array<{ title: string; description: string }>;
-  };
-
-  // Also fetch the existing venue for this organizer (if any)
-  const { data: venue } = await sb
-    .from("venues")
-    .select("id, name, venue_type, description, free_access, free_for_ladies, address_line1, city, region, country_code, postal_code, capacity, lat, lng")
-    .eq("organizer_id", organizer.id)
-    .limit(1)
-    .maybeSingle();
-
-  return {
-    personal,
-    organizer,
-    venue: venue as {
-      id: string;
-      name: string;
-      venue_type: string | null;
-      description: string | null;
-      free_access: boolean;
-      free_for_ladies: boolean;
-      address_line1: string | null;
-      city: string | null;
-      region: string | null;
-      country_code: string | null;
-      postal_code: string | null;
-      capacity: number | null;
-      lat: number | null;
-      lng: number | null;
-    } | null,
-  };
+  return { personal, organizer, venue };
 }

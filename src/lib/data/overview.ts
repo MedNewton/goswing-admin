@@ -1,87 +1,77 @@
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { getCheckinSummary } from "@/lib/data/attendees";
-import { mapEvents, type EventQueryRow } from "@/lib/mappers/events";
-import type { Stats } from "@/types";
-import { formatMoney } from "@/lib/utils/format";
-import { getCurrentUserId } from "@/lib/data/auth";
+import { adminApiCall } from "@/lib/api/client";
+import type { ApiAdminEvent, ApiOverview } from "@/lib/api/types";
+import type { Event, Stats } from "@/types";
+import { formatDate, formatMoney, formatPrice } from "@/lib/utils/format";
+
+// Local copy of the shared event mapping (see src/lib/mappers/events.ts) —
+// kept self-contained so overview does not depend on files being rewritten.
+function normalizeEventStatus(
+  s: string,
+): "published" | "draft" | "completed" | "cancelled" | "live" {
+  const lower = s.toLowerCase();
+  if (lower === "published") return "published";
+  if (lower === "draft") return "draft";
+  if (lower === "completed") return "completed";
+  if (lower === "cancelled" || lower === "canceled") return "cancelled";
+  if (lower === "live") return "live";
+  return "draft";
+}
+
+function mapApiEvent(e: ApiAdminEvent): Event {
+  const venueName = e.venueName ?? "";
+  const city = e.venueCity ?? "";
+  const location = [venueName, city].filter(Boolean).join(", ");
+
+  return {
+    id: e.id,
+    title: e.title,
+    description: e.description ?? undefined,
+    image: e.heroImageUrl ?? "/placeholder-event.png",
+    date: formatDate(e.startsAt),
+    startsAt: e.startsAt,
+    endsAt: e.endsAt ?? undefined,
+    location: location || "TBA",
+    venue: venueName || undefined,
+    attendeeCount: e.attendeeCount,
+    reservationCount: e.reservationCount,
+    status: normalizeEventStatus(e.status),
+    currency: e.currency.trim(),
+    minPrice: formatPrice(e.minPriceCents, e.currency, e.isFree),
+    isFree: e.isFree,
+    organizerId: e.organizerId,
+    organizerName: e.organizerName ?? undefined,
+    tags: [...e.tags],
+    partyTypes: [...e.partyTypes],
+    musicStyles: [...e.musicStyles],
+    extraServices: [...e.extraServices],
+    songSuggestionsCount: e.songSuggestionsCount,
+    checkedInCount: e.checkedInCount,
+    reviewScore: e.reviewScore,
+    waitlistEnabled: e.waitlistEnabled,
+    approvalMode: e.approvalMode,
+    sharingEnabled: e.sharingEnabled,
+    policies: e.policies.map((p) => ({ title: p.title, description: p.description })),
+  };
+}
 
 /** Fetch dashboard overview stats + recent events. */
 export async function getOverview() {
-  const sb = await createSupabaseServerClient();
-  const userId = await getCurrentUserId();
-
-  // Run queries in parallel
-  const [eventsResult, reviewsResult, ticketsResult, paymentsResult, checkinSummary] =
-    await Promise.all([
-      sb
-        .from("events")
-        .select(
-          `*, venues ( name, city ), organizers ( name ), event_tags ( tags ( label ) )`,
-        )
-        .eq("created_by_user_id", userId)
-        .order("starts_at", { ascending: false }),
-      sb
-        .from("event_reviews")
-        .select("rating"),
-      sb
-        .from("tickets")
-        .select("id", { count: "exact", head: true }),
-      sb
-        .from("payments")
-        .select("amount_cents, currency")
-        .eq("status", "succeeded"),
-      getCheckinSummary(),
-    ]);
-
-  if (eventsResult.error) throw eventsResult.error;
-
-  const checkinSummaryByEventId = new Map(
-    checkinSummary.map((item) => [item.eventId, item] as const),
-  );
-  const events = mapEvents((eventsResult.data ?? []) as EventQueryRow[]).map((event) => {
-    const summary = checkinSummaryByEventId.get(event.id);
-    return {
-      ...event,
-      attendeeCount: summary?.checkedIn ?? 0,
-      reservationCount: summary?.totalReservations ?? 0,
-    };
-  });
-
-  // Review stats — RLS scopes to user's events via event_reviews_creator_read
-  const reviews = (reviewsResult.data ?? []) as Array<{ rating: number | null }>;
-  const avgRating =
-    reviews.length > 0
-      ? Math.round(
-          (reviews.reduce((sum, r) => sum + (r.rating ?? 0), 0) /
-            reviews.length) *
-            10,
-        ) / 10
-      : 0;
-
-  // Ticket count — RLS scopes to user's events via tickets_creator_read
-  const totalTickets = ticketsResult.count ?? 0;
-
-  // Revenue — RLS scopes to user's events via payments_creator_read
-  const payments = (paymentsResult.data ?? []) as Array<{ amount_cents: number; currency: string }>;
-  const totalRevenueCents = payments.reduce(
-    (sum, p) => sum + (p.amount_cents ?? 0),
-    0,
-  );
-  const mainCurrency = payments[0]?.currency.trim() ?? "USD";
-
-  const totalAttendees = checkinSummary.reduce((sum, event) => sum + event.checkedIn, 0);
+  const data = await adminApiCall<ApiOverview>("/v1/admin/overview");
 
   const stats: Stats = {
-    totalEvents: events.length,
-    totalAttendees,
-    totalTickets,
-    avgRating,
-    totalRevenue: totalRevenueCents / 100,
-    totalRevenueFormatted: formatMoney(totalRevenueCents, mainCurrency),
+    totalEvents: data.stats.totalEvents,
+    totalAttendees: data.stats.totalAttendees,
+    totalTickets: data.stats.totalTickets,
+    avgRating: data.stats.avgRating,
+    totalRevenue: data.stats.totalRevenueCents / 100,
+    totalRevenueFormatted: formatMoney(
+      data.stats.totalRevenueCents,
+      data.stats.currency,
+    ),
   };
 
   return {
     stats,
-    recentEvents: events.slice(0, 6),
+    recentEvents: data.recentEvents.map(mapApiEvent),
   };
 }
