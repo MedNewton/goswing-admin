@@ -71,7 +71,7 @@ export async function removeOrganizerGalleryItem(id: string) {
 // Event Gallery
 // ---------------------------------------------------------------------------
 
-/** Fetch gallery items for an event (public event page). */
+/** Fetch gallery items for an event (public event page + admin detail page). */
 export async function getEventGallery(eventId: string): Promise<GalleryItem[]> {
   try {
     const { items } = await publicApiCall<ApiItems<ApiGalleryItem>>(
@@ -79,8 +79,19 @@ export async function getEventGallery(eventId: string): Promise<GalleryItem[]> {
     );
     return items.map(mapApiGalleryItem);
   } catch (error) {
-    if (isNotFound(error)) return [];
-    throw error;
+    if (!isNotFound(error)) throw error;
+  }
+
+  // The public route 404s for unpublished events. The admin detail page also
+  // renders draft galleries, so fall back to the admin event detail (which
+  // fails unauthenticated on public pages — treated as "no gallery").
+  try {
+    const detail = await adminApiCall<ApiAdminEventDetail>(
+      `/v1/admin/events/${eventId}`,
+    );
+    return detail.gallery.map(mapApiGalleryItem);
+  } catch {
+    return [];
   }
 }
 

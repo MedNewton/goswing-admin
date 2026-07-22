@@ -18,8 +18,8 @@ export async function getAttendees(filters?: { eventId?: string }) {
 
   return items.map((row): Attendee => ({
     id: row.reservationId,
-    name: row.name || "Guest",
-    email: row.email || "—",
+    name: row.name ?? "Guest",
+    email: row.email ?? "—",
     eventId: row.eventId,
     eventName: row.eventTitle,
     checkedIn: true,

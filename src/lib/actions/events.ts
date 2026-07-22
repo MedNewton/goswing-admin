@@ -203,7 +203,7 @@ export async function createEventAction(
       galleryItems: (data.galleryItems ?? []).map((item) => ({
         url: item.url,
         mediaType: item.mediaType,
-        caption: item.caption ? item.caption : null,
+        caption: item.caption ?? null,
       })),
     };
 
@@ -316,7 +316,7 @@ export async function updateEventAction(
       galleryItems: (data.galleryItems ?? []).map((item) => ({
         url: item.url,
         mediaType: item.mediaType,
-        caption: item.caption ? item.caption : null,
+        caption: item.caption ?? null,
       })),
     };
 

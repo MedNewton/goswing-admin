@@ -101,7 +101,7 @@ async function rawApiCall<T>(
       opts.body === undefined
         ? undefined
         : isFormData
-          ? (opts.body as FormData)
+          ? opts.body
           : JSON.stringify(opts.body),
     ...cacheOptions,
   });
