@@ -172,6 +172,13 @@ export default function EditEventPage({
   const [loading, setLoading] = useState(true);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [galleryItems, setGalleryItems] = useState<GalleryItem[]>([]);
+  const errorBannerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (serverError) {
+      errorBannerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [serverError]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const {
@@ -507,7 +514,10 @@ export default function EditEventPage({
       >
         {/* Server Error */}
         {serverError && (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          <div
+            ref={errorBannerRef}
+            className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+          >
             {serverError}
           </div>
         )}
@@ -930,6 +940,13 @@ export default function EditEventPage({
             </Button>
           </div>
         </Card>
+
+        {/* Server Error (repeated near the submit buttons so it is visible without scrolling) */}
+        {serverError && (
+          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            {serverError}
+          </div>
+        )}
 
         {/* Action Buttons */}
         <div className="flex flex-col gap-4 rounded-[2rem] border border-gray-200 bg-white p-6 shadow-lg shadow-gray-100 lg:flex-row lg:items-center lg:justify-between">

@@ -167,6 +167,17 @@ function periodLabelKey(periodDays: PeriodOption) {
   }
 }
 
+function windowLabelKey(periodDays: PeriodOption) {
+  switch (periodDays) {
+    case 7:
+      return "financePage.window7" as const;
+    case 30:
+      return "financePage.window30" as const;
+    case 90:
+      return "financePage.window90" as const;
+  }
+}
+
 function formatChartMoney(cents: number, currency: string) {
   const value = cents / 100;
 
@@ -426,7 +437,7 @@ export function FinancePageClient({
                 {stats.transactionCount.toLocaleString()} {translate(locale, "financePage.totalTransactions")}
               </div>
               <div className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-white/90 backdrop-blur">
-                {translate(locale, periodLabelKey(periodDays))} window
+                {translate(locale, windowLabelKey(periodDays))}
               </div>
             </div>
           </div>
@@ -509,7 +520,7 @@ export function FinancePageClient({
               <div className="grid gap-4 xl:grid-cols-[auto,auto] xl:items-center xl:justify-between">
                 <div className="flex flex-col gap-3">
                   <div className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
-                    Metric
+                    {translate(locale, "financePage.metric")}
                   </div>
                   <div className="inline-flex w-fit rounded-full border border-gray-200 bg-white p-1 shadow-sm">
                     <button
@@ -521,7 +532,7 @@ export function FinancePageClient({
                           : "text-gray-700 hover:bg-gray-50"
                       }`}
                     >
-                      Revenue Amount
+                      {translate(locale, "financePage.revenueAmountToggle")}
                     </button>
                     <button
                       type="button"
@@ -532,14 +543,14 @@ export function FinancePageClient({
                           : "text-gray-700 hover:bg-gray-50"
                       }`}
                     >
-                      Reservations
+                      {translate(locale, "financePage.reservationsToggle")}
                     </button>
                   </div>
                 </div>
 
                 <div className="flex flex-col gap-3 xl:items-end">
                   <div className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
-                    Period & Date
+                    {translate(locale, "financePage.periodAndDate")}
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <div className="inline-flex rounded-full border border-gray-200 bg-white p-1 shadow-sm">
@@ -845,14 +856,14 @@ export function FinancePageClient({
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">
-                Transactions
+                {translate(locale, "financePage.transactionsEyebrow")}
               </p>
               <h2 className="mt-1 text-2xl font-semibold text-gray-950">
-                Transactions in selected window
+                {translate(locale, "financePage.transactionsInWindow")}
               </h2>
             </div>
             <div className="rounded-full bg-gray-100 px-4 py-2 text-sm font-medium text-gray-600">
-              {visibleTransactions.length.toLocaleString()} transactions
+              {visibleTransactions.length.toLocaleString()} {translate(locale, "financePage.transactionsCount")}
             </div>
           </div>
         </div>
@@ -863,10 +874,10 @@ export function FinancePageClient({
               <ChartIcon className="h-5 w-5" />
             </div>
             <p className="mt-4 text-base font-medium text-gray-900">
-              No transactions in this period
+              {translate(locale, "financePage.noTransactionsPeriod")}
             </p>
             <p className="mt-1 text-sm text-gray-500">
-              Try a different period or move the date window to inspect another range.
+              {translate(locale, "financePage.noTransactionsHint")}
             </p>
           </div>
         ) : (

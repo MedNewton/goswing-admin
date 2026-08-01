@@ -134,10 +134,36 @@ export async function completeOnboardingAction(
   };
 
   try {
-    await adminApiCall<ApiOnboardingResult>("/v1/admin/me/onboarding", {
-      method: "POST",
-      body,
-    });
+    const onboardingResult = await adminApiCall<ApiOnboardingResult>(
+      "/v1/admin/me/onboarding",
+      {
+        method: "POST",
+        body,
+      },
+    );
+
+    // Workaround: the onboarding endpoint drops addressLine1/region/postalCode
+    // (only city/countryCode survive). Patch the created venue so the full
+    // address entered in the wizard is persisted.
+    const addressLine1 = emptyStringToNull(data.venue_address);
+    const region = emptyStringToNull(data.venue_region);
+    const postalCode = emptyStringToNull(data.venue_postal_code);
+    if (addressLine1 || region || postalCode) {
+      try {
+        await adminApiCall(`/v1/admin/venues/${onboardingResult.venueId}`, {
+          method: "PATCH",
+          body: {
+            ...(addressLine1 ? { addressLine1 } : {}),
+            ...(region ? { region } : {}),
+            ...(postalCode ? { postalCode } : {}),
+          },
+        });
+      } catch (patchError) {
+        // Non-fatal: onboarding itself succeeded, only the address enrichment failed.
+        console.error("[completeOnboarding] venue address patch failed:", patchError);
+      }
+    }
+
     return { success: true };
   } catch (error) {
     if (isApiError(error)) {

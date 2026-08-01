@@ -7,6 +7,7 @@ import type {
 } from "@/lib/api/types";
 import type { Venue } from "@/types";
 import type { VenueInsert, VenueUpdate } from "@/types/database";
+import { htmlToPlainText } from "@/lib/utils/html";
 
 // ---------------------------------------------------------------------------
 // Local mappers
@@ -28,7 +29,7 @@ function mapApiVenue(v: ApiAdminVenue): Venue {
     postalCode: v.postalCode,
     capacity: v.capacity,
     organizerId: v.organizerId,
-    description: v.description,
+    description: v.description ? htmlToPlainText(v.description) : v.description,
     freeAccess: v.freeAccess,
     freeForLadies: v.freeForLadies,
     coverImageUrl: v.coverImageUrl,

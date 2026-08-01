@@ -11,6 +11,7 @@ import type {
 } from "@/lib/api/types";
 import type { Event, Venue } from "@/types";
 import { formatDate, formatPrice } from "@/lib/utils/format";
+import { htmlToPlainText } from "@/lib/utils/html";
 
 // Discover listings are cached briefly so public pages can be served fast.
 const LIST_REVALIDATE = 60;
@@ -61,7 +62,7 @@ function mapPublicVenueToUiVenue(v: ApiPublicVenue): Venue {
     postalCode: v.postalCode,
     capacity: v.capacity,
     organizerId: v.organizerId,
-    description: v.description,
+    description: v.description ? htmlToPlainText(v.description) : v.description,
     freeAccess: v.freeAccess,
     freeForLadies: v.freeForLadies,
     coverImageUrl: v.coverImageUrl,

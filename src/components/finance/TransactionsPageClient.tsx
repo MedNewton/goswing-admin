@@ -225,7 +225,7 @@ export function TransactionsPageClient({ transactions }: TransactionsPageClientP
           </label>
           <label className="block">
             <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
-              Sort
+              {translate(locale, "transactionsPage.sortLabel")}
             </span>
             <select
               value={sortMode}

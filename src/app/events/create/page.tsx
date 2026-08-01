@@ -151,6 +151,18 @@ function SectionHeader({
 // Page Component
 // ---------------------------------------------------------------------------
 
+/** Maps API validation field names to their corresponding form fields. */
+const SERVER_FIELD_TO_FORM_FIELD: Partial<Record<string, keyof CreateEventFormValues>> = {
+  startsAt: "eventDate",
+  endsAt: "endTime",
+  title: "title",
+  description: "description",
+  venueId: "venueId",
+  heroImageUrl: "heroImageUrl",
+  contactEmail: "contactEmail",
+  contactPhone: "contactPhone",
+};
+
 export default function CreateEventPage() {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -168,10 +180,17 @@ export default function CreateEventPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [galleryItems, setGalleryItems] = useState<GalleryItem[]>([]);
   const [locale, setLocale] = useState<Locale>("fr");
+  const errorBannerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setLocale(getClientLocale());
   }, []);
+
+  useEffect(() => {
+    if (serverError) {
+      errorBannerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [serverError]);
 
   useEffect(() => {
     fetchVenuesForSelect()
@@ -196,6 +215,7 @@ export default function CreateEventPage() {
     control,
     watch,
     setValue,
+    setError,
     formState: { errors },
   } = useForm<CreateEventFormValues>({
     resolver: zodResolver(createEventFormSchema),
@@ -302,10 +322,18 @@ export default function CreateEventPage() {
         if (result.success) {
           router.push(`/events/${result.eventId}`);
         } else {
+          if (result.fieldErrors) {
+            for (const [field, messages] of Object.entries(result.fieldErrors)) {
+              const formField = SERVER_FIELD_TO_FORM_FIELD[field];
+              if (formField && messages.length > 0) {
+                setError(formField, { type: "server", message: messages.join(" ") });
+              }
+            }
+          }
           setServerError(result.error);
         }
       } catch {
-        setServerError("An unexpected error occurred. Please try again.");
+        setServerError(translate(locale, "editEvent.unexpectedError"));
       }
     });
   };
@@ -376,7 +404,10 @@ export default function CreateEventPage() {
         </section>
         {/* Server Error */}
         {serverError && (
-          <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          <div
+            ref={errorBannerRef}
+            className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+          >
             {serverError}
           </div>
         )}
@@ -802,6 +833,13 @@ export default function CreateEventPage() {
             />
           </div>
         </div>
+
+        {/* Server Error (repeated near the submit buttons so it is visible without scrolling) */}
+        {serverError && (
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            {serverError}
+          </div>
+        )}
 
         {/* Action Buttons */}
         <div className="flex justify-end gap-3 pb-6">

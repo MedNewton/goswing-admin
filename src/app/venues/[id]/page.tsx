@@ -23,6 +23,7 @@ import {
 import { Badge } from "@/components/ui/Badge";
 import { useState, useEffect, use, type ComponentType, type SVGProps } from "react";
 import { fetchVenue } from "@/lib/actions/venues";
+import { htmlToPlainText } from "@/lib/utils/html";
 import {
   fetchVenueStats,
   fetchVenueOrganizer,
@@ -321,7 +322,7 @@ export default function VenueDetailPage({
                 className="flex items-center gap-1.5 text-sm font-medium text-white/70 hover:text-white transition-colors"
               >
                 <ChevronLeftIcon className="h-4 w-4" />
-                {t("venues.title") || "Venues"}
+                {t("venuesPage.title")}
               </Link>
               <div className="flex items-center gap-3">
                 <Link
@@ -402,7 +403,8 @@ export default function VenueDetailPage({
               title={t("venueDetail.description") || "Description"}
             />
             <p className="mt-6 whitespace-pre-line text-sm leading-relaxed text-gray-600">
-              {venue.description ?? organizer?.about ?? "No description available."}
+              {htmlToPlainText(venue.description ?? organizer?.about) ||
+                "No description available."}
             </p>
           </div>
 

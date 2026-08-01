@@ -71,6 +71,16 @@ function normalizeOptionalText(value: string | null | undefined) {
   return null;
 }
 
+/**
+ * Like normalizeOptionalText, but keeps absent fields absent so PATCH partial
+ * semantics hold: a field the caller never sent must not be nulled out on the
+ * backend (undefined keys disappear when the body is JSON-serialized).
+ */
+function normalizeIfProvided(value: string | null | undefined) {
+  if (value === undefined) return undefined;
+  return normalizeOptionalText(value);
+}
+
 /** Map an API validation_failed error to the fieldErrors result shape when possible. */
 function toFailureResult(err: unknown, fallback: string): VenueActionResult {
   if (isApiError(err)) {
@@ -156,17 +166,17 @@ export async function updateVenueAction(
   try {
     await updateVenue(venueId, {
       name: data.name?.trim(),
-      address_line1: normalizeOptionalText(data.address_line1),
-      city: normalizeOptionalText(data.city),
-      region: normalizeOptionalText(data.region),
-      country_code: normalizeOptionalText(data.country_code),
-      venue_type: normalizeOptionalText(data.venue_type),
-      lat: data.lat ?? null,
-      lng: data.lng ?? null,
-      postal_code: normalizeOptionalText(data.postal_code),
-      timezone: normalizeOptionalText(data.timezone),
-      capacity: data.capacity ?? null,
-      description: normalizeOptionalText(data.description),
+      address_line1: normalizeIfProvided(data.address_line1),
+      city: normalizeIfProvided(data.city),
+      region: normalizeIfProvided(data.region),
+      country_code: normalizeIfProvided(data.country_code),
+      venue_type: normalizeIfProvided(data.venue_type),
+      lat: data.lat,
+      lng: data.lng,
+      postal_code: normalizeIfProvided(data.postal_code),
+      timezone: normalizeIfProvided(data.timezone),
+      capacity: data.capacity,
+      description: normalizeIfProvided(data.description),
       free_access: data.free_access ?? undefined,
       free_for_ladies: data.free_for_ladies ?? undefined,
     });

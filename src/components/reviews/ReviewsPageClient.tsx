@@ -107,7 +107,15 @@ export function ReviewsPageClient({ reviews, stats }: ReviewsPageClientProps) {
                 {stats.count.toLocaleString()} {translate(locale, "reviewsPage.reviewsCount")}
               </div>
               <div className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-white/90 backdrop-blur">
-                {translate(locale, "reviewsPage.sortedBy")} {sortBy === "recent" ? "most recent" : sortBy}
+                {translate(locale, "reviewsPage.sortedBy")}{" "}
+                {translate(
+                  locale,
+                  sortBy === "recent"
+                    ? "reviewsPage.mostRecent"
+                    : sortBy === "highest"
+                      ? "reviewsPage.highestRated"
+                      : "reviewsPage.lowestRated",
+                ).toLowerCase()}
               </div>
             </div>
           </div>
@@ -115,13 +123,13 @@ export function ReviewsPageClient({ reviews, stats }: ReviewsPageClientProps) {
           <div className="grid gap-3 sm:grid-cols-2">
             <SummaryCard
               icon={StarIcon}
-              label="Average"
+              label={translate(locale, "reviewsPage.average")}
               value={stats.average > 0 ? stats.average.toFixed(1) : "\u2014"}
               accentClass="bg-amber-50 text-amber-700"
             />
             <SummaryCard
               icon={UsersIcon}
-              label="Reviews"
+              label={translate(locale, "reviewsPage.reviewsLabel")}
               value={String(stats.count)}
               accentClass="bg-sky-50 text-sky-700"
             />

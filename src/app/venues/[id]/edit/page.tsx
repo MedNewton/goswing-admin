@@ -19,6 +19,7 @@ import { Textarea } from "@/components/ui/Textarea";
 import { Button } from "@/components/ui/Button";
 import { PlacesAutocomplete } from "@/components/ui/PlacesAutocomplete";
 import { LocationMapPicker } from "@/components/ui/LocationMapPicker";
+import { htmlToPlainText } from "@/lib/utils/html";
 import {
   useState,
   useEffect,
@@ -421,7 +422,7 @@ export default function EditVenuePage({
         reset({
           name: venueData.name,
           capacity: venueData.capacity ?? ("" as unknown as undefined),
-          description: venueData.description ?? "",
+          description: htmlToPlainText(venueData.description),
           free_access: venueData.freeAccess,
           free_for_ladies: venueData.freeForLadies,
           address_line1: venueData.address ?? "",
@@ -748,7 +749,7 @@ export default function EditVenuePage({
         reset({
           name: updated.name,
           capacity: updated.capacity ?? ("" as unknown as undefined),
-          description: updated.description ?? "",
+          description: htmlToPlainText(updated.description),
           free_access: updated.freeAccess,
           free_for_ladies: updated.freeForLadies,
           address_line1: updated.address ?? "",
@@ -825,7 +826,9 @@ export default function EditVenuePage({
     .filter(Boolean)
     .join(", ") || "Location not set";
   const venueTypeLabel =
-    categoryTags.find((t) => t.id === selectedCategory)?.label ?? "Type not set";
+    categoryTags.find((t) => t.id === selectedCategory)?.label ??
+    venue?.venueType ??
+    "Type not set";
   const capacityLabel =
     typeof venueCapacity === "number" && venueCapacity > 0
       ? venueCapacity.toLocaleString()
