@@ -25,6 +25,8 @@ export type ApiCallOptions = Readonly<{
   headers?: Record<string, string>;
   /** Only meaningful for public calls; admin calls are always no-store. */
   revalidate?: number;
+  /** Abort the request after this many milliseconds. */
+  timeoutMs?: number;
 }>;
 
 type ApiErrorBody = Readonly<{
@@ -104,6 +106,9 @@ async function rawApiCall<T>(
           ? opts.body
           : JSON.stringify(opts.body),
     ...cacheOptions,
+    ...(opts.timeoutMs !== undefined
+      ? { signal: AbortSignal.timeout(opts.timeoutMs) }
+      : {}),
   });
 
   if (!res.ok) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { SignIn } from "@clerk/nextjs";
+import { ClerkFailed, SignIn, SignOutButton, useAuth } from "@clerk/nextjs";
 import { useState, useEffect } from "react";
 import { CalendarIcon, ChartIcon, DollarIcon } from "@/components/icons";
 import { LanguageSwitcher } from "@/components/discover/LanguageSwitcher";
@@ -33,6 +33,71 @@ function FeatureItem({
         <p className="mt-0.5 text-xs text-slate-300">{description}</p>
       </div>
     </div>
+  );
+}
+
+function SignInPanel({ locale }: { locale: Locale }) {
+  const { isLoaded, isSignedIn } = useAuth();
+
+  return (
+    <>
+      <ClerkFailed>
+        <div className="w-full rounded-2xl border border-gray-200 bg-white p-6 text-center shadow-sm">
+          <p className="text-sm font-semibold text-gray-900">
+            {translate(locale, "login.failedTitle")}
+          </p>
+          <p className="mt-1 text-sm text-gray-500">
+            {translate(locale, "login.failedDesc")}
+          </p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="mt-4 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
+          >
+            {translate(locale, "login.retry")}
+          </button>
+        </div>
+      </ClerkFailed>
+
+      {!isLoaded ? (
+        // clerk-js is still downloading; without this the panel is empty.
+        <div className="flex w-full flex-col items-center gap-3 py-16 text-sm text-gray-500">
+          <span className="h-6 w-6 animate-spin rounded-full border-2 border-gray-300 border-t-gray-900" />
+          {translate(locale, "login.loading")}
+        </div>
+      ) : isSignedIn ? (
+        // <SignIn/> renders nothing for a signed-in user and silently
+        // redirects, which looked like a blank page. Be explicit instead.
+        <div className="w-full rounded-2xl border border-gray-200 bg-white p-6 text-center shadow-sm">
+          <p className="text-sm font-medium text-gray-900">
+            {translate(locale, "login.alreadySignedIn")}
+          </p>
+          <div className="mt-4 flex flex-col items-center gap-2">
+            <a
+              href="/overview"
+              className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
+            >
+              {translate(locale, "login.continue")}
+            </a>
+            <SignOutButton redirectUrl="/login">
+              <button
+                type="button"
+                className="text-sm text-gray-500 underline hover:text-gray-700"
+              >
+                {translate(locale, "login.signOut")}
+              </button>
+            </SignOutButton>
+          </div>
+        </div>
+      ) : (
+        <SignIn
+          path="/login"
+          routing="path"
+          fallbackRedirectUrl="/overview"
+          forceRedirectUrl="/overview"
+        />
+      )}
+    </>
   );
 }
 
@@ -126,12 +191,7 @@ export default function LoginPage() {
             </div>
 
             <div className="flex justify-center">
-              <SignIn
-                path="/login"
-                routing="path"
-                fallbackRedirectUrl="/overview"
-                forceRedirectUrl="/overview"
-              />
+              <SignInPanel locale={locale} />
             </div>
           </div>
         </div>
