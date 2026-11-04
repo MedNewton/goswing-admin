@@ -1310,6 +1310,13 @@ const fr: Record<string, string> = {
   "login.feature2Desc": "Suivez les performances avec des insights en temps réel.",
   "login.feature3Title": "Billetterie",
   "login.feature3Desc": "Vendez des billets et gérez les participants facilement.",
+  "login.loading": "Chargement de la connexion…",
+  "login.failedTitle": "Impossible de charger la connexion",
+  "login.failedDesc": "Vérifiez votre connexion ou désactivez les bloqueurs de contenu, puis réessayez.",
+  "login.retry": "Réessayer",
+  "login.alreadySignedIn": "Vous êtes déjà connecté.",
+  "login.continue": "Accéder au tableau de bord",
+  "login.signOut": "Se déconnecter",
 
 };
 

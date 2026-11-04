@@ -1310,6 +1310,13 @@ const en = {
   "login.feature2Desc": "Track performance with real-time insights.",
   "login.feature3Title": "Ticketing",
   "login.feature3Desc": "Sell tickets and manage attendees effortlessly.",
+  "login.loading": "Loading sign-in…",
+  "login.failedTitle": "Sign-in could not load",
+  "login.failedDesc": "Check your connection or disable content blockers, then try again.",
+  "login.retry": "Try again",
+  "login.alreadySignedIn": "You're already signed in.",
+  "login.continue": "Continue to dashboard",
+  "login.signOut": "Sign out",
 
 } as const;
 
