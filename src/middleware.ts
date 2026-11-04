@@ -46,9 +46,31 @@ const isFinanceManagerAllowedRoute = createRouteMatcher([
   "/onboarding(.*)",
 ]);
 
-const hasClerkConfig = Boolean(
-  process.env.CLERK_SECRET_KEY && process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
-);
+const missingClerkKeys = [
+  process.env.CLERK_SECRET_KEY ? null : "CLERK_SECRET_KEY",
+  process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+    ? null
+    : "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
+].filter((key): key is string => key !== null);
+
+const hasClerkConfig = missingClerkKeys.length === 0;
+
+let warnedMissingClerkKeys = false;
+
+/**
+ * Without these keys every protected page silently redirects to /login
+ * (signed-in users bounce straight back). Say so loudly, once per process.
+ */
+function warnMissingClerkKeys(path: string): void {
+  if (warnedMissingClerkKeys) return;
+  warnedMissingClerkKeys = true;
+  console.error(
+    `[middleware] Clerk is DISABLED: missing ${missingClerkKeys.join(", ")} ` +
+      `in the server environment. Every protected page (first hit: ${path}) ` +
+      "will redirect to /login. Set the keys where `next start` can read them " +
+      "(.env.production, or your pm2/systemd/Docker env) and restart.",
+  );
+}
 
 /** Upper bound for the role/onboarding lookup done on every page request. */
 const ADMIN_CONTEXT_TIMEOUT_MS = 5000;
@@ -172,6 +194,7 @@ export default async function middleware(
   event: NextFetchEvent,
 ) {
   if (!hasClerkConfig) {
+    warnMissingClerkKeys(req.nextUrl.pathname);
     return fallbackMiddleware(req);
   }
 
