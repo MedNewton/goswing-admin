@@ -55,7 +55,13 @@ const onboardingSchema = z.object({
   venue_capacity: z.coerce.number().int().positive().optional().or(z.literal("").transform(() => undefined)),
   venue_lat: z.coerce.number().optional(),
   venue_lng: z.coerce.number().optional(),
-});
+}).refine(
+  // GET /v1/admin/me/context reports needsOnboarding while organizer.city is
+  // empty, so accepting a submission without a city would loop the user
+  // back to /onboarding forever.
+  (data) => (data.city?.trim() ?? "").length > 0 || (data.venue_city?.trim() ?? "").length > 0,
+  { message: "City is required", path: ["venue_city"] },
+);
 
 export type OnboardingInput = z.infer<typeof onboardingSchema>;
 
@@ -99,7 +105,7 @@ export async function completeOnboardingAction(
       name: data.name,
       tagline: emptyStringToNull(data.tagline),
       about: emptyStringToNull(data.about),
-      city: emptyStringToNull(data.city) ?? emptyStringToNull(data.venue_city),
+      city: emptyStringToNull(data.city?.trim()) ?? emptyStringToNull(data.venue_city?.trim()),
       countryCode:
         emptyStringToNull(data.country_code) ?? emptyStringToNull(data.venue_country_code),
       email: data.email,
@@ -119,7 +125,7 @@ export async function completeOnboardingAction(
       freeAccess: data.venue_free_access ?? false,
       freeForLadies: data.venue_free_for_ladies ?? false,
       addressLine1: emptyStringToNull(data.venue_address),
-      city: emptyStringToNull(data.venue_city) ?? emptyStringToNull(data.city),
+      city: emptyStringToNull(data.venue_city?.trim()) ?? emptyStringToNull(data.city?.trim()),
       region: emptyStringToNull(data.venue_region),
       countryCode:
         emptyStringToNull(data.venue_country_code) ?? emptyStringToNull(data.country_code),
