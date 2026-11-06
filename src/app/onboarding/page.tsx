@@ -68,7 +68,9 @@ const onboardingFormSchema = z.object({
   venue_free_access: z.boolean(),
   venue_free_for_ladies: z.boolean(),
   venue_address: z.string().optional().or(z.literal("")),
-  venue_city: z.string().optional().or(z.literal("")),
+  // Required: the API treats an organizer without a city as "not onboarded",
+  // so submitting without one would loop the user back to /onboarding.
+  venue_city: z.string().trim().min(1, "City is required"),
   venue_region: z.string().optional().or(z.literal("")),
   venue_country_code: z.string().optional().or(z.literal("")),
   venue_postal_code: z.string().optional().or(z.literal("")),
@@ -375,9 +377,11 @@ export default function OnboardingPage() {
           window.location.href = "/overview";
         } else {
           setServerError(result.error);
+          window.scrollTo({ top: 0, behavior: "smooth" });
         }
       } catch {
         setServerError("An unexpected error occurred. Please try again.");
+        window.scrollTo({ top: 0, behavior: "smooth" });
       }
     });
   };
@@ -452,7 +456,11 @@ export default function OnboardingPage() {
 
         <form onSubmit={handleSubmit(onSubmit, (errs) => {
           const first = Object.values(errs)[0] as { message?: string } | undefined;
-          setServerError(first?.message ?? "Please fix the highlighted fields before continuing.");
+          setServerError(
+            errs.venue_city
+              ? translate(locale, "onboarding.cityRequired")
+              : first?.message ?? "Please fix the highlighted fields before continuing.",
+          );
           window.scrollTo({ top: 0, behavior: "smooth" });
         })} className="space-y-6">
           {/* Server Error */}
@@ -777,7 +785,7 @@ export default function OnboardingPage() {
                       <div className="space-y-4">
                         <Input label={translate(locale, "onboarding.addressLabel")} placeholder={translate(locale, "onboarding.addressPlaceholder")} error={errors.venue_address?.message} {...register("venue_address")} />
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                          <Input label={translate(locale, "onboarding.cityLabel")} placeholder={translate(locale, "onboarding.cityPlaceholder")} error={errors.venue_city?.message} {...register("venue_city")} />
+                          <Input label={translate(locale, "onboarding.cityLabel")} placeholder={translate(locale, "onboarding.cityPlaceholder")} error={errors.venue_city ? translate(locale, "onboarding.cityRequired") : undefined} {...register("venue_city")} />
                           <Input label={translate(locale, "onboarding.regionLabel")} placeholder={translate(locale, "onboarding.regionPlaceholder")} error={errors.venue_region?.message} {...register("venue_region")} />
                         </div>
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -905,6 +913,11 @@ export default function OnboardingPage() {
                   <ChevronLeftIcon className="h-4 w-4" />
                   {translate(locale, "onboarding.previousStep")}
                 </button>
+                {serverError && (
+                  <p className="mx-4 flex-1 text-right text-sm text-red-600" role="alert">
+                    {serverError}
+                  </p>
+                )}
                 <button
                   type="submit"
                   disabled={isPending}

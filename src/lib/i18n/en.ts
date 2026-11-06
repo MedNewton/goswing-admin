@@ -1235,6 +1235,7 @@ const en = {
   "onboarding.contactDesc": "How people can reach you.",
   "onboarding.cityLabel": "City",
   "onboarding.cityPlaceholder": "e.g., Paris",
+  "onboarding.cityRequired": "City is required. Pick your venue on the map search or type the city.",
   "onboarding.countryLabel": "Country",
   "onboarding.countryPlaceholder": "e.g., FR",
   "onboarding.emailLabel": "Email",

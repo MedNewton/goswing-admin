@@ -11,6 +11,15 @@ export function register(): void {
     (key) => !process.env[key],
   );
 
+  // NEXT_PUBLIC_* values are inlined at build time, so this reflects the build.
+  if (!process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY) {
+    console.error(
+      "[startup] NEXT_PUBLIC_GOOGLE_PLACES_API_KEY was not set when this app was built. " +
+        "Address search and maps (onboarding, venue forms, public venue pages) are disabled. " +
+        "Add it to the environment used by `npm run build`, rebuild and restart.",
+    );
+  }
+
   if (missing.length > 0) {
     console.error(
       `[startup] Missing ${missing.join(", ")}. Sign-in will not work: ` +

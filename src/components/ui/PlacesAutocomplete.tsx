@@ -26,6 +26,8 @@ declare global {
   interface Window {
     google: typeof google;
     initGooglePlaces: () => void;
+    /** Called by the Maps script when the API key is rejected. */
+    gm_authFailure?: () => void;
   }
 }
 
@@ -40,6 +42,9 @@ export function PlacesAutocomplete({
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
   const [inputValue, setInputValue] = useState(defaultValue);
   const [isLoaded, setIsLoaded] = useState(false);
+  // Script failed to load or Google rejected the key: let the user type the
+  // address manually instead of leaving a permanently disabled input.
+  const [loadFailed, setLoadFailed] = useState(false);
 
   const getPreferredPlaceLabel = useCallback(
     (name: string | undefined, formattedAddress: string | undefined) => {
@@ -120,6 +125,18 @@ export function PlacesAutocomplete({
       return;
     }
 
+    const markFailed = () => setLoadFailed(true);
+    const previousAuthFailure = window.gm_authFailure;
+    window.gm_authFailure = () => {
+      console.error(
+        "[PlacesAutocomplete] Google rejected NEXT_PUBLIC_GOOGLE_PLACES_API_KEY. " +
+          "Check that Maps JavaScript API and Places API are enabled for it and that " +
+          `its HTTP referrer restrictions allow ${window.location.host}.`,
+      );
+      markFailed();
+      previousAuthFailure?.();
+    };
+
     // Check if script is already loaded
     if (window.google?.maps?.places) {
       initAutocomplete();
@@ -132,6 +149,7 @@ export function PlacesAutocomplete({
     );
     if (existingScript) {
       existingScript.addEventListener("load", initAutocomplete);
+      existingScript.addEventListener("error", markFailed);
       return;
     }
 
@@ -141,6 +159,7 @@ export function PlacesAutocomplete({
     script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=initGooglePlaces`;
     script.async = true;
     script.defer = true;
+    script.onerror = markFailed;
     document.head.appendChild(script);
 
     return () => {
@@ -169,8 +188,13 @@ export function PlacesAutocomplete({
         className={`block w-full rounded-lg border ${
           error ? "border-red-300" : "border-gray-300"
         } bg-white px-3 py-2 text-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900`}
-        disabled={!isLoaded && !!env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY}
+        disabled={!isLoaded && !loadFailed && !!env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY}
       />
+      {loadFailed && (
+        <p className="mt-1 text-xs text-amber-600">
+          Location search is unavailable right now. Enter the address in the fields below.
+        </p>
+      )}
       {!env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY && (
         <p className="mt-1 text-xs text-amber-600">
           Google Places API not configured. Enter address manually.

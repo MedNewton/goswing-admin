@@ -1235,6 +1235,7 @@ const fr: Record<string, string> = {
   "onboarding.contactDesc": "Comment les gens peuvent vous contacter.",
   "onboarding.cityLabel": "Ville",
   "onboarding.cityPlaceholder": "ex. Paris",
+  "onboarding.cityRequired": "La ville est obligatoire. Recherchez votre lieu ou saisissez la ville.",
   "onboarding.countryLabel": "Pays",
   "onboarding.countryPlaceholder": "ex. FR",
   "onboarding.emailLabel": "Email",
