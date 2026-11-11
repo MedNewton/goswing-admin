@@ -21,7 +21,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={geist.className}>
-        <ClerkProvider>
+        <ClerkProvider
+          signInUrl="/login"
+          signUpUrl="/login"
+          signInFallbackRedirectUrl="/overview"
+          signUpFallbackRedirectUrl="/overview"
+        >
           <ProvisionBridge>{children}</ProvisionBridge>
         </ClerkProvider>
       </body>

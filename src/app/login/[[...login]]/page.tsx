@@ -93,8 +93,15 @@ function SignInPanel({ locale }: { locale: Locale }) {
         <SignIn
           path="/login"
           routing="path"
+          // Sign-up happens inside this page (/login/create) instead of
+          // Clerk's hosted page, which sent new accounts to "/".
+          withSignUp
           fallbackRedirectUrl="/overview"
           forceRedirectUrl="/overview"
+          // New accounts go to /overview too; the middleware then sends
+          // them to /onboarding.
+          signUpFallbackRedirectUrl="/overview"
+          signUpForceRedirectUrl="/overview"
         />
       )}
     </>
