@@ -208,10 +208,11 @@ export async function createEventAction(
       })),
     };
 
-    const { eventId } = await adminApiCall<{ eventId: string }>("/v1/admin/events", {
-      method: "POST",
+    const { eventId } = await sendEventWithDateFallback<{ eventId: string }>(
+      "/v1/admin/events",
+      "POST",
       body,
-    });
+    );
 
     return { success: true, eventId };
   } catch (err) {
@@ -228,6 +229,51 @@ export async function createEventAction(
     }
     const message = err instanceof Error ? err.message : "Failed to create event";
     return { success: false, error: message };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Temporary workaround for backend bug B1 (docs/specs-backend-B1-B7-fr.md):
+// POST/PATCH /v1/admin/events reject every ISO 8601 datetime with
+// "startsAt must be an ISO datetime", but accept Odoo's "YYYY-MM-DD HH:MM:SS".
+// Send the documented ISO format first; only on that exact error, retry once
+// with the same instant in Odoo's format (UTC). Remove once B1 is fixed.
+// ---------------------------------------------------------------------------
+
+const ISO_DATETIME_REJECTED = /must be an ISO datetime/i;
+
+function toOdooUtcDatetime(iso: string): string {
+  // "2026-12-02T19:00:00.000Z" -> "2026-12-02 19:00:00" (still UTC)
+  return iso.slice(0, 19).replace("T", " ");
+}
+
+async function sendEventWithDateFallback<T>(
+  path: string,
+  method: "POST" | "PATCH",
+  body: { startsAt: string; endsAt?: string | null },
+): Promise<T> {
+  try {
+    return await adminApiCall<T>(path, { method, body });
+  } catch (err) {
+    if (
+      !isApiError(err) ||
+      err.code !== "validation_failed" ||
+      !ISO_DATETIME_REJECTED.test(err.message)
+    ) {
+      throw err;
+    }
+    console.warn("[events] API rejected ISO datetimes (backend bug B1); retrying with Odoo format", {
+      path,
+      method,
+    });
+    return adminApiCall<T>(path, {
+      method,
+      body: {
+        ...body,
+        startsAt: toOdooUtcDatetime(body.startsAt),
+        endsAt: body.endsAt ? toOdooUtcDatetime(body.endsAt) : body.endsAt,
+      },
+    });
   }
 }
 
@@ -321,10 +367,11 @@ export async function updateEventAction(
       })),
     };
 
-    await adminApiCall<ApiAdminEventDetail>(`/v1/admin/events/${eventId}`, {
-      method: "PATCH",
+    await sendEventWithDateFallback<ApiAdminEventDetail>(
+      `/v1/admin/events/${eventId}`,
+      "PATCH",
       body,
-    });
+    );
 
     return { success: true };
   } catch (err) {
