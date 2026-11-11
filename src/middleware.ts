@@ -130,6 +130,24 @@ const protectedMiddleware = clerkMiddleware(async (auth, req) => {
 
   const { role, needsOnboarding } = context;
 
+  // Brand-new account: the API has no organizer for it yet and reports
+  // role "dj", which would send it to /music. Provision it now (idempotent;
+  // the browser also calls it via ProvisionBridge) and start onboarding.
+  if (context.organizer === null) {
+    try {
+      await adminApiCallWithToken("/v1/admin/me/provision", token, {
+        method: "POST",
+        body: {},
+        timeoutMs: ADMIN_CONTEXT_TIMEOUT_MS,
+      });
+    } catch (error) {
+      console.error("[middleware] provisioning new user failed:", {
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+    return NextResponse.redirect(new URL("/onboarding", req.url));
+  }
+
   // Owners may need onboarding
   if (role === "admin" && needsOnboarding) {
     return NextResponse.redirect(new URL("/onboarding", req.url));
