@@ -1,5 +1,6 @@
 "use client";
 
+import { isValidWebsiteUrl } from "@/lib/utils/website";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { Select } from "@/components/ui/Select";
@@ -51,7 +52,8 @@ const onboardingFormSchema = z.object({
   country_code: z.string().optional().or(z.literal("")),
   email: z.string().email("Invalid email address"),
   phone: z.string().optional().or(z.literal("")),
-  website_url: z.union([z.string().url("Invalid URL"), z.literal("")]).optional(),
+  // Optional; "www.site.com" is accepted (the server adds https://).
+  website_url: z.string().optional().refine(isValidWebsiteUrl, "Invalid website address"),
   instagram_handle: z.string().max(100).optional().or(z.literal("")),
   facebook_handle: z.string().max(100).optional().or(z.literal("")),
   tiktok_handle: z.string().max(100).optional().or(z.literal("")),
@@ -256,8 +258,9 @@ export default function OnboardingPage() {
       formData.append("file", file);
       const result = await uploadOrganizerImageAction(formData);
       if (result.success) {
+        // Keep showing the local file as the preview: it is instant and can't
+        // break. The uploaded URL is what gets saved.
         setValue(fieldName, result.url);
-        setPreview(result.url);
       } else {
         setError(result.error);
         setPreview(null);
@@ -650,7 +653,7 @@ export default function OnboardingPage() {
                     description={translate(locale, "onboarding.socialDesc")}
                   />
                   <div className="mt-6 space-y-4">
-                    <Input label={translate(locale, "onboarding.websiteLabel")} type="url" placeholder={translate(locale, "onboarding.websitePlaceholder")} error={errors.website_url?.message} {...register("website_url")} />
+                    <Input label={translate(locale, "onboarding.websiteLabel")} type="text" inputMode="url" autoComplete="url" placeholder={translate(locale, "onboarding.websitePlaceholder")} error={errors.website_url ? translate(locale, "onboarding.websiteInvalid") : undefined} {...register("website_url")} />
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                       <Input label={translate(locale, "onboarding.instagramLabel")} placeholder="@yourhandle" error={errors.instagram_handle?.message} {...register("instagram_handle")} />
                       <Input label={translate(locale, "onboarding.facebookLabel")} placeholder="@yourpage" error={errors.facebook_handle?.message} {...register("facebook_handle")} />

@@ -1,6 +1,8 @@
 "use server";
 
 import { z } from "zod";
+import { normalizeUploadUrl } from "@/lib/api/uploadUrl";
+import { isValidWebsiteUrl, normalizeWebsiteUrl } from "@/lib/utils/website";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { adminApiCall, isApiError } from "@/lib/api/client";
 import type {
@@ -32,13 +34,17 @@ const onboardingSchema = z.object({
   country_code: z.string().optional().or(z.literal("")),
   email: z.string().email("Invalid email address"),
   phone: z.string().optional().or(z.literal("")),
-  website_url: z.string().url("Invalid URL").optional().or(z.literal("")),
+  // Optional; "www.site.com" is accepted and sent as "https://www.site.com".
+  website_url: z
+    .string()
+    .optional()
+    .refine(isValidWebsiteUrl, "Invalid website address"),
   instagram_handle: z.string().max(100).optional().or(z.literal("")),
   facebook_handle: z.string().max(100).optional().or(z.literal("")),
   tiktok_handle: z.string().max(100).optional().or(z.literal("")),
   logo_url: z.string().optional().or(z.literal("")),
   cover_image_url: z.string().optional().or(z.literal("")),
-  gallery_image_urls: z.array(z.string().url()).optional().default([]),
+  gallery_image_urls: z.array(z.string().min(1)).optional().default([]),
   custom_policies: z.array(customPolicySchema).optional().default([]),
 
   // Venue info
@@ -93,13 +99,13 @@ export async function completeOnboardingAction(
   }
 
   const data = parsed.data;
-  const galleryImageUrls = data.gallery_image_urls ?? [];
+  const galleryImageUrls = (data.gallery_image_urls ?? []).map(normalizeUploadUrl);
 
   const body = {
     personal: {
       displayName: data.display_name.trim(),
       phone: emptyStringToNull(data.personal_phone_number),
-      avatarUrl: emptyStringToNull(data.avatar_url),
+      avatarUrl: emptyStringToNull(data.avatar_url ? normalizeUploadUrl(data.avatar_url) : data.avatar_url),
     },
     organizer: {
       name: data.name,
@@ -110,12 +116,14 @@ export async function completeOnboardingAction(
         emptyStringToNull(data.country_code) ?? emptyStringToNull(data.venue_country_code),
       email: data.email,
       phone: emptyStringToNull(data.phone),
-      websiteUrl: emptyStringToNull(data.website_url),
+      websiteUrl: emptyStringToNull(normalizeWebsiteUrl(data.website_url)),
       instagramHandle: emptyStringToNull(data.instagram_handle),
       facebookHandle: emptyStringToNull(data.facebook_handle),
       tiktokHandle: emptyStringToNull(data.tiktok_handle),
-      logoUrl: emptyStringToNull(data.logo_url),
-      coverImageUrl: emptyStringToNull(data.cover_image_url),
+      logoUrl: emptyStringToNull(data.logo_url ? normalizeUploadUrl(data.logo_url) : data.logo_url),
+      coverImageUrl: emptyStringToNull(
+        data.cover_image_url ? normalizeUploadUrl(data.cover_image_url) : data.cover_image_url,
+      ),
       customPolicies: data.custom_policies ?? [],
     },
     venue: {
@@ -221,7 +229,7 @@ export async function uploadOrganizerImageAction(
       body: uploadForm,
     });
 
-    return { success: true, url: result.url };
+    return { success: true, url: normalizeUploadUrl(result.url) };
   } catch (err) {
     console.error("uploadOrganizerImageAction error:", err);
     const message = err instanceof Error ? `Upload failed: ${err.message}` : "Failed to upload image";
