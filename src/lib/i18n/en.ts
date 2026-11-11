@@ -1236,6 +1236,7 @@ const en = {
   "onboarding.cityLabel": "City",
   "onboarding.cityPlaceholder": "e.g., Paris",
   "onboarding.cityRequired": "City is required. Pick your venue on the map search or type the city.",
+  "onboarding.websiteInvalid": "Enter a website like www.example.com, or leave it empty.",
   "onboarding.countryLabel": "Country",
   "onboarding.countryPlaceholder": "e.g., FR",
   "onboarding.emailLabel": "Email",

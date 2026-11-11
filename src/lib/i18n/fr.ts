@@ -1236,6 +1236,7 @@ const fr: Record<string, string> = {
   "onboarding.cityLabel": "Ville",
   "onboarding.cityPlaceholder": "ex. Paris",
   "onboarding.cityRequired": "La ville est obligatoire. Recherchez votre lieu ou saisissez la ville.",
+  "onboarding.websiteInvalid": "Saisissez un site comme www.exemple.com, ou laissez vide.",
   "onboarding.countryLabel": "Pays",
   "onboarding.countryPlaceholder": "ex. FR",
   "onboarding.emailLabel": "Email",

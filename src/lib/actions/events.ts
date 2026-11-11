@@ -3,6 +3,7 @@
 // Event server actions backed by the Gooswing REST API.
 
 import { z } from "zod";
+import { normalizeUploadUrl } from "@/lib/api/uploadUrl";
 import { getTags } from "@/lib/data/events";
 import { adminApiCall, isApiError } from "@/lib/api/client";
 import type {
@@ -545,7 +546,7 @@ export async function uploadEventImageAction(
       body: uploadForm,
     });
 
-    return { success: true, url: result.url };
+    return { success: true, url: normalizeUploadUrl(result.url) };
   } catch (err) {
     console.error("uploadEventImageAction error:", err);
     if (isApiError(err)) {
@@ -604,7 +605,7 @@ export async function uploadEventMediaAction(
 
     return {
       success: true,
-      url: result.url,
+      url: normalizeUploadUrl(result.url),
       mediaType: result.mediaType,
     };
   } catch (err) {
