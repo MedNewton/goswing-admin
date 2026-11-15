@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/Badge";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Image from "next/image";
+import { formatVenueType } from "@/lib/venueTypes";
 
 interface VenueCardProps {
   venue: Venue;
@@ -29,7 +30,7 @@ export function VenueCard({ venue, onEdit, onDelete }: VenueCardProps) {
   const locationParts = [venue.city, venue.region, venue.countryCode].filter(Boolean);
   const locationString = locationParts.length > 0 ? locationParts.join(", ") : "No location set";
   const hasCoordinates = venue.lat != null && venue.lng != null;
-  const venueTypeLabel = venue.venueType ? venue.venueType.replace(/_/g, " ") : null;
+  const venueTypeLabel = formatVenueType(venue.venueType);
 
   return (
     <div

@@ -54,6 +54,7 @@ import {
 } from "@/lib/actions/venueEdit";
 import type { Venue, GalleryItem } from "@/types";
 import type { VenueOrganizer } from "@/lib/data/venueStats";
+import { formatVenueType, toVenueType, venueTypeOptions } from "@/lib/venueTypes";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -292,12 +293,12 @@ export default function EditVenuePage({
   const [isLoading, setIsLoading] = useState(true);
 
   // Tags state
-  const [categoryTags, setCategoryTags] = useState<TagOption[]>([]);
   const [partyTypeTags, setPartyTypeTags] = useState<TagOption[]>([]);
   const [musicStyleTags, setMusicStyleTags] = useState<TagOption[]>([]);
   const [extraServiceTags, setExtraServiceTags] = useState<TagOption[]>([]);
   const [selectedTagIds, setSelectedTagIds] = useState<Set<string>>(new Set());
-  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  // Venue category: stored in venue.venueType (same list as the mobile app).
+  const [venueType, setVenueType] = useState<string>("");
 
   // Gallery state
   // Items with id starting with "new-" are pending uploads not yet persisted.
@@ -379,6 +380,8 @@ export default function EditVenuePage({
       try {
         const venueData = await fetchVenue(id);
         setVenue(venueData);
+        // "bar" (saved by onboarding) -> "Bar"; unknown values are kept.
+        setVenueType(toVenueType(venueData.venueType) ?? venueData.venueType ?? "");
 
         // Load organizer
         let org: VenueOrganizer | null = null;
@@ -388,15 +391,13 @@ export default function EditVenuePage({
           setCustomPolicies(org?.customPolicies ?? []);
 
           // Load tags
-          const [categories, partyTypes, musicStyles, extraServices, orgTags] =
+          const [partyTypes, musicStyles, extraServices, orgTags] =
             await Promise.all([
-              fetchTagsByType("category"),
               fetchTagsByType("party_type"),
               fetchTagsByType("music_style"),
               fetchTagsByType("extra_service"),
               fetchOrganizerTags(venueData.organizerId),
             ]);
-          setCategoryTags(categories);
           setPartyTypeTags(partyTypes);
           setMusicStyleTags(musicStyles);
           setExtraServiceTags(extraServices);
@@ -404,9 +405,6 @@ export default function EditVenuePage({
           const orgTagIds = new Set(orgTags.map((t) => t.id));
           setSelectedTagIds(orgTagIds);
 
-          // Determine selected category from tags
-          const selectedCat = categories.find((c) => orgTagIds.has(c.id));
-          setSelectedCategory(selectedCat?.id ?? "");
 
           // Load gallery
           const galleryData = await fetchOrganizerGallery(venueData.organizerId);
@@ -475,23 +473,10 @@ export default function EditVenuePage({
 
   const handleCategoryChange = useCallback(
     (e: React.ChangeEvent<HTMLSelectElement>) => {
-      const newCatId = e.target.value;
-      setSelectedTagIds((prev) => {
-        const next = new Set(prev);
-        // Remove old category tags
-        for (const cat of categoryTags) {
-          next.delete(cat.id);
-        }
-        // Add new one
-        if (newCatId) {
-          next.add(newCatId);
-        }
-        return next;
-      });
-      setSelectedCategory(newCatId);
+      setVenueType(e.target.value);
       markExtraDirty();
     },
-    [categoryTags, markExtraDirty],
+    [markExtraDirty],
   );
 
   // ---------------------------------------------------------------------------
@@ -655,6 +640,7 @@ export default function EditVenuePage({
           description: data.description,
           free_access: data.free_access,
           free_for_ladies: data.free_for_ladies,
+          venue_type: venueType,
         });
 
         if (!venueResult.success) {
@@ -825,10 +811,7 @@ export default function EditVenuePage({
   const locationLabel = [venueCity, venueRegion, venueCountryCode]
     .filter(Boolean)
     .join(", ") || "Location not set";
-  const venueTypeLabel =
-    categoryTags.find((t) => t.id === selectedCategory)?.label ??
-    venue?.venueType ??
-    "Type not set";
+  const venueTypeLabel = formatVenueType(venueType) ?? "Type not set";
   const capacityLabel =
     typeof venueCapacity === "number" && venueCapacity > 0
       ? venueCapacity.toLocaleString()
@@ -1100,11 +1083,8 @@ export default function EditVenuePage({
             {/* Category dropdown */}
             <Select
               label="Type / Category"
-              options={[
-                { value: "", label: "Select a category..." },
-                ...categoryTags.map((t) => ({ value: t.id, label: t.label })),
-              ]}
-              value={selectedCategory}
+              options={venueTypeOptions("Select a category...", venueType)}
+              value={venueType}
               onChange={handleCategoryChange}
             />
 

@@ -34,6 +34,7 @@ import { getClientLocale, translate } from "@/lib/i18n/client";
 import type { Locale } from "@/lib/i18n";
 import { LanguageSwitcher } from "@/components/discover/LanguageSwitcher";
 import Image from "next/image";
+import { venueTypeOptions } from "@/lib/venueTypes";
 
 // ---------------------------------------------------------------------------
 // Zod Schema
@@ -87,19 +88,7 @@ type OnboardingFormValues = z.infer<typeof onboardingFormSchema>;
 // Constants
 // ---------------------------------------------------------------------------
 
-const VENUE_TYPE_OPTIONS = [
-  { value: "", label: "Select a type" },
-  { value: "club", label: "Club" },
-  { value: "bar", label: "Bar" },
-  { value: "restaurant", label: "Restaurant" },
-  { value: "concert_hall", label: "Concert Hall" },
-  { value: "outdoor", label: "Outdoor Venue" },
-  { value: "hotel", label: "Hotel" },
-  { value: "conference_center", label: "Conference Center" },
-  { value: "stadium", label: "Stadium" },
-  { value: "theater", label: "Theater" },
-  { value: "other", label: "Other" },
-];
+const VENUE_TYPE_OPTIONS = venueTypeOptions("Select a type");
 
 // ---------------------------------------------------------------------------
 // Shared UI

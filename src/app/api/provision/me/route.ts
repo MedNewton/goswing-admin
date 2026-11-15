@@ -2,6 +2,7 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { adminApiCall } from "@/lib/api/client";
 import type { ApiProvisionResult } from "@/lib/api/types";
+import { readTeamInvite } from "@/lib/team/teamInvite";
 
 export const runtime = "nodejs";
 
@@ -18,6 +19,10 @@ export async function POST() {
 
   try {
     const user = await currentUser();
+    // Invited team members join the inviter's organizer; don't create one.
+    if (user && readTeamInvite(user.publicMetadata)) {
+      return NextResponse.json({ ok: true, skipped: "team_invite" }, { status: 200 });
+    }
     if (user) {
       firstName = user.firstName ?? null;
       lastName = user.lastName ?? null;
