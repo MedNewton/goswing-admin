@@ -41,6 +41,7 @@ import type { Venue, GalleryItem, VenueReview } from "@/types";
 import { getClientLocale, translate } from "@/lib/i18n/client";
 import type { Locale } from "@/lib/i18n";
 import Link from "next/link";
+import { formatVenueType } from "@/lib/venueTypes";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -350,9 +351,9 @@ export default function VenueDetailPage({
                 <h1 className="text-3xl font-bold text-white md:text-4xl">
                   {venue.name}
                 </h1>
-                {venue.venueType && (
+                {formatVenueType(venue.venueType) && (
                   <span className="inline-flex items-center rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white backdrop-blur-sm">
-                    {venue.venueType}
+                    {formatVenueType(venue.venueType)}
                   </span>
                 )}
               </div>
@@ -693,7 +694,7 @@ export default function VenueDetailPage({
                   </h4>
                   <p className="mt-1 text-xs text-gray-500">
                     {sv.city ?? ""}
-                    {sv.venue_type ? ` \u00B7 ${sv.venue_type}` : ""}
+                    {sv.venue_type ? ` \u00B7 ${formatVenueType(sv.venue_type)}` : ""}
                   </p>
                   {sv.capacity && (
                     <p className="mt-1 text-xs text-gray-400">

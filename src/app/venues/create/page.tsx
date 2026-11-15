@@ -15,6 +15,7 @@ import { z } from "zod";
 import { createVenueAction, type VenueActionResult } from "@/lib/actions/venues";
 import { getClientLocale, translate } from "@/lib/i18n/client";
 import type { Locale } from "@/lib/i18n";
+import { venueTypeOptions } from "@/lib/venueTypes";
 
 // ---------------------------------------------------------------------------
 // Timezone options
@@ -223,19 +224,7 @@ export default function CreateVenuePage() {
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <Select
                 label={t("createVenue.venueType")}
-                options={[
-                  { value: "", label: t("createVenue.selectType") },
-                  { value: "club", label: t("createVenue.typeClub") },
-                  { value: "bar", label: t("createVenue.typeBar") },
-                  { value: "restaurant", label: t("createVenue.typeRestaurant") },
-                  { value: "concert_hall", label: t("createVenue.typeConcertHall") },
-                  { value: "outdoor", label: t("createVenue.typeOutdoor") },
-                  { value: "hotel", label: t("createVenue.typeHotel") },
-                  { value: "conference_center", label: t("createVenue.typeConference") },
-                  { value: "stadium", label: t("createVenue.typeStadium") },
-                  { value: "theater", label: t("createVenue.typeTheater") },
-                  { value: "other", label: t("createVenue.typeOther") },
-                ]}
+                options={venueTypeOptions(t("createVenue.selectType"))}
                 error={errors.venue_type?.message}
                 {...register("venue_type")}
               />

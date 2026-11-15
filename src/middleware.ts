@@ -1,4 +1,5 @@
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { clerkClient, clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { readTeamInvite } from "@/lib/team/teamInvite";
 import {
   NextResponse,
   type NextFetchEvent,
@@ -10,11 +11,12 @@ import type { ApiAdminContext } from "@/lib/api/types";
 const isPublicRoute = createRouteMatcher([
   "/",
   "/login(.*)",
+  "/accept-invite(.*)",
   "/api/webhooks/clerk(.*)",
   "/discover(.*)",
 ]);
 
-const isOnboardingRoute = createRouteMatcher(["/onboarding(.*)"]);
+const isOnboardingRoute = createRouteMatcher(["/onboarding(.*)", "/invite-pending(.*)"]);
 const isApiRoute = createRouteMatcher(["/api(.*)"]);
 
 /** Routes a DJ is allowed to access. */
@@ -134,6 +136,23 @@ const protectedMiddleware = clerkMiddleware(async (auth, req) => {
   // role "dj", which would send it to /music. Provision it now (idempotent;
   // the browser also calls it via ProvisionBridge) and start onboarding.
   if (context.organizer === null) {
+    // Signed up from a team invitation: don't create their own organizer.
+    // They wait until the inviting owner's Team page adds them.
+    try {
+      const clerk = await clerkClient();
+      const user = await clerk.users.getUser(authObject.userId);
+      const invite = readTeamInvite(user.publicMetadata);
+      if (invite) {
+        return invite.appliedAt
+          ? NextResponse.next()
+          : NextResponse.redirect(new URL("/invite-pending", req.url));
+      }
+    } catch (error) {
+      console.error("[middleware] reading team invitation failed:", {
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+
     try {
       await adminApiCallWithToken("/v1/admin/me/provision", token, {
         method: "POST",

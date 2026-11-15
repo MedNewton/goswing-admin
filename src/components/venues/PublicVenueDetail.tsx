@@ -18,6 +18,7 @@ import {
 } from "@/components/icons";
 import type { ComponentType, ReactNode, SVGProps } from "react";
 import { getLocale, t } from "@/lib/i18n";
+import { formatVenueType } from "@/lib/venueTypes";
 
 type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
 
@@ -149,7 +150,7 @@ export async function PublicVenueDetail({ venueId }: { venueId: string }) {
               <div className="flex flex-wrap items-center gap-2">
                 {venue.venueType && (
                   <span className="inline-flex items-center rounded-full bg-white/85 px-3 py-1 text-xs font-semibold text-gray-700 backdrop-blur">
-                    {venue.venueType}
+                    {formatVenueType(venue.venueType)}
                   </span>
                 )}
               </div>
@@ -171,7 +172,7 @@ export async function PublicVenueDetail({ venueId }: { venueId: string }) {
               <MetricCard
                 icon={BuildingIcon}
                 label={t(locale, "venueDetail.type")}
-                value={venue.venueType ?? t(locale, "common.venue")}
+                value={formatVenueType(venue.venueType) ?? t(locale, "common.venue")}
                 tone="sky"
               />
               <MetricCard
@@ -210,7 +211,7 @@ export async function PublicVenueDetail({ venueId }: { venueId: string }) {
             )}
             {venue.venueType && (
               <DetailRow icon={BuildingIcon} label={t(locale, "venueDetail.venueType")}>
-                <p className="font-medium capitalize text-gray-900">{venue.venueType}</p>
+                <p className="font-medium capitalize text-gray-900">{formatVenueType(venue.venueType)}</p>
               </DetailRow>
             )}
             {venue.capacity && (

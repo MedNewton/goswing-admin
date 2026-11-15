@@ -1,13 +1,12 @@
 "use client";
 
-import { useState, useTransition, useCallback, useRef, useEffect } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { getClientLocale, translate } from "@/lib/i18n/client";
 import type { Locale } from "@/lib/i18n";
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { SearchBar } from "@/components/ui/SearchBar";
 import { UsersIcon, PlusIcon } from "@/components/icons";
 import {
   Table,
@@ -18,11 +17,12 @@ import {
   TableCell,
 } from "@/components/ui/Table";
 import {
-  addTeamMemberAction,
+  inviteTeamMemberAction,
+  revokeTeamInvitationAction,
   updateTeamMemberRoleAction,
   removeTeamMemberAction,
-  searchUsersAction,
 } from "@/lib/actions/team";
+import type { PendingInvitation } from "@/lib/team/invitations";
 import { formatDate } from "@/lib/utils/format";
 import type { TeamMember } from "@/lib/data/team";
 import type { OrganizerRole } from "@/types/database";
@@ -42,65 +42,78 @@ const roleBadgeVariant: Record<OrganizerRole, string> = {
   finance_manager: "secondary",
 };
 
-interface SearchResult {
-  userId: string;
-  displayName: string;
-  email: string | null;
-  avatarUrl: string | null;
-}
+type InviteFeedback = { tone: "success" | "error"; text: string } | null;
 
-export function TeamPageClient({ members: initialMembers }: { members: TeamMember[] }) {
+export function TeamPageClient({
+  members: initialMembers,
+  pendingInvitations: initialInvitations,
+  currentUserId,
+}: {
+  members: TeamMember[];
+  pendingInvitations: PendingInvitation[];
+  currentUserId: string | null;
+}) {
   const [members, setMembers] = useState(initialMembers);
+  const [invitations, setInvitations] = useState(initialInvitations);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteFeedback, setInviteFeedback] = useState<InviteFeedback>(null);
   const [selectedRole, setSelectedRole] = useState<OrganizerRole>("dj");
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [locale, setLocaleState] = useState<Locale>("fr");
   useEffect(() => { setLocaleState(getClientLocale()); }, []);
   const tr = (key: Parameters<typeof translate>[1]) => translate(locale, key);
 
-  const handleSearch = useCallback((query: string) => {
-    setSearchQuery(query);
-    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-    if (query.trim().length < 2) {
-      setSearchResults([]);
+  const closeInviteModal = () => {
+    setShowAddModal(false);
+    setInviteEmail("");
+    setInviteFeedback(null);
+  };
+
+  const handleInvite = () => {
+    const email = inviteEmail.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setInviteFeedback({ tone: "error", text: tr("teamPage.invalidEmail") });
       return;
     }
-    searchTimeoutRef.current = setTimeout(() => {
-      void (async () => {
-        const results = await searchUsersAction(query);
-        setSearchResults(results);
-      })();
-    }, 300);
-  }, []);
-
-  const handleAddMember = (userId: string) => {
+    setInviteFeedback(null);
     startTransition(async () => {
-      const result = await addTeamMemberAction(userId, selectedRole);
+      const result = await inviteTeamMemberAction(email, selectedRole);
+      if (!result.success) {
+        setInviteFeedback({
+          tone: "error",
+          text:
+            result.error === "invalid_email"
+              ? tr("teamPage.invalidEmail")
+              : tr("teamPage.inviteFailed").replace("{error}", result.error),
+        });
+        return;
+      }
+      if (result.status === "invited") {
+        setInvitations((prev) => [
+          ...prev,
+          { id: `local-${email}`, email, role: selectedRole, createdAt: new Date().toISOString() },
+        ]);
+        setInviteFeedback({ tone: "success", text: tr("teamPage.inviteSent").replace("{email}", email) });
+      } else if (result.status === "added") {
+        setInviteFeedback({ tone: "success", text: tr("teamPage.memberAdded").replace("{email}", email) });
+        // Reload so the new member appears with their real profile data.
+        window.location.reload();
+        return;
+      } else {
+        setInviteFeedback({ tone: "error", text: tr("teamPage.alreadyMember").replace("{email}", email) });
+      }
+      setInviteEmail("");
+    });
+  };
+
+  const handleRevoke = (invitationId: string) => {
+    startTransition(async () => {
+      const result = await revokeTeamInvitationAction(invitationId);
       if (result.success) {
-        const added = searchResults.find((u) => u.userId === userId);
-        if (added) {
-          setMembers((prev) => [
-            ...prev,
-            {
-              memberId: crypto.randomUUID(),
-              userId: added.userId,
-              displayName: added.displayName,
-              email: added.email,
-              avatarUrl: added.avatarUrl,
-              role: selectedRole,
-              joinedAt: new Date().toISOString(),
-            },
-          ]);
-          setSearchResults((prev) => prev.filter((u) => u.userId !== userId));
-        }
-        setShowAddModal(false);
-        setSearchQuery("");
-        setSearchResults([]);
+        setInvitations((prev) => prev.filter((i) => i.id !== invitationId));
       }
     });
   };
@@ -191,7 +204,13 @@ export function TeamPageClient({ members: initialMembers }: { members: TeamMembe
                     </div>
                   </TableCell>
                   <TableCell>
-                    {editingMemberId === member.memberId ? (
+                    {member.userId === currentUserId ? (
+                      <Badge
+                        variant={roleBadgeVariant[member.role] as "success" | "info" | "warning" | "secondary"}
+                      >
+                        {tr(ROLE_LABEL_KEYS[member.role])}
+                      </Badge>
+                    ) : editingMemberId === member.memberId ? (
                       <select
                         className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm"
                         defaultValue={member.role}
@@ -227,7 +246,9 @@ export function TeamPageClient({ members: initialMembers }: { members: TeamMembe
                     </span>
                   </TableCell>
                   <TableCell>
-                    {confirmRemoveId === member.memberId ? (
+                    {member.userId === currentUserId ? (
+                      <span className="text-sm text-gray-400">{tr("teamPage.you")}</span>
+                    ) : confirmRemoveId === member.memberId ? (
                       <div className="flex items-center gap-2">
                         <Button
                           variant="primary"
@@ -262,7 +283,40 @@ export function TeamPageClient({ members: initialMembers }: { members: TeamMembe
         )}
       </Card>
 
-      {/* Add Member Modal */}
+      {/* Pending email invitations */}
+      {invitations.length > 0 && (
+        <Card padding="none">
+          <div className="border-b border-gray-100 px-6 py-4">
+            <h2 className="text-sm font-semibold text-gray-900">{tr("teamPage.pendingTitle")}</h2>
+          </div>
+          <ul className="divide-y divide-gray-100">
+            {invitations.map((inv) => (
+              <li key={inv.id} className="flex items-center justify-between gap-4 px-6 py-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-gray-900">{inv.email}</p>
+                  <p className="text-xs text-gray-500">
+                    {tr(ROLE_LABEL_KEYS[inv.role])} ·{" "}
+                    {tr("teamPage.pendingInvited").replace("{date}", formatDate(inv.createdAt))}
+                  </p>
+                </div>
+                {!inv.id.startsWith("local-") && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleRevoke(inv.id)}
+                    disabled={isPending}
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                  >
+                    {tr("teamPage.revoke")}
+                  </Button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
+      {/* Invite Member Modal */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="mx-4 w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
@@ -272,12 +326,27 @@ export function TeamPageClient({ members: initialMembers }: { members: TeamMembe
             </p>
 
             <div className="mt-4 space-y-4">
-              {/* Search */}
-              <SearchBar
-                value={searchQuery}
-                onChange={handleSearch}
-                placeholder={tr("teamPage.searchPlaceholder")}
-              />
+              {/* Email */}
+              <div>
+                <label htmlFor="invite-email" className="mb-1.5 block text-sm font-medium text-gray-700">
+                  {tr("teamPage.emailLabel")}
+                </label>
+                <input
+                  id="invite-email"
+                  type="email"
+                  autoComplete="email"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleInvite();
+                    }
+                  }}
+                  placeholder={tr("teamPage.emailPlaceholder")}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
+                />
+              </div>
 
               {/* Role selector */}
               <div>
@@ -297,56 +366,26 @@ export function TeamPageClient({ members: initialMembers }: { members: TeamMembe
                 </select>
               </div>
 
-              {/* Results */}
-              <div className="max-h-64 overflow-y-auto">
-                {searchQuery.trim().length >= 2 && searchResults.length === 0 && (
-                  <p className="py-4 text-center text-sm text-gray-500">
-                    {tr("teamPage.noUsersFound")} &ldquo;{searchQuery}&rdquo;
-                  </p>
-                )}
-                {searchResults.map((user) => (
-                  <div
-                    key={user.userId}
-                    className="flex items-center justify-between rounded-lg p-3 hover:bg-gray-50"
-                  >
-                    <div className="flex items-center gap-3">
-                      <Avatar
-                        src={user.avatarUrl ?? undefined}
-                        initials={user.displayName.slice(0, 2).toUpperCase()}
-                        size="sm"
-                      />
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">
-                          {user.displayName}
-                        </p>
-                        {user.email && (
-                          <p className="text-xs text-gray-500">{user.email}</p>
-                        )}
-                      </div>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleAddMember(user.userId)}
-                      disabled={isPending}
-                    >
-                      {tr("teamPage.add")}
-                    </Button>
-                  </div>
-                ))}
-              </div>
+              {inviteFeedback && (
+                <p
+                  role="status"
+                  className={
+                    inviteFeedback.tone === "success"
+                      ? "rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700"
+                      : "rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700"
+                  }
+                >
+                  {inviteFeedback.text}
+                </p>
+              )}
             </div>
 
-            <div className="mt-6 flex justify-end">
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setShowAddModal(false);
-                  setSearchQuery("");
-                  setSearchResults([]);
-                }}
-              >
+            <div className="mt-6 flex justify-end gap-2">
+              <Button variant="ghost" onClick={closeInviteModal}>
                 {tr("teamPage.close")}
+              </Button>
+              <Button variant="primary" onClick={handleInvite} disabled={isPending || !inviteEmail.trim()}>
+                {isPending ? tr("teamPage.sending") : tr("teamPage.sendInvite")}
               </Button>
             </div>
           </div>
